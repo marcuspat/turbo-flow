@@ -8,6 +8,7 @@
 ![Plugins](https://img.shields.io/badge/Plugins-6-critical?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-orange?style=for-the-badge)
 ![Adventure Wave Labs](https://img.shields.io/badge/Adventure_Wave_Labs-Builder-ff6b6b?style=for-the-badge)
+[![SafeSkill 30/100](https://img.shields.io/badge/SafeSkill-30%2F100_Blocked-red)](https://safeskill.dev/scan/marcuspat-turbo-flow)
 
 **Complete Agentic Development Environment — Ruflo v3.5 + Beads + Worktrees + Agent Teams**
 
