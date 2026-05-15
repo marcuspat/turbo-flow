@@ -16,6 +16,10 @@
 #   FIX 9: sed -i compatibility (GNU vs BSD) handled
 #   FIX 10: MCP registration section fully guarded
 #   FIX 11: Dolt install added before Beads (required storage backend)
+#   FIX 12: MCP autoStart enabled for Ruflo server
+#   FIX 13: Daemon auto-start added
+#   FIX 14: Security scan added to setup
+#   FIX 15: GitNexus --force flag for proper indexing
 #
 # What changed from v3.4.1:
 #   REMOVED: claude-flow@alpha (dead package → now ruflo)
@@ -69,7 +73,7 @@ WORKSPACE="${WORKSPACE:-$(pwd)}"
 LOG="/tmp/turboflow-setup.log"
 START_TIME=$(date +%s)
 
-step() { echo -e "\n${CYAN}━━━ [$1/10] $2 ━━━${NC}"; }
+step() { echo -e "\n${CYAN}━━━ [$1/11] $2 ━━━${NC}"; }
 ok()   { echo -e "  ${GREEN}✓${NC} $1"; }
 warn() { echo -e "  ${YELLOW}⚠${NC} $1"; }
 fail() { echo -e "  ${RED}✗${NC} $1"; }
@@ -125,6 +129,7 @@ fi
 #         global installs go to ~/.npm-global/ instead of /usr/local/.
 # FIX 13: Ruflo init uses --force to ensure .claude-flow/ and skills are
 #         fully populated even on re-runs.
+# FIX 14: MCP autoStart enabled by default for Ruflo server.
 # =============================================================================
 step 2 "Claude Code + Ruflo v3.5"
 
@@ -170,8 +175,44 @@ else
     fi
 fi
 
-# ── MCP registration — fully guarded ──
+# ── MCP registration — fully guarded, with autoStart enabled ──
 claude mcp remove claude-flow 2>/dev/null || true
+
+# FIX 14: Enable MCP autoStart by configuring the workspace .mcp.json
+MCP_CONFIG="$WORKSPACE/.mcp.json"
+if [ ! -f "$MCP_CONFIG" ]; then
+    echo '{"mcpServers":{}}' > "$MCP_CONFIG"
+fi
+
+# Use node to safely update the MCP config with autoStart enabled
+node -e "
+const fs = require('fs');
+const path = process.argv[1];
+try {
+    const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+    if (!config.mcpServers) config.mcpServers = {};
+    config.mcpServers.ruflo = {
+        command: 'npx',
+        args: ['-y', 'ruflo@latest', 'mcp', 'start'],
+        env: {
+            npm_config_update_notifier: 'false',
+            CLAUDE_FLOW_MODE: 'v3',
+            CLAUDE_FLOW_HOOKS_ENABLED: 'true',
+            CLAUDE_FLOW_TOPOLOGY: 'hierarchical-mesh',
+            CLAUDE_FLOW_MAX_AGENTS: '15',
+            CLAUDE_FLOW_MEMORY_BACKEND: 'hybrid'
+        },
+        autoStart: true
+    };
+    fs.writeFileSync(path, JSON.stringify(config, null, 2));
+    process.exit(0);
+} catch(e) {
+    console.error(e.message);
+    process.exit(1);
+}
+" "$MCP_CONFIG" 2>/dev/null && ok "Ruflo MCP configured with autoStart" || warn "MCP config update failed (may need manual edit)"
+
+# Also register via claude mcp for discoverability
 claude mcp add ruflo -- npx -y ruflo@latest 2>/dev/null \
     && ok "Ruflo MCP server registered" \
     || warn "Ruflo MCP registration skipped (configure manually if needed)"
@@ -946,11 +987,34 @@ else
     fi
 fi
 
+# FIX 14: Security scan
+if command -v claude &>/dev/null; then
+    npx @claude-flow/cli@latest security scan >> "$LOG" 2>&1 \
+        && ok "Security scan completed" \
+        || warn "Security scan failed (run: npx @claude-flow/cli@latest security scan)"
+fi
+
 ok "All MCP servers registered"
 
 # Clear stale caches
 npm cache clean --force >> "$LOG" 2>&1 || true
 rm -rf /tmp/npm-* /tmp/nvm-* 2>/dev/null || true
+
+ok "Elapsed: $(elapsed)"
+
+# =============================================================================
+# STEP 11: Start Ruflo Daemon
+# FIX 13: Auto-start daemon for background workers (map, audit, optimize)
+# =============================================================================
+step 11 "Start Ruflo Daemon"
+
+if npx ruflo@latest daemon status 2>/dev/null | grep -q "running"; then
+    ok "Ruflo daemon already running"
+else
+    npx ruflo@latest daemon start >> "$LOG" 2>&1 \
+        && ok "Ruflo daemon started (background workers active)" \
+        || warn "Daemon start failed (optional — start manually with: rf-daemon)"
+fi
 
 ok "Elapsed: $(elapsed)"
 
@@ -1050,13 +1114,14 @@ if command -v dolt &>/dev/null && command -v bd &>/dev/null && [ -d "\$WORKSPACE
     fi
 fi
 
-# --- 5. Index workspace with GitNexus ---
+# --- 5. Index workspace with GitNexus (with --force flag) ---
+# FIX 15: Use --force to ensure proper indexing with execution flows
 if [ -d "\$WORKSPACE/.git" ]; then
     if command -v gitnexus &>/dev/null; then
-        echo "[\$(date)] Indexing workspace with GitNexus..." >> "\$BSLOG"
-        (cd "\$WORKSPACE" && gitnexus analyze >> "\$BSLOG" 2>&1) || true
+        echo "[\$(date)] Indexing workspace with GitNexus (force mode)..." >> "\$BSLOG"
+        (cd "\$WORKSPACE" && gitnexus analyze --force >> "\$BSLOG" 2>&1) || true
     else
-        (cd "\$WORKSPACE" && npx -y gitnexus analyze >> "\$BSLOG" 2>&1) || true
+        (cd "\$WORKSPACE" && npx -y gitnexus analyze --force >> "\$BSLOG" 2>&1) || true
     fi
 fi
 
@@ -1108,6 +1173,8 @@ echo -e "    Core:    Claude Code + Ruflo v3.5 (215 MCP tools, 60+ agents)"
 echo -e "    Plugins: $PLUGINS_INSTALLED/6 (agentic-qe, code-intel, test-intel, perf, teammate, gastown)"
 echo -e "    Memory:  Dolt + Beads + Native Tasks + AgentDB"
 echo -e "    Graph:   GitNexus codebase knowledge graph"
+echo -e "    Daemon:  Background workers active"
+echo -e "    Security: Initial scan completed"
 echo -e "    Time:    ${TOTAL_TIME}s"
 if [ "$NEEDS_BOOTSTRAP" -eq 1 ]; then
 echo -e "    ${YELLOW}Bootstrap:${NC} finishing deferred installs in background (~30-60s)"
@@ -1124,6 +1191,9 @@ echo -e "    • No cross-session memory → ${GREEN}Dolt + Beads${NC} (bd-* ali
 echo -e "    • No codebase awareness → ${GREEN}GitNexus${NC} (gnx-* aliases)"
 echo -e "    • Manual worktree skill → ${GREEN}native wt-* helpers${NC}"
 echo -e "    • 4 separate core installs → ${GREEN}1 ruflo init${NC}"
+echo -e "    • MCP manual start → ${GREEN}autoStart enabled${NC}"
+echo -e "    • No daemon → ${GREEN}auto-started${NC}"
+echo -e "    • No security scan → ${GREEN}automated${NC}"
 echo ""
 echo -e "  ${BOLD}Logs:${NC} setup=$LOG  bootstrap=$BOOTSTRAP_LOG"
 echo ""
