@@ -605,16 +605,35 @@ fi
 
 # =============================================================================
 # STEP 12: Ruflo Daemon
-# FIX 13: Daemon auto-start verification
+# FIX 13: Daemon auto-start verification + retry startup
 # =============================================================================
 section "Step 12: Ruflo Daemon"
 
-if npx ruflo@latest daemon status 2>/dev/null | grep -q "running"; then
-    success "Ruflo daemon running"
+DAEMON_RUNNING=false
+if npx ruflo@latest daemon status 2>/dev/null | grep -qi "running"; then
+    success "Ruflo daemon already running"
     ((PASS++))
+    DAEMON_RUNNING=true
 else
-    info "Ruflo daemon not running — start with: rf-daemon"
-    # Not counted as issue — daemon is optional
+    info "Ruflo daemon not running — attempting to start..."
+    # Try starting with retry (up to 3 attempts)
+    for attempt in 1 2 3; do
+        if npx ruflo@latest daemon start --timeout 30 >/dev/null 2>&1; then
+            sleep 5  # Give daemon time to initialize
+            if npx ruflo@latest daemon status 2>/dev/null | grep -qi "running"; then
+                success "Ruflo daemon started (attempt $attempt)"
+                ((PASS++))
+                DAEMON_RUNNING=true
+                break
+            fi
+        fi
+        [ $attempt -lt 3 ] && sleep 2
+    done
+fi
+
+if ! $DAEMON_RUNNING; then
+    warning "Ruflo daemon failed to start — try manually: rf-daemon"
+    ((ISSUES++))
 fi
 
 # =============================================================================
