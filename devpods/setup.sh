@@ -1171,6 +1171,20 @@ if command -v dolt &>/dev/null && command -v bd &>/dev/null && [ -d "\$WORKSPACE
         (cd "\$WORKSPACE" && bd init >> "\$BSLOG" 2>&1) || true
     fi
 
+    # FIX 18: Handle case where database exists but bd init was not run
+    # Check if database exists on Dolt server but .beads is not properly initialized
+    if [ -d "\$WORKSPACE/.beads" ]; then
+        # Fix .beads permissions
+        chmod 700 "\$WORKSPACE/.beads" 2>/dev/null || true
+
+        # Try bd bootstrap if bd status fails (database not found but directory exists)
+        if ! (cd "\$WORKSPACE" && bd status >/dev/null 2>&1); then
+            echo "[\$(date)] Beads database not found, running bootstrap..." >> "\$BSLOG"
+            (cd "\$WORKSPACE" && bd bootstrap --dry-run >/dev/null 2>&1) && \
+                (cd "\$WORKSPACE" && bd bootstrap >> "\$BSLOG" 2>&1) || true
+        fi
+    fi
+
     # FIX 17: Create initial project memory entries
     echo "[\$(date)] Creating initial Beads entries..." >> "\$BSLOG"
     (cd "\$WORKSPACE" && \
@@ -1183,12 +1197,18 @@ fi
 
 # --- 6. Index workspace with GitNexus (with --force --processes flags) ---
 # FIX 15: Use --force --processes to ensure proper indexing with execution flows
+# FIX 18: Handle case where repo is already partially indexed
 if [ -d "\$WORKSPACE/.git" ]; then
-    if command -v gitnexus &>/dev/null; then
-        echo "[\$(date)] Indexing workspace with GitNexus (force + process analysis)..." >> "\$BSLOG"
-        (cd "\$WORKSPACE" && gitnexus analyze --force --processes >> "\$BSLOG" 2>&1) || true
+    # Check if already indexed
+    if [ ! -d "\$WORKSPACE/.gitnexus" ] && [ ! -f "\$WORKSPACE/.gitnexus.json" ]; then
+        echo "[\$(date)] GitNexus: workspace not indexed, starting analysis..." >> "\$BSLOG"
+        if command -v gitnexus &>/dev/null; then
+            (cd "\$WORKSPACE" && gitnexus analyze --force --processes >> "\$BSLOG" 2>&1) || true
+        else
+            (cd "\$WORKSPACE" && npx -y gitnexus analyze --force --processes >> "\$BSLOG" 2>&1) || true
+        fi
     else
-        (cd "\$WORKSPACE" && npx -y gitnexus analyze --force --processes >> "\$BSLOG" 2>&1) || true
+        echo "[\$(date)] GitNexus: workspace already indexed" >> "\$BSLOG"
     fi
 fi
 
