@@ -366,6 +366,17 @@ fi
 if [ -d "$WORKSPACE/.beads" ] || [ -f "$WORKSPACE/.beads.json" ]; then
     success "Beads initialized in workspace"
     ((PASS++))
+
+    # FIX 17: Check if there are any Beads entries (project memory)
+    if command -v bd >/dev/null 2>&1; then
+        BEADS_COUNT=$(bd list 2>/dev/null | wc -l || echo "0")
+        if [ "$BEADS_COUNT" -gt 0 ]; then
+            success "Project memory has $BEADS_COUNT Beads entries"
+            ((PASS++))
+        else
+            info "No Beads entries yet — run: bd create 'Title' -t decision -p 0 --description 'Context'"
+        fi
+    fi
 else
     if [ -d "$WORKSPACE/.git" ]; then
         info "Beads not initialized — run: bd init"
@@ -376,6 +387,7 @@ fi
 
 # =============================================================================
 # STEP 8: Agent Teams + Environment
+# FIX 17: Added checks for .worktrees and .claude/teams directories
 # =============================================================================
 section "Step 8: Agent Teams + Environment"
 
@@ -391,6 +403,24 @@ else
         warning "Agent Teams not enabled — add to shell: export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1"
         ((ISSUES++))
     fi
+fi
+
+# FIX 17: Check for .worktrees directory (agent isolation)
+if [ -d "$WORKSPACE/.worktrees" ]; then
+    success "Worktrees directory exists (.worktrees/)"
+    ((PASS++))
+else
+    warning "Worktrees directory missing — parallel agents will share main working tree"
+    ((ISSUES++))
+fi
+
+# FIX 17: Check for .claude/teams directory (persistent agent teams)
+if [ -d "$WORKSPACE/.claude/teams" ]; then
+    success "Agent Teams directory exists (.claude/teams/)"
+    ((PASS++))
+else
+    warning "Agent Teams directory missing — run: mkdir -p \$WORKSPACE/.claude/teams"
+    ((ISSUES++))
 fi
 
 # Check alias file
@@ -498,6 +528,21 @@ if [ -f "$WORKSPACE/CLAUDE.md" ]; then
 else
     fail "CLAUDE.md missing — run devpods/setup.sh"
     ((ISSUES++))
+fi
+
+# FIX 17: Check AGENTS_DIR environment variable
+if [ -n "${AGENTS_DIR:-}" ]; then
+    success "AGENTS_DIR set: $AGENTS_DIR"
+    ((PASS++))
+    if [ -d "$AGENTS_DIR" ]; then
+        success "Agents directory exists"
+        ((PASS++))
+    else
+        warning "Agents directory does not exist — run: mkdir -p \$AGENTS_DIR"
+        ((ISSUES++))
+    fi
+else
+    info "AGENTS_DIR not set — add to shell: export AGENTS_DIR=\"\$WORKSPACE/agents\""
 fi
 
 # Workspace directories
