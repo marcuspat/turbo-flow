@@ -355,6 +355,14 @@ if [ -d "$WORKSPACE/.git" ]; then
     fi
 fi
 
+# Fix GitNexus database permissions (FTS index write errors)
+if [ -d "$WORKSPACE/.gitnexus" ]; then
+    chmod -f 644 "$WORKSPACE/.gitnexus"/* 2>/dev/null || true
+    if [ -f "$WORKSPACE/.gitnexus/meta.json" ]; then
+        success "GitNexus database permissions fixed"
+    fi
+fi
+
 # Check if any repos are actually indexed (GitNexus may be installed but empty)
 if command -v gitnexus >/dev/null 2>&1 || npx gitnexus --version >/dev/null 2>&1; then
     REPO_COUNT=$(npx gitnexus list-repos 2>/dev/null | jq -r '. | length' 2>/dev/null || echo "0")
