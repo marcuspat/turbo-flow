@@ -317,6 +317,17 @@ fi
 if $GNX_MCP; then
     success "GitNexus MCP server registered"
     ((PASS++))
+
+    # Verify GitNexus MCP actually responds
+    if command -v claude >/dev/null 2>&1; then
+        if timeout 5 claude mcp call gitnexus list_repos >/dev/null 2>&1; then
+            success "GitNexus MCP server responding"
+            ((PASS++))
+        else
+            warning "GitNexus MCP registered but not responding — may need: claude mcp restart"
+            ((ISSUES++))
+        fi
+    fi
 else
     warning "GitNexus MCP not registered — resolves automatically on first 'claude' launch"
     ((ISSUES++))
@@ -324,7 +335,7 @@ fi
 
 # Workspace indexed?
 if [ -d "$WORKSPACE/.git" ]; then
-    if [ -d "$WORKSPACE/.gitnexus" ] || [ -f "$WORKSPACE/.gitnexus.json" ]; then
+    if [ -d "$WORKSPACE/.gitnexus" ] || [ -f "$WORKSPACE/.gitnexus.json" ] || [ -f "$WORKSPACE/.gitnexus.db" ]; then
         success "Workspace indexed by GitNexus"
         ((PASS++))
 
@@ -341,6 +352,17 @@ if [ -d "$WORKSPACE/.git" ]; then
         fi
     else
         info "Workspace not indexed — run: gnx-analyze-force"
+    fi
+fi
+
+# Check if any repos are actually indexed (GitNexus may be installed but empty)
+if command -v gitnexus >/dev/null 2>&1 || npx gitnexus --version >/dev/null 2>&1; then
+    REPO_COUNT=$(npx gitnexus list-repos 2>/dev/null | jq -r '. | length' 2>/dev/null || echo "0")
+    if [ "$REPO_COUNT" -gt 0 ]; then
+        success "GitNexus has $REPO_COUNT repo(s) indexed"
+        ((PASS++))
+    else
+        info "GitNexus installed but no repos indexed — run: gnx-analyze-force"
     fi
 fi
 
