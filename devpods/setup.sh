@@ -470,6 +470,7 @@ fi
 # ── 6b. Beads ────────────────────────────────────────────────────────────────
 # Beads requires Dolt to be present before bd init can succeed.
 # The actual bd init is deferred to bootstrap (needs memory freed first).
+# FIX 17: Also create .beads directory structure early for project memory
 
 if ! command -v bd &>/dev/null; then
     BD_OK=0
@@ -510,6 +511,14 @@ for dir in src tests docs scripts config plans; do
     mkdir -p "$dir"
 done
 ok "Workspace directories created"
+
+# FIX 17: Create .worktrees directory for agent isolation
+mkdir -p "$WORKSPACE/.worktrees"
+ok "Worktrees directory created (.worktrees/)"
+
+# FIX 17: Create .claude/teams directory for persistent agent teams
+mkdir -p "$WORKSPACE/.claude/teams"
+ok "Agent Teams directory created (.claude/teams/)"
 
 # Enable Native Agent Teams (Anthropic experimental)
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
@@ -1161,6 +1170,15 @@ if command -v dolt &>/dev/null && command -v bd &>/dev/null && [ -d "\$WORKSPACE
         echo "[\$(date)] Initializing Beads in workspace..." >> "\$BSLOG"
         (cd "\$WORKSPACE" && bd init >> "\$BSLOG" 2>&1) || true
     fi
+
+    # FIX 17: Create initial project memory entries
+    echo "[\$(date)] Creating initial Beads entries..." >> "\$BSLOG"
+    (cd "\$WORKSPACE" && \
+        bd create "TurboFlow 4.0 Initialized" -t decision -p 0 --description "Workspace setup with Ruflo v3.5, Beads, GitNexus, and 6 core plugins. Agent Teams enabled with hierarchical-mesh topology." >> "\$BSLOG" 2>&1 || true) && \
+    (cd "\$WORKSPACE" && \
+        bd create "Worktree Isolation Policy" -t decision -p 0 --description "Each parallel agent MUST operate in its own git worktree under .worktrees/. Create with: wt-add <agent-name>" >> "\$BSLOG" 2>&1 || true) && \
+    (cd "\$WORKSPACE" && \
+        bd create "3-Tier Memory Protocol" -t decision -p 0 --description "Beads for roadmap/blockers/decisions, Native Tasks for session checklists, AgentDB for learned patterns and routing." >> "\$BSLOG" 2>&1 || true) || true
 fi
 
 # --- 6. Index workspace with GitNexus (with --force --processes flags) ---
