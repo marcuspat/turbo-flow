@@ -772,6 +772,7 @@ cat > "$ALIAS_FILE" << 'ALIASEOF'
 
 # --- Agent Teams ---
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+export AGENTS_DIR="\${WORKSPACE:-\$(pwd)}/agents"
 
 # --- Claude Code ---
 alias claude-hierarchical='claude --dangerously-skip-permissions'
@@ -1203,9 +1204,9 @@ if [ -d "\$WORKSPACE/.git" ]; then
     if [ ! -d "\$WORKSPACE/.gitnexus" ] && [ ! -f "\$WORKSPACE/.gitnexus.json" ]; then
         echo "[\$(date)] GitNexus: workspace not indexed, starting analysis..." >> "\$BSLOG"
         if command -v gitnexus &>/dev/null; then
-            (cd "\$WORKSPACE" && gitnexus analyze --force --processes >> "\$BSLOG" 2>&1) || true
+            (cd "\$WORKSPACE" && gitnexus analyze --force >> "\$BSLOG" 2>&1) || true
         else
-            (cd "\$WORKSPACE" && npx -y gitnexus analyze --force --processes >> "\$BSLOG" 2>&1) || true
+            (cd "\$WORKSPACE" && npx -y gitnexus analyze --force >> "\$BSLOG" 2>&1) || true
         fi
     else
         echo "[\$(date)] GitNexus: workspace already indexed" >> "\$BSLOG"
