@@ -282,6 +282,14 @@ install_plugin "@claude-flow/plugin-perf-optimizer"
 # Teammate Plugin — bridges Native Agent Teams with Ruflo swarms, 21 MCP tools
 install_plugin "@claude-flow/teammate-plugin"
 
+# Fallback: npm install if ruflo plugin install failed
+if ! [ -d "$WORKSPACE/.claude-flow/plugins/@claude-flow/teammate-plugin" ] && \
+   ! [ -d "$WORKSPACE/node_modules/@claude-flow/teammate-plugin" ]; then
+    warn "Teammate plugin failed via ruflo, trying npm..."
+    npm install @claude-flow/teammate-plugin --save-dev --prefix "$WORKSPACE" >> "$LOG" 2>&1 && \
+        ok "Teammate plugin installed via npm" || warn "Teammate plugin install failed (optional)"
+fi
+
 # Gastown Bridge — WASM-accelerated orchestration, Beads sync, convoy management, 20 MCP tools
 install_plugin "@claude-flow/plugin-gastown-bridge"
 
