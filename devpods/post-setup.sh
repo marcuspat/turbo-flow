@@ -228,6 +228,11 @@ check_plugin() {
         fi
     fi
 
+    # Also check npm node_modules (fallback for direct npm installs)
+    if ! $found && [ -f "$WORKSPACE/node_modules/$name/package.json" ]; then
+        found=true
+    fi
+
     if $found; then
         success "$display"
         ((PASS++))
@@ -319,10 +324,27 @@ if $GNX_MCP; then
     ((PASS++))
 
     # Verify GitNexus MCP actually responds
+    GNX_RESPONDS=false
     if command -v claude >/dev/null 2>&1; then
         if timeout 5 claude mcp call gitnexus list_repos >/dev/null 2>&1; then
             success "GitNexus MCP server responding"
             ((PASS++))
+            GNX_RESPONDS=true
+        fi
+    fi
+
+    # Attempt MCP restart if not responding (may need to initialize)
+    if ! $GNX_RESPONDS && command -v claude >/dev/null 2>&1; then
+        info "Attempting MCP restart for GitNexus..."
+        if timeout 10 claude mcp restart >/dev/null 2>&1; then
+            sleep 3
+            if timeout 5 claude mcp call gitnexus list_repos >/dev/null 2>&1; then
+                success "GitNexus MCP responding after restart"
+                ((PASS++))
+            else
+                warning "GitNexus MCP registered but not responding — may need: claude mcp restart"
+                ((ISSUES++))
+            fi
         else
             warning "GitNexus MCP registered but not responding — may need: claude mcp restart"
             ((ISSUES++))
