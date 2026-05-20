@@ -987,11 +987,12 @@ else
     fi
 fi
 
-# FIX 14: Security scan
+# FIX 14: Security scan — Ruflo v3.5+ has built-in AIDefence
+# Note: @claude-flow/cli security scan is redundant with Ruflo's AIDefence
 if command -v claude &>/dev/null; then
-    npx @claude-flow/cli@latest security scan >> "$LOG" 2>&1 \
-        && ok "Security scan completed" \
-        || warn "Security scan failed (run: npx @claude-flow/cli@latest security scan)"
+    npx ruflo@latest aidefence stats >> "$LOG" 2>&1 \
+        && ok "Ruflo AIDefence security stats retrieved" \
+        || warn "Ruflo AIDefence check failed (run: npx ruflo aidefence stats)"
 fi
 
 ok "All MCP servers registered"
@@ -1003,17 +1004,47 @@ rm -rf /tmp/npm-* /tmp/nvm-* 2>/dev/null || true
 ok "Elapsed: $(elapsed)"
 
 # =============================================================================
-# STEP 11: Start Ruflo Daemon
+# STEP 11: Start Services (Ruflo Daemon + Dolt for Beads)
 # FIX 13: Auto-start daemon for background workers (map, audit, optimize)
+# FIX 16: Start Dolt server first — Beads requires it for database backend
 # =============================================================================
-step 11 "Start Ruflo Daemon"
+step 11 "Start Services"
 
+# ── Start Dolt server for Beads ────────────────────────────────────────
+if command -v dolt &>/dev/null; then
+    if ! pgrep -f "dolt sql-server" >/dev/null 2>&1; then
+        mkdir -p "$HOME/.dolt-data"
+        dolt sql-server --host 127.0.0.1 --port 42701 \
+            --data "$HOME/.dolt-data" \
+            --user root \
+            --loglevel "$HOME/.dolt-data/dolt.log" \
+            >> "$LOG" 2>&1 &
+        DOLT_PID=$!
+        sleep 3
+        if ps -p $DOLT_PID >/dev/null 2>&1; then
+            ok "Dolt server started (PID: $DOLT_PID, port: 42701)"
+        else
+            warn "Dolt server start failed — check $LOG"
+        fi
+    else
+        ok "Dolt server already running"
+    fi
+fi
+
+# ── Start Ruflo daemon (with retry) ─────────────────────────────────
 if npx ruflo@latest daemon status 2>/dev/null | grep -q "running"; then
     ok "Ruflo daemon already running"
 else
-    npx ruflo@latest daemon start >> "$LOG" 2>&1 \
-        && ok "Ruflo daemon started (background workers active)" \
-        || warn "Daemon start failed (optional — start manually with: rf-daemon)"
+    if npx ruflo@latest daemon start --timeout 30 >> "$LOG" 2>&1; then
+        sleep 2
+        if npx ruflo@latest daemon status 2>/dev/null | grep -q "running"; then
+            ok "Ruflo daemon started (background workers active)"
+        else
+            warn "Ruflo daemon start may have failed — check with: rf-daemon"
+        fi
+    else
+        warn "Ruflo daemon start failed (optional — start manually with: rf-daemon)"
+    fi
 fi
 
 ok "Elapsed: $(elapsed)"
@@ -1024,10 +1055,11 @@ ok "Elapsed: $(elapsed)"
 # This handles everything too heavy to run during setup (OOM risk):
 #   1. Retry any failed installs (Dolt, GitNexus, Beads) now that npm caches
 #      are freed
-#   2. Run gitnexus analyze on the workspace
-#   3. Run bd init in the workspace (requires Dolt to be present)
-#   4. Register GitNexus MCP if install was deferred
-#   5. Self-deletes the one-shot shell hook after completion
+#   2. Start Dolt server if not running (required for Beads database)
+#   3. Run bd init in the workspace (requires Dolt server to be running)
+#   4. Run gitnexus analyze on the workspace with execution flow detection
+#   5. Register GitNexus MCP if install was deferred
+#   6. Self-deletes the one-shot shell hook after completion
 # =============================================================================
 
 BOOTSTRAP_SCRIPT="$HOME/.turboflow-bootstrap.sh"
@@ -1106,7 +1138,24 @@ if ! command -v bd &>/dev/null; then
     pip install --user beads >> "\$BSLOG" 2>&1 || true
 fi
 
-# --- 4. Initialize Beads in workspace (requires both Dolt and bd) ---
+# --- 4. Start Dolt server if not running (required for Beads) ---
+if command -v dolt &>/dev/null; then
+    if ! pgrep -f "dolt sql-server" >/dev/null 2>&1; then
+        echo "[\$(date)] Starting Dolt server..." >> "\$BSLOG"
+        mkdir -p "$HOME/.dolt-data"
+        dolt sql-server --host 127.0.0.1 --port 42701 \
+            --data "$HOME/.dolt-data" \
+            --user root \
+            --loglevel "$HOME/.dolt-data/dolt.log" \
+            >> "\$BSLOG" 2>&1 &
+        sleep 3
+        echo "[\$(date)] Dolt server started" >> "\$BSLOG"
+    else
+        echo "[\$(date)] Dolt server already running" >> "\$BSLOG"
+    fi
+fi
+
+# --- 5. Initialize Beads in workspace (requires Dolt server AND bd) ---
 if command -v dolt &>/dev/null && command -v bd &>/dev/null && [ -d "\$WORKSPACE/.git" ]; then
     if [ ! -d "\$WORKSPACE/.beads" ]; then
         echo "[\$(date)] Initializing Beads in workspace..." >> "\$BSLOG"
@@ -1114,14 +1163,14 @@ if command -v dolt &>/dev/null && command -v bd &>/dev/null && [ -d "\$WORKSPACE
     fi
 fi
 
-# --- 5. Index workspace with GitNexus (with --force flag) ---
-# FIX 15: Use --force to ensure proper indexing with execution flows
+# --- 6. Index workspace with GitNexus (with --force --processes flags) ---
+# FIX 15: Use --force --processes to ensure proper indexing with execution flows
 if [ -d "\$WORKSPACE/.git" ]; then
     if command -v gitnexus &>/dev/null; then
-        echo "[\$(date)] Indexing workspace with GitNexus (force mode)..." >> "\$BSLOG"
-        (cd "\$WORKSPACE" && gitnexus analyze --force >> "\$BSLOG" 2>&1) || true
+        echo "[\$(date)] Indexing workspace with GitNexus (force + process analysis)..." >> "\$BSLOG"
+        (cd "\$WORKSPACE" && gitnexus analyze --force --processes >> "\$BSLOG" 2>&1) || true
     else
-        (cd "\$WORKSPACE" && npx -y gitnexus analyze --force >> "\$BSLOG" 2>&1) || true
+        (cd "\$WORKSPACE" && npx -y gitnexus analyze --force --processes >> "\$BSLOG" 2>&1) || true
     fi
 fi
 
