@@ -323,30 +323,26 @@ if $GNX_MCP; then
     success "GitNexus MCP server registered"
     ((PASS++))
 
-    # Verify GitNexus MCP actually responds
+    # Verify GitNexus MCP actually responds.
+    # NOTE: `claude mcp call` / `claude mcp restart` are NOT real Claude CLI
+    # subcommands. Use `claude mcp list` (reports per-server health) and a direct
+    # CLI probe instead. MCP servers (re)connect when Claude Code launches.
     GNX_RESPONDS=false
-    if command -v claude >/dev/null 2>&1; then
-        if timeout 5 claude mcp call gitnexus list_repos >/dev/null 2>&1; then
-            success "GitNexus MCP server responding"
-            ((PASS++))
-            GNX_RESPONDS=true
-        fi
+    if command -v claude >/dev/null 2>&1 && \
+       claude mcp list 2>/dev/null | grep -i "gitnexus" | grep -qi "connected"; then
+        success "GitNexus MCP server connected"
+        ((PASS++))
+        GNX_RESPONDS=true
     fi
 
-    # Attempt MCP restart if not responding (may need to initialize)
-    if ! $GNX_RESPONDS && command -v claude >/dev/null 2>&1; then
-        info "Attempting MCP restart for GitNexus..."
-        if timeout 10 claude mcp restart >/dev/null 2>&1; then
-            sleep 3
-            if timeout 5 claude mcp call gitnexus list_repos >/dev/null 2>&1; then
-                success "GitNexus MCP responding after restart"
-                ((PASS++))
-            else
-                warning "GitNexus MCP registered but not responding — may need: claude mcp restart"
-                ((ISSUES++))
-            fi
+    if ! $GNX_RESPONDS; then
+        # Fall back to a direct CLI probe (server connects on next 'claude' launch)
+        if (command -v gitnexus >/dev/null 2>&1 && timeout 8 gitnexus list >/dev/null 2>&1) || \
+           timeout 15 npx -y gitnexus list >/dev/null 2>&1; then
+            success "GitNexus engine responding (MCP connects on next 'claude' launch)"
+            ((PASS++))
         else
-            warning "GitNexus MCP registered but not responding — may need: claude mcp restart"
+            warning "GitNexus MCP not responding yet — connects on next 'claude' launch"
             ((ISSUES++))
         fi
     fi
@@ -377,18 +373,22 @@ if [ -d "$WORKSPACE/.git" ]; then
     fi
 fi
 
-# Fix GitNexus database permissions (FTS index write errors)
+# Fix GitNexus database permissions (causes "read-only database" FTS write errors).
+# Ensure the current user owns the dir and has read/write on the DB files.
 if [ -d "$WORKSPACE/.gitnexus" ]; then
-    chmod -f 644 "$WORKSPACE/.gitnexus"/* 2>/dev/null || true
+    chown -R "$(whoami)":"$(whoami)" "$WORKSPACE/.gitnexus" 2>/dev/null || true
+    chmod -R u+rw "$WORKSPACE/.gitnexus" 2>/dev/null || true
     if [ -f "$WORKSPACE/.gitnexus/meta.json" ]; then
-        success "GitNexus database permissions fixed"
+        success "GitNexus database permissions fixed (owner read/write)"
     fi
 fi
 
-# Check if any repos are actually indexed (GitNexus may be installed but empty)
+# Check if any repos are actually indexed (GitNexus may be installed but empty).
+# Correct subcommand is `gitnexus list` (human-readable, not `list-repos`/JSON).
 if command -v gitnexus >/dev/null 2>&1 || npx gitnexus --version >/dev/null 2>&1; then
-    REPO_COUNT=$(npx gitnexus list-repos 2>/dev/null | jq -r '. | length' 2>/dev/null || echo "0")
-    if [ "$REPO_COUNT" -gt 0 ]; then
+    GNX_LIST=$( (command -v gitnexus >/dev/null 2>&1 && gitnexus list 2>/dev/null) || npx -y gitnexus list 2>/dev/null || echo "")
+    REPO_COUNT=$(echo "$GNX_LIST" | grep -ciE "Path:|Indexed:" 2>/dev/null || echo "0")
+    if [ "${REPO_COUNT:-0}" -gt 0 ]; then
         success "GitNexus has $REPO_COUNT repo(s) indexed"
         ((PASS++))
     else
@@ -415,19 +415,41 @@ else
     fi
 fi
 
-if [ -d "$WORKSPACE/.beads" ] || [ -f "$WORKSPACE/.beads.json" ]; then
-    success "Beads initialized in workspace"
-    ((PASS++))
+# Ensure Beads is not just present but actually usable (DB reachable).
+if command -v bd >/dev/null 2>&1 && [ -d "$WORKSPACE/.git" ]; then
+    # Role is required for Beads routing.
+    git config beads.role maintainer 2>/dev/null || true
 
-    # FIX 17: Check if there are any Beads entries (project memory)
-    if command -v bd >/dev/null 2>&1; then
-        BEADS_COUNT=$(bd list 2>/dev/null | wc -l || echo "0")
-        if [ "$BEADS_COUNT" -gt 0 ]; then
+    # First init if never initialized.
+    if [ ! -d "$WORKSPACE/.beads" ] && [ ! -f "$WORKSPACE/.beads.json" ]; then
+        info "Beads not initialized — running bd init..."
+        (cd "$WORKSPACE" && bd init >/dev/null 2>&1) || true
+    fi
+
+    # Self-heal: if the directory exists but the Dolt-backed DB is unreachable
+    # (e.g. server restarted, fresh clone), bootstrap recreates the database.
+    if [ -d "$WORKSPACE/.beads" ] && ! (cd "$WORKSPACE" && bd status >/dev/null 2>&1); then
+        info "Beads database unreachable — running bd bootstrap..."
+        (cd "$WORKSPACE" && bd bootstrap >/dev/null 2>&1) || true
+    fi
+fi
+
+if [ -d "$WORKSPACE/.beads" ] || [ -f "$WORKSPACE/.beads.json" ]; then
+    if command -v bd >/dev/null 2>&1 && (cd "$WORKSPACE" && bd status >/dev/null 2>&1); then
+        success "Beads initialized and database reachable"
+        ((PASS++))
+
+        # FIX 17: Check if there are any Beads entries (project memory)
+        BEADS_COUNT=$( (cd "$WORKSPACE" && bd list 2>/dev/null | wc -l) || echo "0")
+        if [ "${BEADS_COUNT:-0}" -gt 0 ]; then
             success "Project memory has $BEADS_COUNT Beads entries"
             ((PASS++))
         else
             info "No Beads entries yet — run: bd create 'Title' -t decision -p 0 --description 'Context'"
         fi
+    else
+        warning "Beads directory present but database not reachable — run: bd bootstrap"
+        ((ISSUES++))
     fi
 else
     if [ -d "$WORKSPACE/.git" ]; then
@@ -613,15 +635,14 @@ done
 # =============================================================================
 section "Step 11: Security Scan"
 
-# Check if @claude-flow/cli is available for security scanning
-if npx @claude-flow/cli@latest security --help >/dev/null 2>&1; then
-    success "Security scanning tool available (@claude-flow/cli)"
+# Security is handled by Ruflo's built-in AIDefence (claude-flow@alpha is the dead
+# package this migration removed — do NOT reintroduce @claude-flow/cli here).
+if npx ruflo@latest aidefence stats >/dev/null 2>&1; then
+    success "Security scanning available (Ruflo AIDefence)"
     ((PASS++))
-
-    # Note: Actual scan is not run during verification to avoid slowing down the check
-    info "Run security scan: npx @claude-flow/cli@latest security scan"
+    info "Run security scan: npx ruflo@latest aidefence scan"
 else
-    warning "Security scanning tool not available — run: npx @claude-flow/cli@latest security scan"
+    warning "Ruflo AIDefence not responding — run: npx ruflo@latest aidefence stats"
     ((ISSUES++))
 fi
 
@@ -706,7 +727,7 @@ echo "    1. RESTART CLAUDE CODE  →  Required for MCP & plugins"
 echo "    2. RELOAD SHELL         →  source ~/.bashrc"
 echo "    3. SET API KEY          →  export ANTHROPIC_API_KEY=\"sk-ant-...\""
 echo "    4. VERIFY               →  turbo-status"
-echo "    5. SECURITY SCAN        →  npx @claude-flow/cli@latest security scan"
+echo "    5. SECURITY SCAN        →  npx ruflo@latest aidefence scan"
 echo ""
 echo "  Quick Reference:"
 echo "    ORCHESTRATION   rf-swarm, rf-spawn, rf-doctor, rf-daemon"
@@ -715,6 +736,6 @@ echo "    ISOLATION       wt-add, wt-remove, wt-list"
 echo "    QUALITY         aqe-generate, aqe-gate, os-init"
 echo "    INTELLIGENCE    hooks-train, hooks-route, neural-train"
 echo "    CODEBASE        gnx-analyze-force, gnx-serve, gnx-wiki"
-echo "    SECURITY        npx @claude-flow/cli@latest security scan"
+echo "    SECURITY        npx ruflo@latest aidefence scan"
 echo "    STATUS          turbo-status, turbo-help"
 echo ""
