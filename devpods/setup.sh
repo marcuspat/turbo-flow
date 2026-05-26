@@ -212,10 +212,12 @@ try {
 }
 " "$MCP_CONFIG" 2>/dev/null && ok "Ruflo MCP configured with autoStart" || warn "MCP config update failed (may need manual edit)"
 
-# Also register via claude mcp for discoverability
-claude mcp add ruflo -- npx -y ruflo@latest 2>/dev/null \
-    && ok "Ruflo MCP server registered" \
-    || warn "Ruflo MCP registration skipped (configure manually if needed)"
+# Single source of truth: the project .mcp.json above (endpoint: `mcp start`, autoStart).
+# Remove any stale local-/user-scope ruflo registration that would create a
+# "defined in multiple scopes with different endpoints" conflict.
+claude mcp remove ruflo -s local 2>/dev/null || true
+claude mcp remove ruflo -s user  2>/dev/null || true
+ok "Ruflo MCP registered via project .mcp.json (single scope, autoStart)"
 
 # ── Doctor check — guarded ──
 npx ruflo doctor --fix >> "$LOG" 2>&1 \
@@ -1028,25 +1030,16 @@ ok "Elapsed: $(elapsed)"
 # =============================================================================
 step 11 "Start Services"
 
-# ── Start Dolt server for Beads ────────────────────────────────────────
+# ── Dolt for Beads ──────────────────────────────────────────────────────
+# Do NOT hand-start a Dolt sql-server here. Beads (bd) v1.x manages its own
+# embedded Dolt server (auto-selected port) and creates the project database
+# during `bd init`. A manually-started server on a fixed port is never used by
+# bd and only causes confusion. We just verify the Dolt binary is present; the
+# actual server + database come up via `bd init` in the post-setup bootstrap.
 if command -v dolt &>/dev/null; then
-    if ! pgrep -f "dolt sql-server" >/dev/null 2>&1; then
-        mkdir -p "$HOME/.dolt-data"
-        dolt sql-server --host 127.0.0.1 --port 42701 \
-            --data "$HOME/.dolt-data" \
-            --user root \
-            --loglevel "$HOME/.dolt-data/dolt.log" \
-            >> "$LOG" 2>&1 &
-        DOLT_PID=$!
-        sleep 3
-        if ps -p $DOLT_PID >/dev/null 2>&1; then
-            ok "Dolt server started (PID: $DOLT_PID, port: 42701)"
-        else
-            warn "Dolt server start failed — check $LOG"
-        fi
-    else
-        ok "Dolt server already running"
-    fi
+    ok "Dolt binary present ($(dolt version 2>/dev/null | head -1 | awk '{print $NF}')) — Beads will manage its server"
+else
+    warn "Dolt binary missing — Beads init deferred to post-setup bootstrap"
 fi
 
 # ── Start Ruflo daemon (with retry) ─────────────────────────────────
@@ -1156,25 +1149,15 @@ if ! command -v bd &>/dev/null; then
     pip install --user beads >> "\$BSLOG" 2>&1 || true
 fi
 
-# --- 4. Start Dolt server if not running (required for Beads) ---
-if command -v dolt &>/dev/null; then
-    if ! pgrep -f "dolt sql-server" >/dev/null 2>&1; then
-        echo "[\$(date)] Starting Dolt server..." >> "\$BSLOG"
-        mkdir -p "$HOME/.dolt-data"
-        dolt sql-server --host 127.0.0.1 --port 42701 \
-            --data "$HOME/.dolt-data" \
-            --user root \
-            --loglevel "$HOME/.dolt-data/dolt.log" \
-            >> "\$BSLOG" 2>&1 &
-        sleep 3
-        echo "[\$(date)] Dolt server started" >> "\$BSLOG"
-    else
-        echo "[\$(date)] Dolt server already running" >> "\$BSLOG"
-    fi
-fi
+# --- 4. (Dolt server is managed by bd itself — nothing to start here) ---
+# bd v1.x spawns and manages its own embedded Dolt sql-server on init/bootstrap.
+# Do NOT start a competing server on a fixed port; it would not be used by bd.
 
-# --- 5. Initialize Beads in workspace (requires Dolt server AND bd) ---
+# --- 5. Initialize Beads in workspace (bd manages Dolt) ---
 if command -v dolt &>/dev/null && command -v bd &>/dev/null && [ -d "\$WORKSPACE/.git" ]; then
+    # Beads needs a role configured for routing to work.
+    git config beads.role maintainer 2>/dev/null || true
+
     if [ ! -d "\$WORKSPACE/.beads" ]; then
         echo "[\$(date)] Initializing Beads in workspace..." >> "\$BSLOG"
         (cd "\$WORKSPACE" && bd init >> "\$BSLOG" 2>&1) || true
