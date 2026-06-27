@@ -145,13 +145,13 @@ sudo install devpod /usr/local/bin
 
 ```bash
 # DevPod (recommended)
-devpod up https://github.com/adventurewavelabs/turbo-flow --ide vscode
+devpod up https://github.com/adventurewave-labs/turbo-flow --ide vscode
 
 # Codespaces
 # Push to GitHub → Open in Codespace → runs automatically
 
 # Manual
-git clone https://github.com/adventurewavelabs/turbo-flow -b main
+git clone https://github.com/adventurewave-labs/turbo-flow -b main
 cd turbo-flow
 chmod +x devpods/setup.sh
 ./devpods/setup.sh
@@ -432,8 +432,8 @@ turbo-help
 
 | Resource | Link |
 |:---------|:-----|
-| Adventure Wave Labs | [GitHub: adventurewavelabs](https://github.com/adventurewavelabs) |
-| Turbo Flow | [GitHub: adventurewavelabs/turbo-flow](https://github.com/adventurewavelabs/turbo-flow) |
+| Adventure Wave Labs | [GitHub: adventurewave-labs](https://github.com/adventurewave-labs) |
+| Turbo Flow | [GitHub: adventurewave-labs/turbo-flow](https://github.com/adventurewave-labs/turbo-flow) |
 | Ruflo | [GitHub: ruvnet/ruflo](https://github.com/ruvnet/ruflo) |
 | OpenSpec | [npm: @fission-ai/openspec](https://npmjs.com/package/@fission-ai/openspec) |
 | Agentic QE | [npm: agentic-qe](https://npmjs.com/package/agentic-qe) |
