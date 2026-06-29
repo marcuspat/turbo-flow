@@ -454,3 +454,10 @@ MIT — Copyright (c) 2025-2026 Adventure Wave Labs
 
 </div>
 https://github.com/marcuspat/turbo-flow/blob/main/AWLabs.png
+
+
+## Stay Connected
+
+If Turbo Flow ships value for you, follow [@marcuspat](https://github.com/marcuspat) on GitHub — agentic tooling, Rust crates, and open-source infra drop regularly.
+
+[![Follow @marcuspat](https://img.shields.io/github/followers/marcuspat?label=Follow%20%40marcuspat&style=social)](https://github.com/marcuspat)
