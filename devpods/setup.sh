@@ -72,6 +72,7 @@ NC='\033[0m'
 WORKSPACE="${WORKSPACE:-$(pwd)}"
 LOG="/tmp/turboflow-setup.log"
 START_TIME=$(date +%s)
+NODE_VERSION="26"
 
 step() { echo -e "\n${CYAN}━━━ [$1/11] $2 ━━━${NC}"; }
 ok()   { echo -e "  ${GREEN}✓${NC} $1"; }
@@ -102,11 +103,13 @@ else
 fi
 
 # Node.js 20+ (required by ruflo v3.5)
-if ! command -v node &>/dev/null || [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -lt 20 ]; then
-    if command -v nvm &>/dev/null; then
-        nvm install 20 && nvm use 20
+if ! command -v node &>/dev/null || [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -lt "$NODE_VERSION" ]; then
+    if type nvm &>/dev/null; then
+        nvm install $NODE_VERSION
+        nvm alias default $NODE_VERSION
+        nvm use $NODE_VERSION
     else
-        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - >> "$LOG" 2>&1
+        curl -fsSL https://deb.nodesource.com/setup_"$NODE_VERSION.x" | sudo -E bash - >> "$LOG" 2>&1
         sudo apt-get install -y -qq nodejs >> "$LOG" 2>&1
     fi
     ok "Node.js $(node -v) installed"
