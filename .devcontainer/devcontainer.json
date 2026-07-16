@@ -1,6 +1,6 @@
 {
     "name": "Claude Dev Workspace",
-    "image": "mcr.microsoft.com/devcontainers/base:ubuntu-26.04",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
     "remoteUser": "vscode",
     "features": {
         "ghcr.io/devcontainers/features/rust:1": {
