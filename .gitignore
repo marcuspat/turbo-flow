@@ -1,5 +1,57 @@
+# ===============================
+#  Operating System Files
+# ===============================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.tmp
+*.temp
 
-# Beads / Dolt files (added by bd init)
+# ===============================
+#  Beads / Dolt (added by `bd init`)
+# ===============================
 .dolt/
 *.db
+*.sqlite
+*.sqlite3
 .beads-credential-key
+
+# ===============================
+#  Node.js / JavaScript / NPM
+# ===============================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ===============================
+#  Environment Variables (CRITICAL for security)
+# ===============================
+.env
+.env.*
+!.env.example
+!.env.template
+
+# ===============================
+#  Logs, Cache, and Runtime Data
+# ===============================
+logs/
+*.log
+.cache/
+tmp/
+temp/
+*.pid
+*.seed
+*.pid.lock
+
+# ===============================
+#  Claude AI / Project-specific
+# ===============================
+.claude
+.claude-flow
