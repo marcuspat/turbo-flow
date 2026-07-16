@@ -104,6 +104,10 @@ fi
 
 # Node.js 20+ (required by ruflo v3.5)
 if ! command -v node &>/dev/null || [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -lt "$NODE_VERSION" ]; then
+    # Try to load nvm if it exists (handles both user and global/devcontainer installs)
+    [ -s "$HOME/.nvm/nvm.sh" ] && \. "$HOME/.nvm/nvm.sh"
+    [ -s "/usr/local/share/nvm/nvm.sh" ] && \. "/usr/local/share/nvm/nvm.sh"
+
     if type nvm &>/dev/null; then
         nvm install $NODE_VERSION
         nvm alias default $NODE_VERSION
@@ -111,6 +115,7 @@ if ! command -v node &>/dev/null || [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -
     else
         curl -fsSL https://deb.nodesource.com/setup_"$NODE_VERSION.x" | sudo -E bash - >> "$LOG" 2>&1
         sudo apt-get install -y -qq nodejs >> "$LOG" 2>&1
+        hash -r 2>/dev/null || true
     fi
     ok "Node.js $(node -v) installed"
 else
