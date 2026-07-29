@@ -4,13 +4,13 @@
     "remoteUser": "vscode",
     "features": {
         "ghcr.io/devcontainers/features/rust:1": {
-            "version": "1.70"
+            "version": "1.97"
         },
         "ghcr.io/devcontainers/features/docker-in-docker:2": {
             "moby": false
         },
         "ghcr.io/devcontainers/features/node:1": {
-            "version": "20"
+            "version": "26"
         }
     },
     "containerEnv": {
@@ -20,7 +20,7 @@
         "NPM_CONFIG_PREFIX": "/home/vscode/.npm-global",
         "PIP_BREAK_SYSTEM_PACKAGES": "1"
     },
-    "postCreateCommand": "mkdir -p $HOME/.npm-global/bin $HOME/.npm-global/lib && echo 'export NPM_CONFIG_PREFIX=\"$HOME/.npm-global\"' >> $HOME/.bashrc && echo 'export PATH=\"$HOME/.npm-global/bin:$HOME/.local/bin:$HOME/.claude/bin:$PATH\"' >> $HOME/.bashrc && export NPM_CONFIG_PREFIX=$HOME/.npm-global && export PATH=$HOME/.npm-global/bin:$HOME/.local/bin:$HOME/.claude/bin:$PATH && sudo apt-get update && sudo apt-get install -y tmux htop build-essential python3 python3-pip jq && cd ${containerWorkspaceFolder} && git clone https://github.com/marcuspat/turbo-flow-claude && cp -r turbo-flow-claude/devpods . && rm -rf turbo-flow-claude && chmod +x ${containerWorkspaceFolder}/devpods/*.sh 2>/dev/null || true && if [ -f ${containerWorkspaceFolder}/devpods/setup.sh ]; then bash ${containerWorkspaceFolder}/devpods/setup.sh; fi",
+    "postCreateCommand": "mkdir -p $HOME/.npm-global/bin $HOME/.npm-global/lib && echo 'export NPM_CONFIG_PREFIX=\"$HOME/.npm-global\"' >> $HOME/.bashrc && echo 'export PATH=\"$HOME/.npm-global/bin:$HOME/.local/bin:$HOME/.claude/bin:$PATH\"' >> $HOME/.bashrc && export NPM_CONFIG_PREFIX=$HOME/.npm-global && export PATH=$HOME/.npm-global/bin:$HOME/.local/bin:$HOME/.claude/bin:$PATH && sudo apt-get update && sudo apt-get install -y tmux htop build-essential python3 python3-pip jq && chmod +x ${containerWorkspaceFolder}/devpods/*.sh 2>/dev/null || true && if [ -f ${containerWorkspaceFolder}/devpods/setup.sh ]; then bash ${containerWorkspaceFolder}/devpods/setup.sh; fi",
     "postStartCommand": "echo '✅ Container started, waiting for VS Code...'",
     "postAttachCommand": "if [ -f ${containerWorkspaceFolder}/devpods/post-setup.sh ]; then chmod +x ${containerWorkspaceFolder}/devpods/post-setup.sh && bash ${containerWorkspaceFolder}/devpods/post-setup.sh; fi && if [ -f ${containerWorkspaceFolder}/devpods/tmux-workspace.sh ]; then chmod +x ${containerWorkspaceFolder}/devpods/tmux-workspace.sh && sed 's/tmux attach-session -t workspace/echo \"✅ tmux workspace ready\"/' ${containerWorkspaceFolder}/devpods/tmux-workspace.sh | bash; fi",
     "hostRequirements": {
