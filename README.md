@@ -535,7 +535,7 @@ Built with and powers these tools — star the ones you use:
 | Repo | What it does |
 |------|-------------|
 | [**codescope**](https://github.com/adventurewave-labs/codescope) | Single-binary code-intelligence engine for AI agents — no cloud, no DB, no Python |
-| [**secret-scan**](https://github.com/adventurewave-labs/secret-scan) | Rust secret scanner — 51k files/sec, 99% accuracy, obfuscation detection |
+| [**secret-scan**](https://github.com/adventurewave-labs/secret-scan) | Rust secret scanner — obfuscation detection, up to ~1,200 files/sec measured |
 | [**Sentinel**](https://github.com/marcuspat/Sentinel) | Deny-by-default agentic sysadmin: Investigate → Plan → Approve → Act in Rust |
 | [**spacelift-intent**](https://github.com/marcuspat/spacelift-intent) | Natural language → cloud infra via Terraform providers, no HCL generated |
 | [**netrain**](https://github.com/marcuspat/netrain) | Matrix-style network monitor in Rust |
