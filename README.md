@@ -178,13 +178,13 @@ sudo install devpod /usr/local/bin
 
 ```bash
 # DevPod (recommended)
-devpod up https://github.com/adventurewave-labs/turbo-flow --ide vscode
+devpod up https://github.com/marcuspat/turbo-flow --ide vscode
 
 # Codespaces
 # Push to GitHub → Open in Codespace → runs automatically
 
 # Manual
-git clone https://github.com/adventurewave-labs/turbo-flow -b main
+git clone https://github.com/marcuspat/turbo-flow -b main
 cd turbo-flow
 chmod +x devpods/setup.sh
 ./devpods/setup.sh
@@ -502,7 +502,7 @@ turbo-help
 | Resource | Link |
 |:---------|:-----|
 | Adventure Wave Labs | [GitHub: adventurewave-labs](https://github.com/adventurewave-labs) |
-| Turbo Flow | [GitHub: adventurewave-labs/turbo-flow](https://github.com/adventurewave-labs/turbo-flow) |
+| Turbo Flow | [GitHub: marcuspat/turbo-flow](https://github.com/marcuspat/turbo-flow) |
 | Ruflo | [GitHub: ruvnet/ruflo](https://github.com/ruvnet/ruflo) |
 | RuVector | [GitHub: ruvnet/RuVector](https://github.com/ruvnet/RuVector) |
 | ruVLLM | [crates.io: ruvllm](https://crates.io/crates/ruvllm) |
@@ -538,7 +538,7 @@ Built with and powers these tools — star the ones you use:
 | [**secret-scan**](https://github.com/adventurewave-labs/secret-scan) | Rust secret scanner — 51k files/sec, 99% accuracy, obfuscation detection |
 | [**Sentinel**](https://github.com/marcuspat/Sentinel) | Deny-by-default agentic sysadmin: Investigate → Plan → Approve → Act in Rust |
 | [**spacelift-intent**](https://github.com/marcuspat/spacelift-intent) | Natural language → cloud infra via Terraform providers, no HCL generated |
-| [**netrain**](https://github.com/marcuspat/netrain) | Matrix-style network monitor — 212x faster packet parsing in Rust |
+| [**netrain**](https://github.com/marcuspat/netrain) | Matrix-style network monitor in Rust |
 
 ## Stay Connected
 
