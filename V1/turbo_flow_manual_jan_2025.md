@@ -4,6 +4,8 @@
 
 *Advanced Agentic Development Environment*
 
+> **Note (Aug 2026):** This is a historical snapshot of this manual as it existed in January 2025 (v1.0.2 Alpha). Some figures below are outdated -- notably the subagent count ("600+"/"610+"), which was later corrected to its accurate figure of 60+. See the current README for up-to-date information.
+
 ---
 
 ## TABLE OF CONTENTS
