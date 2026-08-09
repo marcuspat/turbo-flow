@@ -73,7 +73,7 @@ cat $WORKSPACE_FOLDER/agents/microtask-breakdown.md
 "Identify all of the subagents that could be useful in any way for this task and then figure out how to utilize the claude-flow hivemind to maximize your ability to accomplish the task."
 ```
 
-## 🤖 Available Agents (600+ Total)
+## 🤖 Available Agents (60+ Total)
 
 ### Mandatory Agents (Use for EVERY task)
 - `doc-planner` - Documentation planning, SPARC workflow
@@ -123,7 +123,7 @@ cat $WORKSPACE_FOLDER/agents/microtask-breakdown.md
 
 ## 📋 Agent Coordination Protocol
 
-## 🤖 Agent Reference (600+ Total)
+## 🤖 Agent Reference (60+ Total)
 
 ## 🤖 Agent Discovery and Selection Protocol
 
