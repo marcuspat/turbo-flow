@@ -26,7 +26,7 @@
   <img src="https://i.ibb.co/N6m72sYQ/AWLabs.png" alt="Adventure Wave Labs" width="600">
 </div>
 
-**Adventure Wave Labs** is the team behind Turbo Flow a complete agentic development environment built for the Claude ecosystem. We design, build, and maintain the tooling that brings together orchestration, memory, codebase intelligence, and agent isolation into a single streamlined workflow.
+**Adventure Wave Labs** is the team behind Turbo Flow, a complete agentic development environment built for the Claude ecosystem. We design, build, and maintain the packaging, setup automation, plugin curation, and workflow integration that brings together orchestration, memory, codebase intelligence, and agent isolation into a single streamlined install. The orchestration core itself — the 215+ MCP tools and 60+ agents referenced throughout this README — is [Ruflo](https://github.com/ruvnet/ruflo) v3.5, built by [ruvnet](https://github.com/ruvnet) ("rUv"); Turbo Flow integrates and configures it rather than building it from scratch. See the [Ruv Stack Edition](#ruv-stack-edition-v410) section below for the full breakdown of what's original to this repo versus wired in from rUv's ecosystem.
 
 ---
 
