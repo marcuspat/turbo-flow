@@ -20,6 +20,23 @@
 
 ---
 
+## 🎬 Demo
+
+![Turbo Flow demo](https://raw.githubusercontent.com/marcuspat/marcuspat/main/demos/turbo-flow-demo.gif)
+
+A real, unedited run of the full onboarding chain — `codespace_setup.sh` →
+`setup.sh` → `post-setup.sh` → `tmux-workspace.sh` (11 install steps, 6-plugin
+verify: Claude Code, Ruflo v3.5, Dolt + Beads, GitNexus, OpenSpec) — sped up,
+then a real reattach to the live tmux session it creates: a tour through all
+four workspace windows (`Claude-2`, `Claude-Monitor`, a live `htop`), then the
+real `claude` CLI launched through to its actual login screen. Not a mockup,
+not a scripted animation — no API key on the recording box, so that's the
+genuine first-run auth screen. Recorded with
+[VHS](https://github.com/charmbracelet/vhs) from `demo/demo-a-setup.tape` +
+`demo/demo-b-tmux-claude.tape` (`demo/build-demo.sh` reproduces it end to end).
+
+---
+
 ## About Adventure Wave Labs
 
 <div align="center">
