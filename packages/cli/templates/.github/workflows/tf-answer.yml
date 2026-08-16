@@ -1,0 +1,76 @@
+name: turbo-flow answer
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  answer:
+    # Only proceed for "/tf answer" from someone with write access
+    if: >-
+      contains(github.event.comment.body, '/tf answer') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.issue.pull_request.head.ref || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install turbo-flow
+        run: npm install -g turbo-flow
+
+      - name: Resolve spec and answer
+        id: resolve
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # Extract spec id from issue title
+          SPEC=$(gh issue view $ISSUE_NUMBER --json title -q '.title' \
+            | sed -n 's/.*\([0-9][0-9][0-9]-[^ ]*\).*/\1/p' | head -1)
+          if [[ -z "$SPEC" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Extract answer from comment
+          ANSWER=$(printf '%s' "$COMMENT_BODY" \
+            | sed -n 's#.*/tf answer[[:space:]].*##p' | sed 's/^ *//')
+          echo "spec=$SPEC" >> "$GITHUB_OUTPUT"
+          echo "answer=$ANSWER" >> "$GITHUB_OUTPUT"
+
+      - name: Record answer and resume
+        if: steps.resolve.outputs.skip != 'true'
+        run: |
+          git config user.name "turbo-flow[bot]"
+          git config user.email "turbo-flow-bot@users.noreply.github.com"
+          turbo-flow answer "${{ steps.resolve.outputs.spec }}" "${{ steps.resolve.outputs.answer }}"
+          git add -A .lg/
+          git commit -m "turbo-flow: human answer for ${{ steps.resolve.outputs.spec }} [skip ci]" || true
+          git push
+
+      - name: Resume the wave
+        if: steps.resolve.outputs.skip != 'true'
+        run: |
+          set +e
+          turbo-flow run "${{ steps.resolve.outputs.spec }}" --resume
+          rc=$?
+          case $rc in
+            0) echo "::notice::wave resumed and completed" ;;
+            10) echo "::warning::wave awaiting another decision" ;;
+            *) echo "::error::wave failed after resume (rc=$rc)" ;;
+          esac

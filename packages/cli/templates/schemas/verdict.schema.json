@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "pass": {
+      "type": "boolean",
+      "description": "true only if every blocking criterion in the rubric is satisfied with evidence."
+    },
+    "blocking": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Things that must be fixed. Each entry must name the file, symbol, or command."
+    },
+    "non_blocking": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "not_verified": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Criteria you could not check, and why."
+    },
+    "needs_human": {
+      "type": "boolean",
+      "description": "true when the blocker is a DECISION rather than a DEFECT."
+    },
+    "question": {
+      "type": "string",
+      "description": "When needs_human is true: concrete choice with options named."
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "What you actually inspected. Required on pass and fail."
+    }
+  },
+  "required": ["pass", "blocking", "needs_human", "evidence"]
+}

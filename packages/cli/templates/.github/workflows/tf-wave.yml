@@ -1,0 +1,142 @@
+name: turbo-flow wave
+
+# Lane B — the autonomous lane. Runs while you're away.
+#
+# Installs Claude Code CLI and lets the engine drive. The engine needs many
+# invocations — a node, then its gates, then the next — with cost read back
+# from each one. An action wrapping one Claude invocation is the wrong tool
+# for running a spec to completion.
+
+on:
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: "Spec id, e.g. 001-smoke-test"
+        required: true
+        type: string
+      budget_usd:
+        description: "Override the run budget (USD)"
+        required: false
+        type: string
+  push:
+    branches: [main]
+    paths: ["specs/*.md"]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: tf-${{ github.event.inputs.spec || github.event.issue.number || github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  wave:
+    # issue_comment fires on every comment; only proceed for "/tf run"
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (contains(github.event.comment.body, '/tf run') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install turbo-flow
+        run: npm install -g turbo-flow
+
+      - name: Resolve spec id
+        id: spec
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_SPEC: ${{ github.event.inputs.spec }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            workflow_dispatch)
+              SPEC="$INPUT_SPEC" ;;
+            push)
+              SPEC="$(git diff --name-only --diff-filter=AM "$BEFORE" "$SHA" -- 'specs/*.md' \
+                      | grep -v TEMPLATE | tail -1 | xargs -r basename | sed 's/\.md$//')" ;;
+            issue_comment)
+              SPEC="$(printf '%s' "$COMMENT_BODY" \
+                      | sed -n 's#.*/tf run[[:space:]]\{1,\}\([A-Za-z0-9._-]\{1,\}\).*#\1#p' | head -1)" ;;
+          esac
+          if [[ ! "${SPEC:-}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "spec=$SPEC" >> "$GITHUB_OUTPUT"
+
+      - name: Configure git identity
+        if: steps.spec.outputs.skip != 'true'
+        run: |
+          git config user.name "turbo-flow[bot]"
+          git config user.email "turbo-flow-bot@users.noreply.github.com"
+
+      - name: Apply budget override
+        if: steps.spec.outputs.skip != 'true' && github.event.inputs.budget_usd != ''
+        run: |
+          SPEC="${{ steps.spec.outputs.spec }}"
+          BUDGET="${{ github.event.inputs.budget_usd }}"
+          [[ "$BUDGET" =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "::error::budget must be a number"; exit 1; }
+          STATE=".lg/runs/$SPEC/state.json"
+          if [[ -f "$STATE" ]]; then
+            tmp=$(mktemp)
+            jq --argjson b "$BUDGET" '.budget_usd=$b' "$STATE" > "$tmp"
+            mv "$tmp" "$STATE"
+          fi
+
+      - name: Run the wave
+        if: steps.spec.outputs.skip != 'true'
+        id: run
+        env:
+          SPEC: ${{ steps.spec.outputs.spec }}
+        run: |
+          set +e
+          turbo-flow run "$SPEC"
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          case $rc in
+            0)  echo "::notice::wave completed" ;;
+            10) echo "::warning::wave awaiting human decision" ;;
+            20) echo "::warning::wave halted: budget exceeded" ;;
+            *)  echo "::error::wave failed (rc=$rc)" ;;
+          esac
+          exit 0
+
+      - name: Persist run state
+        if: always() && steps.spec.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          S="${{ steps.spec.outputs.spec }}"
+          BRANCH="lg/$S"
+          git add -A ".lg/runs/$S" 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "turbo-flow: run state for $S [skip ci]"
+          fi
+          git push origin "HEAD:refs/heads/$BRANCH" 2>/dev/null \
+            || git push --set-upstream origin "$BRANCH" \
+            || echo "::warning::could not push run state"
+
+      - name: Fail on hard failure
+        if: steps.spec.outputs.skip != 'true' && steps.run.outputs.rc != '0' && steps.run.outputs.rc != '10'
+        run: exit 1

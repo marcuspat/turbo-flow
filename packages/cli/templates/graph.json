@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "name": "engagement",
+  "_comment": [
+    "This is the GRAPH. It is the whole control-flow surface of the harness.",
+    "Nodes are stages. Edges are on_pass / on_fail / on_escalate.",
+    "Each node runs a LOOP: execute -> gate -> (fail ? re-execute with the gate's",
+    "feedback : advance). The loop is bounded by max_iterations and budget_usd.",
+    "Change behaviour by editing this file, not by editing the engine.",
+    "Keys beginning with _ are ignored by the engine."
+  ],
+  "budget_usd": 25.0,
+  "default_model": "claude-sonnet-4-20250514",
+  "escalation": {
+    "channel": "github_issue",
+    "mention": ""
+  },
+  "entry": "plan",
+  "nodes": {
+    "plan": {
+      "_purpose": "Turn the spec into an executable plan. Cheap, fast, high-leverage.",
+      "prompt": "prompts/plan.md",
+      "model": "claude-sonnet-4-20250514",
+      "max_iterations": 2,
+      "budget_usd": 3.0,
+      "max_turns": 30,
+      "allowed_tools": "Read,Grep,Glob,Write,Edit,Bash(git *),Bash(rg *),Bash(ls *),Bash(cat *)",
+      "writes": ["docs/plans/${SPEC_ID}.md"],
+      "gates": [
+        {
+          "id": "plan-file-exists",
+          "type": "cmd",
+          "run": "test -s docs/plans/${SPEC_ID}.md",
+          "_why": "Deterministic gates run first and cost nothing. Never pay a model to check something test(1) can check."
+        },
+        {
+          "id": "plan-quality",
+          "type": "judge",
+          "rubric": "gates/rubrics/plan.md",
+          "model": "claude-sonnet-4-20250514"
+        }
+      ],
+      "on_pass": "implement",
+      "on_fail": "escalate"
+    },
+    "implement": {
+      "_purpose": "Do the work. This is the only node that writes source.",
+      "prompt": "prompts/implement.md",
+      "model": "claude-sonnet-4-20250514",
+      "max_iterations": 4,
+      "budget_usd": 12.0,
+      "max_turns": 120,
+      "permission_mode": "acceptEdits",
+      "allowed_tools": "Read,Write,Edit,Grep,Glob,Bash",
+      "gates": [
+        {
+          "id": "structural",
+          "type": "cmd",
+          "run": "gates/structural.sh",
+          "optional_if_absent": true,
+          "_why": "Enforce the structural rule if the repo has core/adapters/config."
+        },
+        {
+          "id": "build",
+          "type": "cmd",
+          "run": "gates/build.sh",
+          "optional_if_absent": true
+        },
+        {
+          "id": "tests",
+          "type": "cmd",
+          "run": "gates/tests.sh",
+          "optional_if_absent": true
+        }
+      ],
+      "on_pass": "verify",
+      "on_fail": "escalate"
+    },
+    "verify": {
+      "_purpose": "Adversarial end-to-end check by an agent that did not write the code.",
+      "prompt": "prompts/verify.md",
+      "model": "claude-sonnet-4-20250514",
+      "agent": "verifier",
+      "max_iterations": 2,
+      "budget_usd": 6.0,
+      "max_turns": 60,
+      "allowed_tools": "Read,Grep,Glob,Bash",
+      "gates": [
+        {
+          "id": "verdict",
+          "type": "judge",
+          "rubric": "gates/rubrics/verify.md",
+          "model": "claude-sonnet-4-20250514"
+        }
+      ],
+      "on_pass": "ship",
+      "on_fail": "implement",
+      "_note": "on_fail loops BACK to implement — this is the graph's one cycle, bounded by max_cycles in state.json."
+    },
+    "ship": {
+      "_purpose": "Open the PR. Never merge. Human owns the merge button, always.",
+      "prompt": "prompts/ship.md",
+      "model": "claude-sonnet-4-20250514",
+      "max_iterations": 1,
+      "budget_usd": 2.0,
+      "max_turns": 30,
+      "allowed_tools": "Read,Grep,Glob,Bash(git *),Bash(gh pr *),Bash(gh issue *)",
+      "gates": [
+        {
+          "id": "pr-open",
+          "type": "cmd",
+          "run": "gates/pr-open.sh"
+        }
+      ],
+      "on_pass": "done",
+      "on_fail": "escalate"
+    },
+    "done": { "terminal": true },
+    "escalate": { "terminal": true, "escalates": true }
+  }
+}
