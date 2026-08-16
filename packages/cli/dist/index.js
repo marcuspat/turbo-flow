@@ -8,6 +8,7 @@ import { answerCommand } from './cli/answer.js';
 import { abortCommand } from './cli/abort.js';
 import { doctorCommand } from './cli/doctor.js';
 import { newCommand } from './cli/new.js';
+import { adoptCommand } from './cli/adopt.js';
 const VERSION = '5.0.0-alpha.1';
 const program = new Command()
     .name('turbo-flow')
@@ -111,6 +112,19 @@ program
     }
     catch (e) {
         console.error(`turbo-flow doctor failed: ${e.message}`);
+        process.exit(1);
+    }
+});
+program
+    .command('adopt')
+    .description('Compile contract/source.md into CLAUDE.md')
+    .option('--output <path>', 'Output path (default: CLAUDE.md)')
+    .action(async (opts) => {
+    try {
+        await adoptCommand(opts);
+    }
+    catch (e) {
+        console.error(`turbo-flow adopt failed: ${e.message}`);
         process.exit(1);
     }
 });

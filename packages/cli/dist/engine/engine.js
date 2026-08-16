@@ -72,12 +72,15 @@ export async function runEngine(opts) {
         const answer = state.escalation.answer;
         state.escalation.resolved_at = new Date().toISOString();
         state.status = 'running';
-        state.escalation.answer = null; // Will be injected into prompt
+        state.escalation.answer = null;
         // Store the answer for the next node execution
         state._human_answer = answer;
         writeState(state, repoRoot);
     }
     const host = createHostAdapter('claude');
+    // Set TF_ENGINE=1 so Stop hooks know the engine is driving.
+    // This prevents hook-side gate execution — the engine runs gates itself.
+    process.env.TF_ENGINE = '1';
     // Main loop
     while (state.status === 'running') {
         const node = graph.nodes[state.graph_node];
@@ -152,7 +155,7 @@ export async function runEngine(opts) {
             humanAnswer: state._human_answer,
         });
         // Clean up transient human answer
-        delete state._human_answer;
+        state._human_answer = undefined;
         // Update state with node result
         state.cost_usd += nodeResult.cost_usd;
         state.iteration++;
@@ -239,7 +242,7 @@ async function executeNode(node, state, host, opts) {
     const gateFeedback = state._gate_feedback;
     if (gateFeedback) {
         prompt += `\n\n---\n\n## Gate feedback (from previous iteration)\n\n${gateFeedback}`;
-        delete state._gate_feedback;
+        state._gate_feedback = undefined;
     }
     // Budget
     const budget = checkBudget(state, node);

@@ -78,6 +78,10 @@ export interface RunState {
   termination_reason: TerminationReason | null;
   escalation: EscalationState;
   history: NodeIteration[];
+  /** Transient: human answer from escalation, consumed on next node execution */
+  _human_answer?: string;
+  /** Transient: gate feedback from failed gates, fed back on retry */
+  _gate_feedback?: string;
 }
 
 /** Create initial state for a new run */

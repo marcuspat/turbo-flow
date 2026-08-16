@@ -96,13 +96,17 @@ export async function runEngine(opts: EngineOpts): Promise<EngineResult> {
     const answer = state.escalation.answer;
     state.escalation.resolved_at = new Date().toISOString();
     state.status = 'running';
-    state.escalation.answer = null; // Will be injected into prompt
+    state.escalation.answer = null;
     // Store the answer for the next node execution
-    (state as any)._human_answer = answer;
+    state._human_answer = answer;
     writeState(state, repoRoot);
   }
 
   const host = createHostAdapter('claude');
+
+  // Set TF_ENGINE=1 so Stop hooks know the engine is driving.
+  // This prevents hook-side gate execution — the engine runs gates itself.
+  process.env.TF_ENGINE = '1';
 
   // Main loop
   while (state.status === 'running') {
@@ -185,11 +189,11 @@ export async function runEngine(opts: EngineOpts): Promise<EngineResult> {
       repoRoot,
       specId,
       graph,
-      humanAnswer: (state as any)._human_answer,
+      humanAnswer: state._human_answer,
     });
 
     // Clean up transient human answer
-    delete (state as any)._human_answer;
+    state._human_answer = undefined;
 
     // Update state with node result
     state.cost_usd += nodeResult.cost_usd;
@@ -248,7 +252,7 @@ export async function runEngine(opts: EngineOpts): Promise<EngineResult> {
         return { exitCode: EXIT.AWAITING_HUMAN, state, message: `max iterations reached, escalated` };
       }
       // Will retry on next loop iteration with feedback in context
-      (state as any)._gate_feedback = nodeResult.gateFeedback;
+      state._gate_feedback = nodeResult.gateFeedback;
     }
 
     // Single step mode — exit after one node iteration
@@ -312,10 +316,10 @@ async function executeNode(
   }
 
   // Append gate feedback if present (retry loop)
-  const gateFeedback = (state as any)._gate_feedback;
+  const gateFeedback = state._gate_feedback;
   if (gateFeedback) {
     prompt += `\n\n---\n\n## Gate feedback (from previous iteration)\n\n${gateFeedback}`;
-    delete (state as any)._gate_feedback;
+    state._gate_feedback = undefined;
   }
 
   // Budget
