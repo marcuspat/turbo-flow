@@ -1,0 +1,2 @@
+- [stated] Really impressed by the Rust integration in the new CLI tool
+- [stated] The error handling pattern with typed results is clean

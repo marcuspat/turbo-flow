@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# turbo-brain pre-commit gate — D8 Layers 1 & 2.
+set -euo pipefail
+
+TB_ROOT="${TB_ROOT:-$HOME/turbo-brain}"
+: "${BRAIN_VAULT:=$HOME/brain-vault}"
+
+if [ ! -d "$TB_ROOT/lib" ]; then
+  echo "pre-commit: turbo-brain not found at $TB_ROOT" >&2
+  exit 1
+fi
+
+# --- Layer 2: secrets (always) ---
+python3 "$TB_ROOT/lib/secret_scan.py" --staged || {
+  echo "" >&2
+  echo "Commit blocked. Remove the secret or add a placeholder marker." >&2
+  exit 1
+}
+
+# --- Are we in the vault repo? ---
+IN_VAULT=0
+if [ "$(git rev-parse --show-toplevel)" = "$(cd "$BRAIN_VAULT" 2>/dev/null && pwd)" ]; then
+  IN_VAULT=1
+fi
+
+# --- Layer 1: client deny-list ---
+DENY="$BRAIN_VAULT/CLIENTS.deny"
+if [ -f "$DENY" ]; then
+  mapfile -t STAGED < <(git diff --cached --name-only --diff-filter=ACM \
+    | grep -E '\.md$' | grep -v '^quarantine/' || true)
+  if [ "${#STAGED[@]}" -gt 0 ]; then
+    TMP="$(mktemp -d)"
+    trap 'rm -rf "$TMP"' EXIT
+    COPIES=()
+    for f in "${STAGED[@]}"; do
+      mkdir -p "$TMP/$(dirname "$f")"
+      git show ":$f" > "$TMP/$f" 2>/dev/null || continue
+      COPIES+=("$TMP/$f")
+    done
+    if [ "${#COPIES[@]}" -gt 0 ]; then
+      set +e
+      python3 "$TB_ROOT/lib/deny_scan.py" --deny "$DENY" "${COPIES[@]}"
+      DENY_RC=$?
+      set -e
+      case "$DENY_RC" in
+        0) ;;
+        3)
+          if [ "$IN_VAULT" = "1" ]; then
+            echo "" >&2
+            echo "Commit blocked: unarmed deny gate." >&2
+            exit 1
+          fi
+          echo "warning: deny-list is empty" >&2
+          ;;
+        *)
+          echo "" >&2
+          echo "Commit blocked: client material (D8 L1)." >&2
+          exit 1
+          ;;
+      esac
+    fi
+  fi
+fi
+
+# --- Schema lint (vault repo only) ---
+if [ "$IN_VAULT" = "1" ]; then
+  python3 "$TB_ROOT/lib/lint.py" "$BRAIN_VAULT" || {
+    echo "" >&2
+    echo "Commit blocked: schema lint failed (D3)." >&2
+    exit 1
+  }
+fi
+
+exit 0

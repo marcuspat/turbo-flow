@@ -1,0 +1,1 @@
+- [stated] Test capture from the web dashboard

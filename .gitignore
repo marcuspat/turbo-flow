@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.eggs/
+dist/
+build/
+*.so
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.env*
+!.env.example
+
+# Package manager
+bun.lock
+package-lock.json
+yarn.lock
+
+# Database / runtime
+db/*.db
+*.db-journal
+*.db-wal
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Demo artifacts (not part of the tool itself)
+demo-vault/
+demo-intake/
+
+# Screenshots / generated assets
+download/*.png
+tool-results/
+
+# Work logs / session artifacts
+worklog.md
+
+# Uploaded source specs (canonical copies live in docs/)
+upload/
+
+# Caddy / deployment
+Caddyfile
+
+# Temp / test artifacts
+/tmp/
+*.tmp

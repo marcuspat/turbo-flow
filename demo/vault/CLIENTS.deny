@@ -1,0 +1,6 @@
+# Turbo Brain — client deny-list (D8 Layer 1)
+# One term per line. These block intake from entering the vault.
+acme-corp
+acmecorp.com
+project-chimera
+CHIMERA
