@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "name": "eval",
+  "budget_usd": 5.0,
+  "default_model": "claude-sonnet-4-20250514",
+  "escalation": { "channel": "notification" },
+  "entry": "implement",
+  "nodes": {
+    "implement": {
+      "_purpose": "Do the work.",
+      "prompt": "prompts/implement.md",
+      "model": "claude-sonnet-4-20250514",
+      "max_iterations": 2,
+      "budget_usd": 4.0,
+      "max_turns": 30,
+      "permission_mode": "acceptEdits",
+      "allowed_tools": "Read,Write,Edit,Grep,Glob,Bash",
+      "gates": [
+        {
+          "id": "file-exists",
+          "type": "cmd",
+          "run": "test -f src/greet.ts"
+        },
+        {
+          "id": "build-passes",
+          "type": "cmd",
+          "run": "npm run build --silent 2>&1"
+        }
+      ],
+      "on_pass": "done",
+      "on_fail": "escalate"
+    },
+    "done": { "terminal": true },
+    "escalate": { "terminal": true, "escalates": true }
+  }
+}

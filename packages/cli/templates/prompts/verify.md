@@ -39,3 +39,7 @@ NOT TESTED:   <what was skipped and why>
 Evidence on PASS as well as FAIL. A verdict without artifacts is an opinion.
 If you cannot verify something, put it under NOT TESTED. Never imply coverage
 you do not have.
+
+# CACHE BOUNDARY
+# Everything above this line is byte-identical across all verify-node executions.
+# The Claude prompt-cache hits on it. Do not move or edit this marker.

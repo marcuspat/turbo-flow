@@ -32,3 +32,7 @@ Your last message is read by the gate. Include:
 
 Do not claim something works because it compiles. "It should work" is not a
 report.
+
+# CACHE BOUNDARY
+# Everything above this line is byte-identical across all implement-node executions.
+# The Claude prompt-cache hits on it. Do not move or edit this marker.

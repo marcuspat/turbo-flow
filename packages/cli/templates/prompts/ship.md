@@ -25,3 +25,7 @@ You are the ship node. Your job is to open a pull request. That is all.
 
 - The PR URL
 - The files changed
+
+# CACHE BOUNDARY
+# Everything above this line is byte-identical across all ship-node executions.
+# The Claude prompt-cache hits on it. Do not move or edit this marker.

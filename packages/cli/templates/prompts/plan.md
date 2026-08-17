@@ -43,3 +43,7 @@ Your last message is read by the gate. Include:
 - what the plan covers
 - the files it references
 - anything the spec left ambiguous that you had to resolve
+
+# CACHE BOUNDARY
+# Everything above this line is byte-identical across all plan-node executions.
+# The Claude prompt-cache hits on it. Do not move or edit this marker.

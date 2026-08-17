@@ -300,26 +300,42 @@ async function executeNode(
     };
   }
 
-  // Substitute variables in prompt
-  const specContent = readFileSync(join(opts.repoRoot, 'specs', `${opts.specId}.md`), 'utf-8');
+  // Substitute stable variables in the cached portion (above CACHE BOUNDARY)
   prompt = prompt
     .replace(/\$\{SPEC_ID\}/g, opts.specId)
     .replace(/\$\{BRANCH\}/g, state.branch)
     .replace(/\$\{GRAPH_NODE\}/g, state.graph_node);
 
-  // Append spec content
-  prompt += `\n\n---\n\n## Spec (${opts.specId})\n\n${specContent}`;
+  // Variable content goes BELOW the cache boundary so the cached prefix
+  // stays byte-identical across executions of the same node.
+  const BOUNDARY = '\n# CACHE BOUNDARY\n';
+  const boundaryIdx = prompt.indexOf(BOUNDARY);
+  const stablePrefix = boundaryIdx >= 0 ? prompt.slice(0, boundaryIdx + BOUNDARY.length) : prompt;
 
-  // Append human answer if present
+  // Build the variable tail
+  const specContent = readFileSync(join(opts.repoRoot, 'specs', `${opts.specId}.md`), 'utf-8');
+  const tail: string[] = [];
+  tail.push(`\n## Spec (${opts.specId})\n\n${specContent}`);
+
   if (opts.humanAnswer) {
-    prompt += `\n\n---\n\n## Human decision (from escalation)\n\n${opts.humanAnswer}`;
+    tail.push(`\n## Human decision (from escalation)\n\n${opts.humanAnswer}`);
   }
 
-  // Append gate feedback if present (retry loop)
   const gateFeedback = state._gate_feedback;
   if (gateFeedback) {
-    prompt += `\n\n---\n\n## Gate feedback (from previous iteration)\n\n${gateFeedback}`;
+    tail.push(`\n## Gate feedback (from previous iteration)\n\n${gateFeedback}`);
     state._gate_feedback = undefined;
+  }
+
+  // If the prompt had a cache boundary, insert tail after it;
+  // otherwise append to end (backward compat with custom prompts).
+  if (boundaryIdx >= 0) {
+    const afterBoundary = prompt.slice(boundaryIdx + BOUNDARY.length).trim();
+    // Keep any comments that were between the marker and end of file
+    const extra = afterBoundary ? `\n${afterBoundary}` : '';
+    prompt = stablePrefix + extra + '\n\n' + tail.join('\n\n');
+  } else {
+    prompt = prompt + '\n\n' + tail.join('\n\n');
   }
 
   // Budget
