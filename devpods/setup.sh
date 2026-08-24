@@ -174,14 +174,14 @@ fi
 # ── Ruflo init — force to ensure .claude-flow/ and skills are populated ──
 RUFLO_INIT_OUTPUT=""
 RUFLO_INIT_RC=0
-RUFLO_INIT_OUTPUT=$(npx ruflo@latest init --force 2>&1) || RUFLO_INIT_RC=$?
+RUFLO_INIT_OUTPUT=$(npx ruflo@3.5.0 init --force 2>&1) || RUFLO_INIT_RC=$?
 
 if [ $RUFLO_INIT_RC -eq 0 ]; then
     ok "Ruflo v3.5 initialized (includes RuVector, AgentDB, SONA, skills, browser, observability)"
 else
     RUFLO_INIT_OUTPUT2=""
     RUFLO_INIT_RC2=0
-    RUFLO_INIT_OUTPUT2=$(npx ruflo@latest init 2>&1) || RUFLO_INIT_RC2=$?
+    RUFLO_INIT_OUTPUT2=$(npx ruflo@3.5.0 init 2>&1) || RUFLO_INIT_RC2=$?
     if [ $RUFLO_INIT_RC2 -eq 0 ]; then
         ok "Ruflo v3.5 initialized"
     elif echo "$RUFLO_INIT_OUTPUT2" | grep -qi "already initialized\|already exists\|Found:"; then
@@ -267,9 +267,9 @@ install_plugin() {
     local PLUGIN_OK=0
     (
         export NODE_OPTIONS="--max-old-space-size=512"
-        if npx ruflo@latest plugins install -n "$plugin_name" >> "$LOG" 2>&1; then
+        if npx ruflo@3.5.0 plugins install -n "$plugin_name" >> "$LOG" 2>&1; then
             exit 0
-        elif npx ruflo@latest plugins install --name "$plugin_name" >> "$LOG" 2>&1; then
+        elif npx ruflo@3.5.0 plugins install --name "$plugin_name" >> "$LOG" 2>&1; then
             exit 0
         else
             exit 1
@@ -752,7 +752,7 @@ Isolation: Git worktrees per parallel agent.
 - Claude Haiku 4.5: simple tasks, formatting, quick lookups
 
 ## Stack Reference
-- Orchestration: `npx ruflo@latest` (NOT claude-flow)
+- Orchestration: `npx ruflo@3.5.0` (NOT claude-flow)
 - Swarms: `npx ruflo swarm init --topology hierarchical --max-agents 8`
 - Memory: Beads (`bd`), Native Tasks, AgentDB (`npx ruflo agentdb`)
 - Codebase Graph: GitNexus (`npx gitnexus analyze`)
@@ -806,34 +806,34 @@ alias claude-hierarchical='claude --dangerously-skip-permissions'
 alias dsp='claude --dangerously-skip-permissions'
 
 # --- Ruflo (replaces ALL cf-* aliases) ---
-alias rf='npx ruflo@latest'
-alias rf-init='npx ruflo@latest init'
-alias rf-wizard='npx ruflo@latest init --wizard'
-alias rf-doctor='npx ruflo@latest doctor --fix'
-alias rf-swarm='npx ruflo@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized'
-alias rf-mesh='npx ruflo@latest swarm init --topology mesh'
-alias rf-ring='npx ruflo@latest swarm init --topology ring'
-alias rf-star='npx ruflo@latest swarm init --topology star'
-alias rf-daemon='npx ruflo@latest daemon start'
-alias rf-status='npx ruflo@latest status'
-alias rf-migrate='npx ruflo@latest migrate run --backup'
-alias rf-plugins='npx ruflo@latest plugins list'
+alias rf='npx ruflo@3.5.0'
+alias rf-init='npx ruflo@3.5.0 init'
+alias rf-wizard='npx ruflo@3.5.0 init --wizard'
+alias rf-doctor='npx ruflo@3.5.0 doctor --fix'
+alias rf-swarm='npx ruflo@3.5.0 swarm init --topology hierarchical --max-agents 8 --strategy specialized'
+alias rf-mesh='npx ruflo@3.5.0 swarm init --topology mesh'
+alias rf-ring='npx ruflo@3.5.0 swarm init --topology ring'
+alias rf-star='npx ruflo@3.5.0 swarm init --topology star'
+alias rf-daemon='npx ruflo@3.5.0 daemon start'
+alias rf-status='npx ruflo@3.5.0 status'
+alias rf-migrate='npx ruflo@3.5.0 migrate run --backup'
+alias rf-plugins='npx ruflo@3.5.0 plugins list'
 
 # Spawn agents
-rf-spawn() { npx ruflo@latest agent spawn -t "${1:-coder}" --name "${2:-agent-$RANDOM}"; }
-rf-task() { npx ruflo@latest swarm "$1" --parallel; }
+rf-spawn() { npx ruflo@3.5.0 agent spawn -t "${1:-coder}" --name "${2:-agent-$RANDOM}"; }
+rf-task() { npx ruflo@3.5.0 swarm "$1" --parallel; }
 
 # --- RuVector / AgentDB (accessed through ruflo) ---
-alias ruv='npx ruflo@latest agentdb'
-alias ruv-stats='npx ruflo@latest agentdb stats'
-alias ruv-init='npx ruflo@latest agentdb init'
-ruv-remember() { npx ruflo@latest agentdb store --key "$1" --value "$2"; }
-ruv-recall() { npx ruflo@latest agentdb query "$1"; }
+alias ruv='npx ruflo@3.5.0 agentdb'
+alias ruv-stats='npx ruflo@3.5.0 agentdb stats'
+alias ruv-init='npx ruflo@3.5.0 agentdb init'
+ruv-remember() { npx ruflo@3.5.0 agentdb store --key "$1" --value "$2"; }
+ruv-recall() { npx ruflo@3.5.0 agentdb query "$1"; }
 
 # --- Memory (ruflo native) ---
-alias mem-search='npx ruflo@latest memory search'
-alias mem-store='npx ruflo@latest memory store'
-alias mem-stats='npx ruflo@latest memory stats'
+alias mem-search='npx ruflo@3.5.0 memory search'
+alias mem-store='npx ruflo@3.5.0 memory store'
+alias mem-stats='npx ruflo@3.5.0 memory stats'
 
 # --- Beads (cross-session memory) ---
 # Beads auto-commits every write to local Dolt history — no push needed for solo use.
@@ -892,24 +892,24 @@ alias gnx-list='npx gitnexus list'
 alias gnx-clean='npx gitnexus clean'
 
 # --- Agentic QE (via ruflo plugin) ---
-alias aqe='npx ruflo@latest plugins run agentic-qe'
-alias aqe-generate='npx ruflo@latest plugins run agentic-qe generate'
-alias aqe-gate='npx ruflo@latest plugins run agentic-qe gate'
+alias aqe='npx ruflo@3.5.0 plugins run agentic-qe'
+alias aqe-generate='npx ruflo@3.5.0 plugins run agentic-qe generate'
+alias aqe-gate='npx ruflo@3.5.0 plugins run agentic-qe gate'
 
 # --- OpenSpec (spec-driven development) ---
 alias os='npx @fission-ai/openspec'
 alias os-init='npx @fission-ai/openspec init'
 
 # --- Hooks Intelligence (ruflo native) ---
-alias hooks-pre='npx ruflo@latest hooks pre-edit'
-alias hooks-post='npx ruflo@latest hooks post-edit'
-alias hooks-train='npx ruflo@latest hooks pretrain --depth deep'
-alias hooks-route='npx ruflo@latest hooks route'
+alias hooks-pre='npx ruflo@3.5.0 hooks pre-edit'
+alias hooks-post='npx ruflo@3.5.0 hooks post-edit'
+alias hooks-train='npx ruflo@3.5.0 hooks pretrain --depth deep'
+alias hooks-route='npx ruflo@3.5.0 hooks route'
 
 # --- Neural (ruflo native) ---
-alias neural-train='npx ruflo@latest neural train'
-alias neural-status='npx ruflo@latest neural status'
-alias neural-patterns='npx ruflo@latest neural patterns'
+alias neural-train='npx ruflo@3.5.0 neural train'
+alias neural-status='npx ruflo@3.5.0 neural status'
+alias neural-patterns='npx ruflo@3.5.0 neural patterns'
 
 # --- Usage monitoring ---
 alias claude-usage='claude usage 2>/dev/null || echo "Run inside claude session"'
@@ -922,7 +922,7 @@ turbo-status() {
     echo ""
     echo "Core:"
     claude --version 2>/dev/null && echo "  ✓ Claude Code" || echo "  ✗ Claude Code"
-    npx ruflo@latest --version 2>/dev/null && echo "  ✓ Ruflo" || echo "  ✗ Ruflo"
+    npx ruflo@3.5.0 --version 2>/dev/null && echo "  ✓ Ruflo" || echo "  ✗ Ruflo"
     echo ""
     echo "Memory:"
     command -v dolt &>/dev/null \
@@ -937,7 +937,7 @@ turbo-status() {
     echo "  Agent Teams: ${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-off}"
     echo ""
     echo "Plugins:"
-    npx ruflo@latest plugins list 2>/dev/null | head -10 || echo "  Run: rf-plugins"
+    npx ruflo@3.5.0 plugins list 2>/dev/null | head -10 || echo "  Run: rf-plugins"
     echo ""
     echo "Codebase Intelligence:"
     command -v gitnexus &>/dev/null && echo "  ✓ GitNexus" || (npx gitnexus --version 2>/dev/null && echo "  ✓ GitNexus (via npx)" || echo "  ○ GitNexus")
@@ -1027,7 +1027,7 @@ fi
 # FIX 14: Security scan — Ruflo v3.5+ has built-in AIDefence
 # Note: @claude-flow/cli security scan is redundant with Ruflo's AIDefence
 if command -v claude &>/dev/null; then
-    npx ruflo@latest aidefence stats >> "$LOG" 2>&1 \
+    npx ruflo@3.5.0 aidefence stats >> "$LOG" 2>&1 \
         && ok "Ruflo AIDefence security stats retrieved" \
         || warn "Ruflo AIDefence check failed (run: npx ruflo aidefence stats)"
 fi
@@ -1060,12 +1060,12 @@ else
 fi
 
 # ── Start Ruflo daemon (with retry) ─────────────────────────────────
-if npx ruflo@latest daemon status 2>/dev/null | grep -q "running"; then
+if npx ruflo@3.5.0 daemon status 2>/dev/null | grep -q "running"; then
     ok "Ruflo daemon already running"
 else
-    if npx ruflo@latest daemon start --timeout 30 >> "$LOG" 2>&1; then
+    if npx ruflo@3.5.0 daemon start --timeout 30 >> "$LOG" 2>&1; then
         sleep 2
-        if npx ruflo@latest daemon status 2>/dev/null | grep -q "running"; then
+        if npx ruflo@3.5.0 daemon status 2>/dev/null | grep -q "running"; then
             ok "Ruflo daemon started (background workers active)"
         else
             warn "Ruflo daemon start may have failed — check with: rf-daemon"
@@ -1293,3 +1293,4 @@ echo -e "    • No security scan → ${GREEN}automated${NC}"
 echo ""
 echo -e "  ${BOLD}Logs:${NC} setup=$LOG  bootstrap=$BOOTSTRAP_LOG"
 echo ""
+
