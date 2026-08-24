@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shell-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell script syntax
+        run: |
+          find . -name '*.sh' -not -path './V1/*' -not -path './V3/*' | while read f; do
+            echo "Checking $f"
+            bash -n "$f" || exit 1
+          done
+
+  json-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate JSON files
+        run: |
+          find . -name '*.json' -not -path './node_modules/*' -not -path './V1/*' -not -path './V3/*' | while read f; do
+            echo "Validating $f"
+            python3 -m json.tool "$f" > /dev/null || exit 1
+          done
