@@ -416,11 +416,11 @@ check "bd-prime-functional" \
 # Threshold ≤15 allows normal backlog of "in-progress polish" tickets without false-positive
 check "bd-lint-bounded" \
   bash -c '[ "$(bd lint --json 2>/dev/null | jq "length" 2>/dev/null || echo 0)" -le 15 ]'
-# bcc pre-flight dep chain intact — Day 0 + Day 0.5 both block Day 1; Day 0 blocks Day 0.5
+# project pre-flight dep chain intact — Day 0 + Day 0.5 both block Day 1; Day 0 blocks Day 0.5
 # Implements turbo-flow-denp inline. Catches accidental dependency unlinking via bd dep operations.
 # bd show --json returns [{id, ..., dependencies: [{id, dependency_type, ...}, ...]}]
 # Dependencies with dependency_type=="blocks" are the issues that block the queried one.
-check "bcc-pre-flight-deps-intact" \
+check "project-pre-flight-deps-intact" \
   bash -c '
     blockers_6id=$(bd show turbo-flow-6id --json 2>/dev/null | jq -r "[.[0].dependencies[]? | select(.dependency_type == \"blocks\") | .id] | join(\",\")" 2>/dev/null)
     blockers_f6sh=$(bd show turbo-flow-f6sh --json 2>/dev/null | jq -r "[.[0].dependencies[]? | select(.dependency_type == \"blocks\") | .id] | join(\",\")" 2>/dev/null)
@@ -433,7 +433,7 @@ check "bd-jsonl-clean" \
 
 echo "==> gate 37: ADR file/ticket consistency (Beads ↔ filesystem)"
 # For each CLOSED ADR ticket (klr/0lg/a7x/dcm/ft1t/czcu/etc = ADR-035..040+), the
-# corresponding .md file must exist in dev/web2/docs/adr/. Catches "ticket marked closed
+# corresponding .md file must exist in src/docs/adr/. Catches "ticket marked closed
 # but ADR file never written" regression. Reads dynamically — new ADR tickets auto-extend coverage.
 check "adr-files-match-closed-tickets" \
   bash -c '
@@ -442,17 +442,17 @@ check "adr-files-match-closed-tickets" \
     while IFS= read -r title; do
       adr_num=$(echo "$title" | grep -oE "ADR-[0-9]+" | head -1)
       [ -z "$adr_num" ] && continue
-      ls dev/web2/docs/adr/${adr_num}-*.md >/dev/null 2>&1 || { echo "missing file for $adr_num" >&2; exit 1; }
+      ls src/docs/adr/${adr_num}-*.md >/dev/null 2>&1 || { echo "missing file for $adr_num" >&2; exit 1; }
     done <<< "$closed_adr_titles"
     exit 0
   '
-# For each EXISTING ADR file numbered ≥35 (the bcc-era tracking convention), there should
+# For each EXISTING ADR file numbered ≥35 (the project-era tracking convention), there should
 # be a matching Beads ticket. Catches "wrote an ADR but never tracked it in Beads."
-# Cutoff at 35 because ADR-031..034 were filed pre-bcc-pattern and don't follow the
+# Cutoff at 35 because ADR-031..034 were filed pre-project-pattern and don't follow the
 # bd-tracking convention (backfill task lives at turbo-flow-w8p4).
 check "adr-tickets-match-existing-files" \
   bash -c '
-    existing_adrs=$(ls dev/web2/docs/adr/ADR-*.md 2>/dev/null | grep -oE "ADR-[0-9]+" | sort -u)
+    existing_adrs=$(ls src/docs/adr/ADR-*.md 2>/dev/null | grep -oE "ADR-[0-9]+" | sort -u)
     [ -z "$existing_adrs" ] && exit 0
     # Use --all -n 0 — closed ADR tickets must still match (e.g., czcu closed by ADR-040 ship);
     # default 50-row open-only cap missed them. Same fix pattern as gates 40/47.
@@ -465,9 +465,9 @@ check "adr-tickets-match-existing-files" \
     exit 0
   '
 
-echo "==> gate 38: bcc Day-N tag consistency (V4.1 Layer Map daily ritual)"
-# For each closed bcc Day-N ticket, assert `git tag bcc-day-${N}-end` exists.
-# Per V4.1 Layer Map § "Daily rituals during bcc": tag at end of each day for rollback.
+echo "==> gate 38: project Day-N tag consistency (V4.1 Layer Map daily ritual)"
+# For each closed project Day-N ticket, assert `git tag project-day-${N}-end` exists.
+# Per V4.1 Layer Map § "Daily rituals during project": tag at end of each day for rollback.
 # Auto-extends as days close. Vacuously passes when no Day-N tickets closed yet.
 # Catches: "closed the day's ticket but skipped the checkpoint tag" (silent rollback gap).
 check "day-tags-match-closed-tickets" \
@@ -475,7 +475,7 @@ check "day-tags-match-closed-tickets" \
     closed_days=$(bd list --status closed --json 2>/dev/null | jq -r ".[] | select(.title | test(\"^Day [0-9]+:\")) | .title" 2>/dev/null | grep -oE "^Day [0-9]+" | grep -oE "[0-9]+" | sort -un)
     [ -z "$closed_days" ] && exit 0
     for n in $closed_days; do
-      git tag --list "bcc-day-${n}-end" 2>/dev/null | grep -q "bcc-day-${n}-end" || { echo "missing tag bcc-day-${n}-end" >&2; exit 1; }
+      git tag --list "project-day-${n}-end" 2>/dev/null | grep -q "project-day-${n}-end" || { echo "missing tag project-day-${n}-end" >&2; exit 1; }
     done
     exit 0
   '
@@ -493,9 +493,9 @@ check "ruflo-hooks-prepost-tool-wired" \
 check "ruflo-hooks-sessionstart-wired" \
   bash -c 'jq -e ".hooks.SessionStart | length >= 1" .claude/settings.json >/dev/null 2>&1'
 
-echo "==> gate 40: bcc epic structural integrity (12-day plan)"
+echo "==> gate 40: project epic structural integrity (12-day plan)"
 # All 12 day tickets exist (1-12). Catches accidental ticket deletion / orphan day.
-check "bcc-12-day-tickets-exist" \
+check "project-12-day-tickets-exist" \
   bash -c '
     titles=$(bd list --all -n 0 --json 2>/dev/null | jq -r ".[].title" 2>/dev/null)
     for n in 1 2 3 4 5 6 7 8 9 10 11 12; do
@@ -509,7 +509,7 @@ check "bcc-12-day-tickets-exist" \
 #   once 6id closed: this gate becomes vacuous (skipped)
 # Uses `bd ready --json` (lists only non-blocked open tickets) to decide blocked-state.
 # Catches: f6sh closed but 6id still has stale blockers; or f6sh open but 6id not gated.
-check "bcc-day-1-state-correct" \
+check "project-day-1-state-correct" \
   bash -c '
     f6sh_status=$(bd show turbo-flow-f6sh --json 2>/dev/null | jq -r ".[0].status" 2>/dev/null)
     six_id_status=$(bd show turbo-flow-6id --json 2>/dev/null | jq -r ".[0].status" 2>/dev/null)
@@ -522,7 +522,7 @@ check "bcc-day-1-state-correct" \
     fi
   '
 # Pre-flight wrappers exist (Day 0 dyrr + Day 0.5 f6sh) — covers gate 36 dep target presence.
-check "bcc-pre-flight-wrappers-exist" \
+check "project-pre-flight-wrappers-exist" \
   bash -c 'bd show turbo-flow-dyrr >/dev/null 2>&1 && bd show turbo-flow-f6sh >/dev/null 2>&1'
 
 echo "==> gate 41: Cross-stack version + content sanity"
@@ -539,7 +539,7 @@ check "agentdb-package-floor" \
   '
 # CLAUDE.md still references the active project (catches "wrong project loaded")
 check "claude-md-mentions-active-project" \
-  bash -c 'grep -qiE "(bcc|gemor|turbo-flow)" CLAUDE.md'
+  bash -c 'grep -qiE "(project|app|turbo-flow)" CLAUDE.md'
 # bd orphans = 0 — issues mentioned in commits but still open in tracker
 # (catches "fixed in commit but never closed" silent regression)
 check "bd-orphans-zero" \
@@ -552,9 +552,9 @@ check "aqe-plugin-installed" \
 check "ruflo-adr-plugin-installed" \
   bash -c 'jq -e ".plugins | to_entries | map(select(.key | test(\"ruflo-adr\"))) | length >= 1" ~/.claude/plugins/installed_plugins.json >/dev/null 2>&1'
 
-echo "==> gate 42: bcc Day-N ticket depth (description quality + alignment)"
+echo "==> gate 42: project Day-N ticket depth (description quality + alignment)"
 # Each Day-N ticket has substantive description (>200 chars) — catches "filed bare title, no scope"
-check "bcc-day-tickets-have-substance" \
+check "project-day-tickets-have-substance" \
   bash -c '
     titles=$(bd list --json 2>/dev/null | jq -r ".[] | select(.title | test(\"^Day [0-9]+:\")) | .id" 2>/dev/null)
     [ -z "$titles" ] && exit 0
@@ -565,7 +565,7 @@ check "bcc-day-tickets-have-substance" \
     exit 0
   '
 # Day 1 description references pre-flight or Day 0 (catches Day 1 forgetting its blockers)
-check "bcc-day-1-aware-of-pre-flight" \
+check "project-day-1-aware-of-pre-flight" \
   bash -c 'bd show turbo-flow-6id --json 2>/dev/null | jq -r ".[0].description" | grep -qiE "(pre-flight|dyrr|f6sh|day 0|day-0)"'
 
 echo "==> gate 43: bd graph hygiene (cycles, orphans, drift)"
@@ -611,9 +611,9 @@ check "claude-md-fresh" \
 # HANDOFF.md modified within 30 days (active session-to-session continuity)
 check "handoff-fresh" \
   bash -c '[ "$(find HANDOFF.md -mtime -30 2>/dev/null)" ] || [ ! -e HANDOFF.md ]'
-# Coherence/planning docs in dev/web2/docs/plans/ — at least one within 30 days
+# Coherence/planning docs in src/docs/plans/ — at least one within 30 days
 check "coherence-proposals-recent" \
-  bash -c '[ -n "$(find dev/web2/docs/plans -name "*.md" -mtime -30 2>/dev/null | head -1)" ] || [ ! -d dev/web2/docs/plans ]'
+  bash -c '[ -n "$(find src/docs/plans -name "*.md" -mtime -30 2>/dev/null | head -1)" ] || [ ! -d src/docs/plans ]'
 
 echo "==> gate 45: Conditional environmental gates (vacuous until configured)"
 # .env or .env.example present in storefront (catches "deploy with no env defined")
@@ -641,11 +641,11 @@ check "rvf-canonical-populated" \
     exit 1
   '
 
-echo "==> gate 46: bcc per-day artifact placeholders (conditional on Day-N closed)"
+echo "==> gate 46: project per-day artifact placeholders (conditional on Day-N closed)"
 # For each closed Day-N ticket, assert the day's expected artifact exists on disk.
 # Per-day switch — catches "closed the ticket but the actual deliverable isn't there."
 # Auto-extends as days close; vacuous when day not yet closed.
-check "bcc-day-artifacts-match-closed-tickets" \
+check "project-day-artifacts-match-closed-tickets" \
   bash -c '
     closed_days=$(bd list --status closed --json 2>/dev/null | jq -r ".[] | select(.title | test(\"^Day [0-9]+:\")) | .title" 2>/dev/null | grep -oE "^Day [0-9]+" | grep -oE "[0-9]+" | sort -un)
     [ -z "$closed_days" ] && exit 0
@@ -654,18 +654,18 @@ check "bcc-day-artifacts-match-closed-tickets" \
         1)  [ -d dev/web1/v0/.vercel ] || { echo "Day 1 closed but no .vercel/ link" >&2; exit 1; } ;;
         2)  grep -qE "(stripe|webhook)" dev/web1/v0/app/api/**/*.ts 2>/dev/null || true ;;
         3)  grep -qiE "sentry|plausible" dev/web1/v0/package.json 2>/dev/null || { echo "Day 3 closed but Sentry/Plausible not in deps" >&2; exit 1; } ;;
-        5)  [ -d dev/web2/gemor/src/modules/erp-sync ] || { echo "Day 5 closed but no erp-sync module" >&2; exit 1; } ;;
-        6)  grep -qiE "payload" dev/web2/gemor-cms/package.json 2>/dev/null || { echo "Day 6 closed but no Payload dep in dev/web2/gemor-cms/package.json (per ADR-039 sub-decision 3: separate workspace, not embedded in v0)" >&2; exit 1; } ;;
+        5)  [ -d src/app/src/modules/erp-sync ] || { echo "Day 5 closed but no erp-sync module" >&2; exit 1; } ;;
+        6)  grep -qiE "payload" src/app-cms/package.json 2>/dev/null || { echo "Day 6 closed but no Payload dep in src/app-cms/package.json (per ADR-039 sub-decision 3: separate workspace, not embedded in v0)" >&2; exit 1; } ;;
         8)  grep -qE "Content-Security-Policy|contentSecurityPolicy" dev/web1/v0/next.config.* 2>/dev/null || { echo "Day 8 closed but no CSP in next.config" >&2; exit 1; } ;;
         9)  [ "$(find HANDOFF.md -mtime -7 2>/dev/null)" ] || { echo "Day 9 closed but HANDOFF.md not updated within 7 days of close" >&2; exit 1; } ;;
-        12) git tag --list "bcc-day-12-end" | grep -q "bcc-day-12-end" || { echo "Day 12 closed but no bcc-day-12-end tag" >&2; exit 1; } ;;
+        12) git tag --list "project-day-12-end" | grep -q "project-day-12-end" || { echo "Day 12 closed but no project-day-12-end tag" >&2; exit 1; } ;;
         *)  ;;  # other days have no specific artifact check yet
       esac
     done
     exit 0
   '
 
-echo "==> gate 47: bcc Day 1-12 status board (informational notes — visibility only)"
+echo "==> gate 47: project Day 1-12 status board (informational notes — visibility only)"
 # Shows status of all 12 day tickets at a glance. note() = informational, doesn't add to PASS/FAIL.
 # Catches "Day 7 in_progress while Day 5 still open" kind of sequencing weirdness on visual scan.
 # Auto-discovers ticket per day via title pattern; survives ticket ID changes.
@@ -679,15 +679,15 @@ for _day_n in 1 2 3 4 5 6 7 8 9 10 11 12; do
 done
 
 # ============================================================
-# gate 48: bcc Day 1 deployed-state health checks
-# All gates here are vacuous (skipped) until `bcc-day-1-end` tag exists.
+# gate 48: project Day 1 deployed-state health checks
+# All gates here are vacuous (skipped) until `project-day-1-end` tag exists.
 # After Day 1 closes, every tf-verify run verifies the live deploy is still healthy.
 # Catches: backend went down, CORS got loosened, image flipped public, key revoked.
 # ============================================================
-echo "==> gate 48: bcc Day 1 deployed-state checks (vacuous until bcc-day-1-end tag)"
-_day1_tag_exists=$(git tag --list "bcc-day-1-end" 2>/dev/null | grep -c "bcc-day-1-end" || echo 0)
+echo "==> gate 48: project Day 1 deployed-state checks (vacuous until project-day-1-end tag)"
+_day1_tag_exists=$(git tag --list "project-day-1-end" 2>/dev/null | grep -c "project-day-1-end" || echo 0)
 if [ "$_day1_tag_exists" = "0" ]; then
-  note "Day 1 not closed yet (no bcc-day-1-end tag) — gate 48 vacuous"
+  note "Day 1 not closed yet (no project-day-1-end tag) — gate 48 vacuous"
 else
   # Day 1 deployed URLs (committed deployment artifacts; update if either changes)
   _MEDUSA_URL="https://medusa-backend-production-5e11.up.railway.app"
@@ -695,53 +695,53 @@ else
   _PUBLISHABLE_KEY="pk_7022477a839f71fdd40037c6eb12149e30b36844ac69989357c27cdf44759565"
 
   # 1. Backend healthcheck endpoint responds 200
-  check "bcc-day-1-backend-health" \
+  check "project-day-1-backend-health" \
     bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$_MEDUSA_URL/health')\" = '200' ]"
 
   # 2. Admin UI loads (HTML response, proves admin assets bundled correctly)
-  check "bcc-day-1-admin-loads" \
+  check "project-day-1-admin-loads" \
     bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$_MEDUSA_URL/app')\" = '200' ]"
 
   # 3. Publishable key works against /store/products (proves: pk valid, sales channel linked, DB reachable)
-  check "bcc-day-1-publishable-key-works" \
+  check "project-day-1-publishable-key-works" \
     bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H 'x-publishable-api-key: $_PUBLISHABLE_KEY' '$_MEDUSA_URL/store/products')\" = '200' ]"
 
   # 4. /store/regions responds 200 (proves migrations ran; data layer alive)
-  check "bcc-day-1-store-regions-loads" \
+  check "project-day-1-store-regions-loads" \
     bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H 'x-publishable-api-key: $_PUBLISHABLE_KEY' '$_MEDUSA_URL/store/regions')\" = '200' ]"
 
   # 5. Storefront URL is published (deployment alive — even if 401 from auth gate, anything 2xx/3xx/401 means Vercel routes the request)
-  check "bcc-day-1-storefront-deployed" \
+  check "project-day-1-storefront-deployed" \
     bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$_STOREFRONT_URL'); case \"\$code\" in 200|301|302|307|308|401) exit 0 ;; *) exit 1 ;; esac"
 
   # 6. CORS not wildcard — Railway side. Run from linked dir.
   #    Skips silently if CLI returns nothing (not authed OR not in linked dir).
-  check "bcc-day-1-cors-not-wildcard" \
+  check "project-day-1-cors-not-wildcard" \
     bash -c '
-      cd dev/web2/gemor 2>/dev/null || exit 0
+      cd src/app 2>/dev/null || exit 0
       cors=$(railway variables --service medusa-backend --json 2>/dev/null | jq -r ".STORE_CORS // empty" 2>/dev/null)
       [ -z "$cors" ] && exit 0  # vacuous if CLI not authed / no link
       [ "$cors" != "*" ]
     '
 
   # 7. Stripe key set on Railway. Run from linked dir.
-  check "bcc-day-1-stripe-key-set" \
+  check "project-day-1-stripe-key-set" \
     bash -c '
-      cd dev/web2/gemor 2>/dev/null || exit 0
+      cd src/app 2>/dev/null || exit 0
       out=$(railway variables --service medusa-backend --json 2>/dev/null | jq -r ".STRIPE_API_KEY // empty" 2>/dev/null)
       [ -z "$out" ] && exit 0  # vacuous if CLI not authed / no link
       echo "$out" | grep -qE "^sk_(test|live)_"
     '
 
   # 8. Image is private on GHCR — currently FAILS until turbo-flow-9e3q remediated. Intentional.
-  check "bcc-day-1-image-private" \
+  check "project-day-1-image-private" \
     bash -c '
-      vis=$(gh api /users/lafinak/packages/container/gemor-medusa --jq ".visibility" 2>/dev/null)
+      vis=$(gh api /users/lafinak/packages/container/app-medusa --jq ".visibility" 2>/dev/null)
       [ "$vis" = "private" ]
     '
 
   # 9. EU region — Railway service config. Skips if CLI not authed.
-  check "bcc-day-1-eu-region" \
+  check "project-day-1-eu-region" \
     bash -c '
       # Railway region binds at deployment level (not service); proxy via the medusa URL TLD ".up.railway.app"
       # plus a successful curl which would have failed if region was misconfigured causing DNS issues.
@@ -750,45 +750,45 @@ else
     '
 
   # 10. Day 1 tag exists (meta — should always be true if we reached this branch, but documents the gate)
-  check "bcc-day-1-tag-exists" \
-    bash -c 'git tag --list "bcc-day-1-end" | grep -q "bcc-day-1-end"'
+  check "project-day-1-tag-exists" \
+    bash -c 'git tag --list "project-day-1-end" | grep -q "project-day-1-end"'
 fi
 
 # ============================================================
-# gate 49: bcc Day 2 deployed-state checks
-# Vacuous until `bcc-day-2-end` tag exists. After Day 2 closes, every
+# gate 49: project Day 2 deployed-state checks
+# Vacuous until `project-day-2-end` tag exists. After Day 2 closes, every
 # tf-verify run verifies the live deploy still has Day 2 deliverables:
 # Stripe webhook route reachable, legal pages routed, env vars set.
 # Per session decision 2026-05-08, cookie-banner sub-gate moved to Day 3
 # (gated on ADR-036 Plausible mode); Resend sub-gate moved to Day 3.
 # ============================================================
-echo "==> gate 49: bcc Day 2 deployed-state checks (vacuous until bcc-day-2-end tag)"
-if ! git tag --list "bcc-day-2-end" 2>/dev/null | grep -q "bcc-day-2-end"; then
-  note "Day 2 not closed yet (no bcc-day-2-end tag) — gate 49 vacuous"
+echo "==> gate 49: project Day 2 deployed-state checks (vacuous until project-day-2-end tag)"
+if ! git tag --list "project-day-2-end" 2>/dev/null | grep -q "project-day-2-end"; then
+  note "Day 2 not closed yet (no project-day-2-end tag) — gate 49 vacuous"
 else
   _STOREFRONT_URL="https://v0-amber-one-20.vercel.app"
 
   # 1. Stripe webhook route deployed — POST without signature should return 400
   #    (route exists, refuses unsigned). 404 = route not deployed.
-  check "bcc-day-2-stripe-webhook-route-deployed" \
+  check "project-day-2-stripe-webhook-route-deployed" \
     bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST '$_STOREFRONT_URL/api/stripe/webhook'); [ \"\$code\" = '400' ] || [ \"\$code\" = '500' ]"
 
   # 2. Legal pages routed — at least one slug returns ≠404 in each locale.
   #    Vercel auth gate may return 401, which still proves the route is live.
-  check "bcc-day-2-legal-page-imprint-en" \
+  check "project-day-2-legal-page-imprint-en" \
     bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$_STOREFRONT_URL/en/legal/imprint'); [ \"\$code\" != '404' ]"
 
-  check "bcc-day-2-legal-page-imprint-sk" \
+  check "project-day-2-legal-page-imprint-sk" \
     bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$_STOREFRONT_URL/sk/legal/imprint'); [ \"\$code\" != '404' ]"
 
-  check "bcc-day-2-legal-page-refund-en" \
+  check "project-day-2-legal-page-refund-en" \
     bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$_STOREFRONT_URL/en/legal/refund'); [ \"\$code\" != '404' ]"
 
-  check "bcc-day-2-legal-page-returns-en" \
+  check "project-day-2-legal-page-returns-en" \
     bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$_STOREFRONT_URL/en/legal/returns'); [ \"\$code\" != '404' ]"
 
   # 3. STRIPE_WEBHOOK_SECRET env var set on Vercel (graceful skip if vercel CLI not authed)
-  check "bcc-day-2-stripe-webhook-secret-set" \
+  check "project-day-2-stripe-webhook-secret-set" \
     bash -c '
       cd dev/web1/v0 2>/dev/null || exit 0
       out=$(vercel env ls production 2>/dev/null | grep -c "STRIPE_WEBHOOK_SECRET" || echo 0)
@@ -797,8 +797,8 @@ else
     '
 
   # 4. Day 2 tag exists (meta documentation)
-  check "bcc-day-2-tag-exists" \
-    bash -c 'git tag --list "bcc-day-2-end" | grep -q "bcc-day-2-end"'
+  check "project-day-2-tag-exists" \
+    bash -c 'git tag --list "project-day-2-end" | grep -q "project-day-2-end"'
 
   # NOTE: SK 23% VAT verification not gated here — admin-API auth in tf-verify is out of scope.
   # Verified via admin UI screenshot in Day 2 close-out comment + ADR-042 reference.
@@ -807,26 +807,26 @@ else
 fi
 
 # ============================================================
-# gate 50: bcc Day 3 deployed-state checks
-# Vacuous until `bcc-day-3-end` tag exists. After Day 3 closes:
+# gate 50: project Day 3 deployed-state checks
+# Vacuous until `project-day-3-end` tag exists. After Day 3 closes:
 # Plausible cookieless script in HTML, Sentry envs set, Resend env set.
 # ============================================================
-echo "==> gate 50: bcc Day 3 deployed-state checks (vacuous until bcc-day-3-end tag)"
-if ! git tag --list "bcc-day-3-end" 2>/dev/null | grep -q "bcc-day-3-end"; then
-  note "Day 3 not closed yet (no bcc-day-3-end tag) — gate 50 vacuous"
+echo "==> gate 50: project Day 3 deployed-state checks (vacuous until project-day-3-end tag)"
+if ! git tag --list "project-day-3-end" 2>/dev/null | grep -q "project-day-3-end"; then
+  note "Day 3 not closed yet (no project-day-3-end tag) — gate 50 vacuous"
 else
   _STOREFRONT_URL="https://v0-amber-one-20.vercel.app"
 
   # 1. Plausible script tag present in deployed HTML (cookieless mode)
-  check "bcc-day-3-plausible-loads" \
+  check "project-day-3-plausible-loads" \
     bash -c "curl -s --max-time 10 '$_STOREFRONT_URL/sk' | grep -q 'plausible.io/js/'"
 
   # 2. AnalyticsConsent banner removed — text from old component should NOT be in HTML
-  check "bcc-day-3-vercel-analytics-removed" \
-    bash -c "! curl -s --max-time 10 '$_STOREFRONT_URL/sk' | grep -q 'gemor-analytics-consent'"
+  check "project-day-3-vercel-analytics-removed" \
+    bash -c "! curl -s --max-time 10 '$_STOREFRONT_URL/sk' | grep -q 'app-analytics-consent'"
 
   # 3. NEXT_PUBLIC_SENTRY_DSN env var set on Vercel (graceful skip if CLI not authed)
-  check "bcc-day-3-sentry-dsn-set-vercel" \
+  check "project-day-3-sentry-dsn-set-vercel" \
     bash -c '
       cd dev/web1/v0 2>/dev/null || exit 0
       out=$(vercel env ls production 2>/dev/null | grep -c "NEXT_PUBLIC_SENTRY_DSN" || echo 0)
@@ -835,7 +835,7 @@ else
     '
 
   # 4. SENTRY_AUTH_TOKEN set on Vercel (build-time source-map upload)
-  check "bcc-day-3-sentry-auth-token-set" \
+  check "project-day-3-sentry-auth-token-set" \
     bash -c '
       cd dev/web1/v0 2>/dev/null || exit 0
       out=$(vercel env ls production 2>/dev/null | grep -c "SENTRY_AUTH_TOKEN" || echo 0)
@@ -844,202 +844,202 @@ else
     '
 
   # 5. SENTRY_DSN set on Railway Medusa
-  check "bcc-day-3-sentry-dsn-set-railway" \
+  check "project-day-3-sentry-dsn-set-railway" \
     bash -c '
-      cd dev/web2/gemor 2>/dev/null || exit 0
+      cd src/app 2>/dev/null || exit 0
       out=$(railway variables --service medusa-backend --kv 2>/dev/null | grep -c "^SENTRY_DSN=" || echo 0)
       [ "$out" = "0" ] && exit 0
       [ "$out" -ge 1 ]
     '
 
   # 6. RESEND_API_KEY set on Railway Medusa
-  check "bcc-day-3-resend-key-set" \
+  check "project-day-3-resend-key-set" \
     bash -c '
-      cd dev/web2/gemor 2>/dev/null || exit 0
+      cd src/app 2>/dev/null || exit 0
       out=$(railway variables --service medusa-backend --kv 2>/dev/null | grep -c "^RESEND_API_KEY=" || echo 0)
       [ "$out" = "0" ] && exit 0
       [ "$out" -ge 1 ]
     '
 
   # 7. Day 3 tag exists (meta)
-  check "bcc-day-3-tag-exists" \
-    bash -c 'git tag --list "bcc-day-3-end" | grep -q "bcc-day-3-end"'
+  check "project-day-3-tag-exists" \
+    bash -c 'git tag --list "project-day-3-end" | grep -q "project-day-3-end"'
 fi
 
 # ============================================================
-# gate 51: bcc Day 4 deployed-state checks (QE day)
-# Vacuous until `bcc-day-4-end` tag exists. After Day 4 closes:
-# QE plan + scorecard committed; Lighthouse perf measurable; bcc.3 closed.
+# gate 51: project Day 4 deployed-state checks (QE day)
+# Vacuous until `project-day-4-end` tag exists. After Day 4 closes:
+# QE plan + scorecard committed; Lighthouse perf measurable; project.3 closed.
 # ============================================================
-echo "==> gate 51: bcc Day 4 deployed-state checks (vacuous until bcc-day-4-end tag)"
-if ! git tag --list "bcc-day-4-end" 2>/dev/null | grep -q "bcc-day-4-end"; then
-  note "Day 4 not closed yet (no bcc-day-4-end tag) — gate 51 vacuous"
+echo "==> gate 51: project Day 4 deployed-state checks (vacuous until project-day-4-end tag)"
+if ! git tag --list "project-day-4-end" 2>/dev/null | grep -q "project-day-4-end"; then
+  note "Day 4 not closed yet (no project-day-4-end tag) — gate 51 vacuous"
 else
   _STOREFRONT_URL="https://v0-amber-one-20.vercel.app"
 
   # 1. QE plan committed (Path C sovereign baseline)
-  check "bcc-day-4-qe-plan-committed" \
-    bash -c 'test -f dev/web2/docs/quality/qe-plan-day4.md'
+  check "project-day-4-qe-plan-committed" \
+    bash -c 'test -f src/docs/quality/qe-plan-day4.md'
 
   # 2. Lighthouse perf measurable on live deploy (any score ≥ 60 = page renders + Lighthouse runs)
-  check "bcc-day-4-lighthouse-perf-measurable" \
+  check "project-day-4-lighthouse-perf-measurable" \
     bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$_STOREFRONT_URL/sk'); [ \"\$code\" = '200' ] || [ \"\$code\" = '307' ] || [ \"\$code\" = '308' ]"
 
   # 3. Lighthouse a11y target met (≥90 verified Day 4)
-  check "bcc-day-4-a11y-target-met" \
+  check "project-day-4-a11y-target-met" \
     bash -c 'true'  # baseline a11y=95 verified 2026-05-09; live re-check needs Lighthouse run, vacuous-tag-only
 
   # 4. SEO target met (≥90 verified Day 4 baseline = 100)
-  check "bcc-day-4-seo-target-met" \
+  check "project-day-4-seo-target-met" \
     bash -c 'true'  # baseline seo=100 verified 2026-05-09; live re-check needs Lighthouse run
 
-  # 5. bcc.3 launch blocker closed
-  check "bcc-day-4-bcc-3-closed" \
-    bash -c 'bd show turbo-flow-bcc.3 2>&1 | head -1 | grep -q "CLOSED"'
+  # 5. project.3 launch blocker closed
+  check "project-day-4-project-3-closed" \
+    bash -c 'bd show turbo-flow-project.3 2>&1 | head -1 | grep -q "CLOSED"'
 
   # 6. Day 4 tag exists (meta)
-  check "bcc-day-4-tag-exists" \
-    bash -c 'git tag --list "bcc-day-4-end" | grep -q "bcc-day-4-end"'
+  check "project-day-4-tag-exists" \
+    bash -c 'git tag --list "project-day-4-end" | grep -q "project-day-4-end"'
 
-  # NOTE: bcc.1 + bcc.2 (P3-B + P3-C) reclassified as test-plumbing tech debt; NOT gated here.
+  # NOTE: project.1 + project.2 (P3-B + P3-C) reclassified as test-plumbing tech debt; NOT gated here.
   # NOTE: ADR scorecard (PARTIALs) verified live at Day 12 binding gate per qe-plan-day4.md §9.
 fi
 
 # ============================================================
-# gate 52: bcc Day 5 deployed-state checks (HELIOS erp-sync scaffold)
-# Vacuous until `bcc-day-5-end` tag exists. After Day 5 closes:
+# gate 52: project Day 5 deployed-state checks (HELIOS erp-sync scaffold)
+# Vacuous until `project-day-5-end` tag exists. After Day 5 closes:
 # erp-sync module structurally complete + boundary lint clean (per ADR-038 layer-1+2).
 # ============================================================
-echo "==> gate 52: bcc Day 5 deployed-state checks (vacuous until bcc-day-5-end tag)"
-if ! git tag --list "bcc-day-5-end" 2>/dev/null | grep -q "bcc-day-5-end"; then
-  note "Day 5 not closed yet (no bcc-day-5-end tag) — gate 52 vacuous"
+echo "==> gate 52: project Day 5 deployed-state checks (vacuous until project-day-5-end tag)"
+if ! git tag --list "project-day-5-end" 2>/dev/null | grep -q "project-day-5-end"; then
+  note "Day 5 not closed yet (no project-day-5-end tag) — gate 52 vacuous"
 else
-  _ERP_DIR="dev/web2/gemor/src/modules/erp-sync"
+  _ERP_DIR="src/app/src/modules/erp-sync"
   _FORBIDDEN='procurement|b2b_account|contract_no|defence|military|cui|supplier_cost|manufacturing_schedule'
 
   # 1. erp-sync module source files exist (8 source: index, service, oauth2, 4 clients)
-  check "bcc-day-5-erp-sync-module-source-exists" \
+  check "project-day-5-erp-sync-module-source-exists" \
     bash -c 'test -f '"$_ERP_DIR"'/index.ts && test -f '"$_ERP_DIR"'/service.ts && test -f '"$_ERP_DIR"'/oauth2.ts && test -f '"$_ERP_DIR"'/clients/products-client.ts && test -f '"$_ERP_DIR"'/clients/stock-client.ts && test -f '"$_ERP_DIR"'/clients/orders-client.ts && test -f '"$_ERP_DIR"'/clients/order-status-client.ts'
 
   # 2. cron driver exists at Medusa-v2-idiomatic location (src/jobs/, NOT inside the module)
-  check "bcc-day-5-erp-sync-cron-driver-exists" \
-    bash -c 'test -f dev/web2/gemor/src/jobs/erp-sync-poll.ts'
+  check "project-day-5-erp-sync-cron-driver-exists" \
+    bash -c 'test -f src/app/src/jobs/erp-sync-poll.ts'
 
   # 3. order.placed subscriber exists (no-op when HELIOS unconfigured)
-  check "bcc-day-5-erp-sync-subscriber-exists" \
-    bash -c 'test -f dev/web2/gemor/src/subscribers/erp-sync-order-placed.ts'
+  check "project-day-5-erp-sync-subscriber-exists" \
+    bash -c 'test -f src/app/src/subscribers/erp-sync-order-placed.ts'
 
   # 4. fixture JSON exists
-  check "bcc-day-5-erp-sync-fixture-exists" \
+  check "project-day-5-erp-sync-fixture-exists" \
     bash -c 'test -f '"$_ERP_DIR"'/__fixtures__/helios-responses.json'
 
   # 5. medusa-config registers the module
-  check "bcc-day-5-erp-sync-medusa-config-registers" \
-    bash -c 'grep -q "./src/modules/erp-sync" dev/web2/gemor/medusa-config.ts'
+  check "project-day-5-erp-sync-medusa-config-registers" \
+    bash -c 'grep -q "./src/modules/erp-sync" src/app/medusa-config.ts'
 
   # 6. Each of 4 clients carries the literal TODO marker required by 5dn description
-  check "bcc-day-5-erp-sync-todo-markers-in-clients" \
+  check "project-day-5-erp-sync-todo-markers-in-clients" \
     bash -c 'grep -q "TODO: connect to HELIOS instance" '"$_ERP_DIR"'/clients/products-client.ts && grep -q "TODO: connect to HELIOS instance" '"$_ERP_DIR"'/clients/stock-client.ts && grep -q "TODO: connect to HELIOS instance" '"$_ERP_DIR"'/clients/orders-client.ts && grep -q "TODO: connect to HELIOS instance" '"$_ERP_DIR"'/clients/order-status-client.ts'
 
   # 7. ADR-038 layer-1 boundary: forbidden tokens absent from JSON values (jq extracts strings only)
-  check "bcc-day-5-erp-sync-fixture-boundary-clean" \
+  check "project-day-5-erp-sync-fixture-boundary-clean" \
     bash -c 'jq -r ".. | strings" '"$_ERP_DIR"'/__fixtures__/helios-responses.json 2>/dev/null | grep -iE "'"$_FORBIDDEN"'" >/dev/null && exit 1 || exit 0'
 
   # 8. ADR-038 layer-2 boundary: no forbidden tokens in source TS (excluding md/json)
-  check "bcc-day-5-erp-sync-source-boundary-clean" \
-    bash -c 'find '"$_ERP_DIR"' dev/web2/gemor/src/jobs/erp-sync-poll.ts dev/web2/gemor/src/subscribers/erp-sync-order-placed.ts -name "*.ts" 2>/dev/null | xargs grep -liE "'"$_FORBIDDEN"'" 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0'
+  check "project-day-5-erp-sync-source-boundary-clean" \
+    bash -c 'find '"$_ERP_DIR"' src/app/src/jobs/erp-sync-poll.ts src/app/src/subscribers/erp-sync-order-placed.ts -name "*.ts" 2>/dev/null | xargs grep -liE "'"$_FORBIDDEN"'" 2>/dev/null | head -1 | grep -q . && exit 1 || exit 0'
 
   # 9. 6 unit test specs exist (5 module + 1 subscriber)
-  check "bcc-day-5-erp-sync-unit-specs-exist" \
-    bash -c 'test -f '"$_ERP_DIR"'/__tests__/products-client.unit.spec.ts && test -f '"$_ERP_DIR"'/__tests__/stock-client.unit.spec.ts && test -f '"$_ERP_DIR"'/__tests__/orders-client.unit.spec.ts && test -f '"$_ERP_DIR"'/__tests__/order-status-client.unit.spec.ts && test -f '"$_ERP_DIR"'/__tests__/oauth2.unit.spec.ts && test -f dev/web2/gemor/src/subscribers/__tests__/erp-sync-order-placed.unit.spec.ts'
+  check "project-day-5-erp-sync-unit-specs-exist" \
+    bash -c 'test -f '"$_ERP_DIR"'/__tests__/products-client.unit.spec.ts && test -f '"$_ERP_DIR"'/__tests__/stock-client.unit.spec.ts && test -f '"$_ERP_DIR"'/__tests__/orders-client.unit.spec.ts && test -f '"$_ERP_DIR"'/__tests__/order-status-client.unit.spec.ts && test -f '"$_ERP_DIR"'/__tests__/oauth2.unit.spec.ts && test -f src/app/src/subscribers/__tests__/erp-sync-order-placed.unit.spec.ts'
 
   # 10. ADR-038 file exists with §"Live cutover task list" section
-  check "bcc-day-5-adr-038-cutover-section-exists" \
-    bash -c 'test -f dev/web2/docs/adr/ADR-038-helios-erp-sync-architecture.md && grep -q "^## Live cutover task list" dev/web2/docs/adr/ADR-038-helios-erp-sync-architecture.md'
+  check "project-day-5-adr-038-cutover-section-exists" \
+    bash -c 'test -f src/docs/adr/ADR-038-helios-erp-sync-architecture.md && grep -q "^## Live cutover task list" src/docs/adr/ADR-038-helios-erp-sync-architecture.md'
 
   # 11. OpenSpec proposal committed
-  check "bcc-day-5-openspec-proposal-exists" \
-    bash -c 'test -f dev/web2/gemor/openspec/changes/helios-erp-sync/proposal.md'
+  check "project-day-5-openspec-proposal-exists" \
+    bash -c 'test -f src/app/openspec/changes/helios-erp-sync/proposal.md'
 
   # 12. Day 5 tag exists (meta)
-  check "bcc-day-5-tag-exists" \
-    bash -c 'git tag --list "bcc-day-5-end" | grep -q "bcc-day-5-end"'
+  check "project-day-5-tag-exists" \
+    bash -c 'git tag --list "project-day-5-end" | grep -q "project-day-5-end"'
 
   # NOTE: live HELIOS connectivity NOT gated here — Day 5 is mock-first per ADR-038 AUTH SCOPE.
   # Live cutover gates land at Day 12 binding gate (turbo-flow-4kq) per ADR-038 §"Live cutover task list".
 fi
 
 # ============================================================
-# gate 53: bcc Day 6 deployed-state checks (CMS sprint part 1)
-# Vacuous until `bcc-day-6-end` tag exists. After Day 6 closes:
+# gate 53: project Day 6 deployed-state checks (CMS sprint part 1)
+# Vacuous until `project-day-6-end` tag exists. After Day 6 closes:
 # Payload v3 CMS workspace + storefront integration + newsletter pipeline scaffolded per ADR-039.
 # ============================================================
-echo "==> gate 53: bcc Day 6 deployed-state checks (vacuous until bcc-day-6-end tag)"
-if ! git tag --list "bcc-day-6-end" 2>/dev/null | grep -q "bcc-day-6-end"; then
-  note "Day 6 not closed yet (no bcc-day-6-end tag) — gate 53 vacuous"
+echo "==> gate 53: project Day 6 deployed-state checks (vacuous until project-day-6-end tag)"
+if ! git tag --list "project-day-6-end" 2>/dev/null | grep -q "project-day-6-end"; then
+  note "Day 6 not closed yet (no project-day-6-end tag) — gate 53 vacuous"
 else
-  _CMS_DIR="dev/web2/gemor-cms"
+  _CMS_DIR="src/app-cms"
   _V0_DIR="dev/web1/v0"
 
   # 1. CMS workspace scaffold present (package.json + payload.config.ts + tsconfig.json + next.config)
-  check "bcc-day-6-cms-workspace-exists" \
+  check "project-day-6-cms-workspace-exists" \
     bash -c 'test -f '"$_CMS_DIR"'/package.json && test -f '"$_CMS_DIR"'/src/payload.config.ts && test -f '"$_CMS_DIR"'/tsconfig.json && test -f '"$_CMS_DIR"'/next.config.mjs'
 
   # 2. 3 Day-6 Payload collections wired (Hero, About, Subscriber)
-  check "bcc-day-6-cms-collections-exist" \
+  check "project-day-6-cms-collections-exist" \
     bash -c 'test -f '"$_CMS_DIR"'/src/collections/Hero.ts && test -f '"$_CMS_DIR"'/src/collections/About.ts && test -f '"$_CMS_DIR"'/src/collections/Subscriber.ts'
 
   # 3. Newsletter endpoint exists in CMS workspace (smart-processor side per ADR-039)
-  check "bcc-day-6-cms-newsletter-route-exists" \
+  check "project-day-6-cms-newsletter-route-exists" \
     bash -c 'test -f '"$_CMS_DIR"'/src/app/\(payload\)/api/newsletter/route.ts'
 
   # 4. Sentry instrumentation present (server + edge + client configs + instrumentation.ts)
-  check "bcc-day-6-cms-sentry-instrumentation-exists" \
+  check "project-day-6-cms-sentry-instrumentation-exists" \
     bash -c 'test -f '"$_CMS_DIR"'/src/instrumentation.ts && test -f '"$_CMS_DIR"'/sentry.server.config.ts && test -f '"$_CMS_DIR"'/sentry.edge.config.ts && test -f '"$_CMS_DIR"'/sentry.client.config.ts'
 
   # 5. v0 CMS fetcher + types
-  check "bcc-day-6-v0-cms-fetcher-exists" \
+  check "project-day-6-v0-cms-fetcher-exists" \
     bash -c 'test -f '"$_V0_DIR"'/lib/cms/types.ts && test -f '"$_V0_DIR"'/lib/cms/payload-client.ts'
 
   # 6. v0 newsletter client-side writer (dumb-UI side per ADR-039)
-  check "bcc-day-6-v0-newsletter-writer-exists" \
+  check "project-day-6-v0-newsletter-writer-exists" \
     bash -c 'test -f '"$_V0_DIR"'/lib/cms/newsletter.ts'
 
   # 7. v0 newsletter form + section components
-  check "bcc-day-6-v0-newsletter-components-exist" \
+  check "project-day-6-v0-newsletter-components-exist" \
     bash -c 'test -f '"$_V0_DIR"'/components/newsletter-form.tsx && test -f '"$_V0_DIR"'/components/newsletter-section.tsx'
 
   # 8. v0 /api/revalidate route (Payload afterChange webhook receiver)
-  check "bcc-day-6-v0-revalidate-route-exists" \
+  check "project-day-6-v0-revalidate-route-exists" \
     bash -c 'test -f '"$_V0_DIR"'/app/api/revalidate/route.ts'
 
   # 9. v0 /[locale]/about route exists (new Day-6 CMS-backed marketing route)
-  check "bcc-day-6-v0-about-route-exists" \
+  check "project-day-6-v0-about-route-exists" \
     bash -c 'test -f '"$_V0_DIR"'/app/\[locale\]/about/page.tsx'
 
   # 10. v0 home page actually fetches from CMS (greps for fetchHero usage)
-  check "bcc-day-6-v0-home-page-fetches-cms" \
+  check "project-day-6-v0-home-page-fetches-cms" \
     bash -c 'grep -q "fetchHero" '"$_V0_DIR"'/app/\[locale\]/page.tsx'
 
   # 10. v0 .env.example documents the 2 CMS-related vars
-  check "bcc-day-6-v0-env-example-documents-cms" \
+  check "project-day-6-v0-env-example-documents-cms" \
     bash -c 'grep -q "NEXT_PUBLIC_CMS_URL" '"$_V0_DIR"'/.env.example && grep -q "PAYLOAD_REVALIDATE_SECRET" '"$_V0_DIR"'/.env.example'
 
   # 11. ADR-039 exists with §"Live cutover task list" + supersession of ADR-006 documented
-  check "bcc-day-6-adr-039-cutover-section-exists" \
-    bash -c 'test -f dev/web2/docs/adr/ADR-039-payload-v3-cms-adoption.md && grep -q "^## Live cutover task list" dev/web2/docs/adr/ADR-039-payload-v3-cms-adoption.md'
+  check "project-day-6-adr-039-cutover-section-exists" \
+    bash -c 'test -f src/docs/adr/ADR-039-payload-v3-cms-adoption.md && grep -q "^## Live cutover task list" src/docs/adr/ADR-039-payload-v3-cms-adoption.md'
 
   # 12. ADR-006 marked superseded by ADR-039
-  check "bcc-day-6-adr-006-superseded" \
-    bash -c 'grep -q "Superseded by ADR-039" dev/web2/docs/adr/ADR-006-marketing-pages-static-nextjs.md'
+  check "project-day-6-adr-006-superseded" \
+    bash -c 'grep -q "Superseded by ADR-039" src/docs/adr/ADR-006-marketing-pages-static-nextjs.md'
 
   # 13. OpenSpec proposal committed
-  check "bcc-day-6-openspec-proposal-exists" \
-    bash -c 'test -f dev/web2/gemor/openspec/changes/payload-cms-marketing/proposal.md'
+  check "project-day-6-openspec-proposal-exists" \
+    bash -c 'test -f src/app/openspec/changes/payload-cms-marketing/proposal.md'
 
   # 14. Day 6 tag exists (meta)
-  check "bcc-day-6-tag-exists" \
-    bash -c 'git tag --list "bcc-day-6-end" | grep -q "bcc-day-6-end"'
+  check "project-day-6-tag-exists" \
+    bash -c 'git tag --list "project-day-6-end" | grep -q "project-day-6-end"'
 
   # NOTE: live CMS connectivity (Railway deploy, real Postgres, Vercel Blob auth) NOT gated here —
   # Day 6 ships scaffold + structurally-complete plumbing. Live gates land at Day 12 binding gate
@@ -1080,7 +1080,7 @@ check "bd-decisions-adr-ref-40pct" \
 
 # 6. ≥30% of last 30 commits reference a bd ticket (turbo-flow-XXX in subject or body).
 # Baseline ~52% on 2026-05-13; threshold leaves 20pp headroom for day-step commit
-# clusters (e.g. bcc-day-N Step A/B/C) that don't always cite the day ticket.
+# clusters (e.g. project-day-N Step A/B/C) that don't always cite the day ticket.
 check "bd-commits-bd-ref-rate-30pct" \
   bash -c 'w=$(git log -n 30 --pretty=format:"---%n%s%n%b" 2>/dev/null | awk "/^---$/{c++} /turbo-flow-[a-z0-9]+/{f[c]=1} END{for(k in f)n++; print n+0}"); t=$(git log -n 30 --pretty=format:"%h" 2>/dev/null | wc -l); [ "$t" -eq 0 ] && exit 0; [ $((w * 100 / t)) -ge 30 ]'
 
@@ -1126,32 +1126,32 @@ check "aqe-marketplace-mcp-declared" \
   '
 
 # ============================================================
-# gate 56: bcc Day 7 deployed-state checks (catalog + brand polish)
-# Vacuous until `bcc-day-7-end` tag exists. After Day 7 closes:
+# gate 56: project Day 7 deployed-state checks (catalog + brand polish)
+# Vacuous until `project-day-7-end` tag exists. After Day 7 closes:
 # Lookbook + story routes, LexicalRenderer wired, i18n parity, TS clean,
 # public assets within budget.
 # ============================================================
-echo "==> gate 56: bcc Day 7 deployed-state checks (vacuous until bcc-day-7-end tag)"
-if ! git tag --list "bcc-day-7-end" 2>/dev/null | grep -q "bcc-day-7-end"; then
-  note "Day 7 not closed yet (no bcc-day-7-end tag) — gate 56 vacuous"
+echo "==> gate 56: project Day 7 deployed-state checks (vacuous until project-day-7-end tag)"
+if ! git tag --list "project-day-7-end" 2>/dev/null | grep -q "project-day-7-end"; then
+  note "Day 7 not closed yet (no project-day-7-end tag) — gate 56 vacuous"
 else
   _V0_DIR="dev/web1/v0"
 
   # 1. Lookbook route exists (Day 7 catalog work — per turbo-flow-1cd Step 5)
-  check "bcc-day-7-lookbook-route-exists" \
+  check "project-day-7-lookbook-route-exists" \
     bash -c 'test -f '"$_V0_DIR"'/app/\[locale\]/lookbook/page.tsx'
 
   # 2. Story route exists (about/story per ADR-039 sub-decision 14)
-  check "bcc-day-7-story-route-exists" \
+  check "project-day-7-story-route-exists" \
     bash -c 'test -f '"$_V0_DIR"'/app/\[locale\]/about/story/page.tsx'
 
   # 3. LexicalRenderer wired in v0 (hand-rolled per ADR-039 sub-decision)
-  check "bcc-day-7-lexical-renderer-wired" \
+  check "project-day-7-lexical-renderer-wired" \
     bash -c 'grep -rqI "LexicalRenderer" '"$_V0_DIR"'/components 2>/dev/null || grep -rqI "LexicalRenderer" '"$_V0_DIR"'/lib 2>/dev/null'
 
-  # 4. i18n en/sk locale key parity (Gemor is bilingual; missing keys = empty strings in demo)
+  # 4. i18n en/sk locale key parity (app is bilingual; missing keys = empty strings in demo)
   # Vacuously passes if locale files not yet structured.
-  check "bcc-day-7-i18n-en-sk-key-parity" \
+  check "project-day-7-i18n-en-sk-key-parity" \
     bash -c '
       en=$(find '"$_V0_DIR"' -path "*/node_modules" -prune -o \( -path "*messages/en.json" -o -path "*locales/en/*.json" -o -path "*i18n/en.json" \) -print 2>/dev/null | head -1)
       sk=$(find '"$_V0_DIR"' -path "*/node_modules" -prune -o \( -path "*messages/sk.json" -o -path "*locales/sk/*.json" -o -path "*i18n/sk.json" \) -print 2>/dev/null | head -1)
@@ -1161,16 +1161,16 @@ else
     '
 
   # 5. TypeScript clean — no new errors in v0 storefront (timeout 120s for cold tsc)
-  check "bcc-day-7-v0-typescript-clean" \
+  check "project-day-7-v0-typescript-clean" \
     bash -c '(cd '"$_V0_DIR"' 2>/dev/null && [ "$(timeout 120 npx tsc --noEmit 2>&1 | grep -c "error TS" || echo 0)" -eq 0 ])'
 
   # 6. Public assets budget — brand polish often adds images; cap at 50MB to stay demo-snappy
-  check "bcc-day-7-public-assets-budget" \
+  check "project-day-7-public-assets-budget" \
     bash -c 's=$(du -sm '"$_V0_DIR"'/public 2>/dev/null | awk "{print \$1}"); [ "${s:-0}" -le 50 ]'
 
   # 7. Day 7 tag exists (meta, like every other Day-N gate)
-  check "bcc-day-7-tag-exists" \
-    bash -c 'git tag --list "bcc-day-7-end" | grep -q "bcc-day-7-end"'
+  check "project-day-7-tag-exists" \
+    bash -c 'git tag --list "project-day-7-end" | grep -q "project-day-7-end"'
 fi
 
 echo
@@ -1221,7 +1221,7 @@ if [ "$FAIL" -gt 0 ]; then
         echo "    claude mcp list  # diagnose; if Failed: claude mcp remove ruflo --scope local"
         echo "    # then re-run devpods/setup.sh"
         ;;
-      bcc-day-1-image-private)
+      project-day-1-image-private)
         echo "  $gate:"
         echo "    Tracked: turbo-flow-9e3q (GHCR visibility — intentional)"
         ;;
@@ -1235,23 +1235,23 @@ if [ "$FAIL" -gt 0 ]; then
         ;;
       adr-tickets-match-existing-files|adr-files-match-closed-tickets)
         echo "  $gate:"
-        echo "    Find mismatch: ls dev/web2/docs/adr/ vs bd list --all --json | grep ADR-"
+        echo "    Find mismatch: ls src/docs/adr/ vs bd list --all --json | grep ADR-"
         echo "    Then either file the missing Beads ticket or write the missing ADR file"
         ;;
       day-tags-match-closed-tickets)
         echo "  $gate:"
-        echo "    Closed Day-N ticket but missing tag: git tag bcc-day-N-end"
+        echo "    Closed Day-N ticket but missing tag: git tag project-day-N-end"
         ;;
-      bcc-day-*-typescript-clean)
+      project-day-*-typescript-clean)
         echo "  $gate:"
         echo "    cd dev/web1/v0 && npx tsc --noEmit  # then fix reported errors"
         ;;
-      bcc-day-*-i18n-en-sk-key-parity)
+      project-day-*-i18n-en-sk-key-parity)
         echo "  $gate:"
         echo "    Find locale json: 'find dev/web1/v0 -name *.json | grep -E messages|locales|i18n'"
         echo "    Then jq paths(scalars) to diff en vs sk; add missing keys to whichever is shorter"
         ;;
-      bcc-day-*-public-assets-budget)
+      project-day-*-public-assets-budget)
         echo "  $gate:"
         echo "    du -sh dev/web1/v0/public/* | sort -hr | head  # find heaviest"
         echo "    Optimize images: cwebp / sharp; or remove unused"
