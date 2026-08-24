@@ -554,7 +554,6 @@ Built with and powers these tools — star the ones you use:
 | [**codescope**](https://github.com/adventurewave-labs/codescope) | Single-binary code-intelligence engine for AI agents — no cloud, no DB, no Python |
 | [**secret-scan**](https://github.com/adventurewave-labs/secret-scan) | Rust secret scanner — obfuscation detection, up to ~1,200 files/sec measured |
 | [**Sentinel**](https://github.com/marcuspat/Sentinel) | Deny-by-default agentic sysadmin: Investigate → Plan → Approve → Act in Rust |
-| [**spacelift-intent**](https://github.com/marcuspat/spacelift-intent) | Natural language → cloud infra via Terraform providers, no HCL generated |
 | [**netrain**](https://github.com/marcuspat/netrain) | Matrix-style network monitor in Rust |
 
 ## Stay Connected
@@ -562,3 +561,4 @@ Built with and powers these tools — star the ones you use:
 If Turbo Flow ships value for you, follow [@marcuspat](https://github.com/marcuspat) on GitHub — agentic tooling, Rust crates, and open-source infra drop regularly.
 
 [![Follow @marcuspat](https://img.shields.io/github/followers/marcuspat?label=Follow%20%40marcuspat&style=social)](https://github.com/marcuspat)
+
