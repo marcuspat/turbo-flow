@@ -1,7 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_database": "turbo_flow",
-  "project_id": "f78ece32-6a26-4554-b26a-8d8d5977f896"
-}
