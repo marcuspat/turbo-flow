@@ -1,20 +1,19 @@
-# Turbo Flow v4.1.0 — Ruv Stack Edition
+# Turbo Flow v4.0
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-4.1.0-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-4.0.0-blue?style=for-the-badge)
 ![Ruflo](https://img.shields.io/badge/Ruflo-v3.5-purple?style=for-the-badge)
-![Ruv Stack](https://img.shields.io/badge/Ruv_Stack-RuVector%2B%20%C2%B7%20ruVLLM%20%C2%B7%20MetaHarness-9b59b6?style=for-the-badge)
 ![MCP Tools](https://img.shields.io/badge/MCP_Tools-215+-green?style=for-the-badge)
 ![Plugins](https://img.shields.io/badge/Plugins-6-critical?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-orange?style=for-the-badge)
 ![Adventure Wave Labs](https://img.shields.io/badge/Adventure_Wave_Labs-Builder-ff6b6b?style=for-the-badge)
 
-**Complete Agentic Development Environment — Ruflo v3.5 + Beads + Worktrees + Agent Teams + Ruv Stack**
+**Complete Agentic Development Environment — Ruflo v3.5 + Beads + Worktrees + Agent Teams**
 
 *Built & Presented by [Adventure Wave Labs](https://www.adventureonthewave.com/#projects)*
 
-[Quick Start](#-quick-start) • [Installation](#-what-gets-installed) • [Ruv Stack](#-ruv-stack-edition-v410) • [Plugins](#-plugins-6) • [Commands](#️-key-commands) • [Migration](#-migrating-from-v3x) • [Resources](#-resources)
+[Quick Start](#-quick-start) • [Installation](#-what-gets-installed) • [Plugins](#-plugins-6) • [Commands](#️-key-commands) • [Migration](#-migrating-from-v3x) • [Resources](#-resources)
 
 </div>
 
@@ -43,35 +42,7 @@ genuine first-run auth screen. Recorded with
   <img src="https://i.ibb.co/N6m72sYQ/AWLabs.png" alt="Adventure Wave Labs" width="600">
 </div>
 
-**Adventure Wave Labs** is the team behind Turbo Flow, a complete agentic development environment built for the Claude ecosystem. We design, build, and maintain the packaging, setup automation, plugin curation, and workflow integration that brings together orchestration, memory, codebase intelligence, and agent isolation into a single streamlined install. The orchestration core itself — the 215+ MCP tools and 60+ agents referenced throughout this README — is [Ruflo](https://github.com/ruvnet/ruflo) v3.5, built by [ruvnet](https://github.com/ruvnet) ("rUv"); Turbo Flow integrates and configures it rather than building it from scratch. See the [Ruv Stack Edition](#ruv-stack-edition-v410) section below for the full breakdown of what's original to this repo versus wired in from rUv's ecosystem.
-
----
-
-## Ruv Stack Edition (v4.1.0)
-
-Turbo Flow's orchestration core has always run on [ruvnet](https://github.com/ruvnet)'s
-("rUv") ecosystem — Ruflo v3.5 and a bundled RuVector WASM build. This edition wires in
-three more real ruvnet projects and gives the rest of the branded "ruv stack" an honest
-accounting: what's dev-relevant gets integrated, what isn't gets documented and skipped.
-
-| Module | What it adds | Status |
-|:-------|:--------------|:-------|
-| **RuVector** (deepened) | `npm install ruvector` — installs the optional package `AGENTDB-VS-RUVECTOR.md` already documents but leaves undone by default | Deepened |
-| **ruVLLM** | Local/offline sparse-attention model tier — a `$0`, no-API rung below Haiku | New |
-| **MetaHarness** | Per-repo branded agent-harness generator (`npx metaharness`) | New |
-| **Skygraph** | Browser all-sky radar demo (ADS-B + satellites) | Optional, off by default |
-| RuView, rUv Neural | Real ruvnet projects (WiFi sensing, EEG/BCI) — no dev-tooling integration point | Excluded |
-| PhotonLayer | No public repo found under ruvnet | Not real / roadmap only |
-
-Full breakdown, package names, and rationale: **[`docs/RUV-STACK.md`](docs/RUV-STACK.md)**.
-
-```bash
-./scripts/setup-ruv-stack.sh            # dry run — prints the plan
-./scripts/setup-ruv-stack.sh --apply    # installs RuVector+, ruVLLM, MetaHarness
-```
-
-Pure add-on: it never modifies `devpods/setup.sh`, runs independently of the main
-install, and writes its `rv-*` aliases to a separate file from the core `rf-*` set.
+**Adventure Wave Labs** is the team behind Turbo Flow, a complete agentic development environment built for the Claude ecosystem. We design, build, and maintain the packaging, setup automation, plugin curation, and workflow integration that brings together orchestration, memory, codebase intelligence, and agent isolation into a single streamlined install. The orchestration core itself — the 215+ MCP tools and 60+ agents referenced throughout this README — is [Ruflo](https://github.com/ruvnet/ruflo) v3.5, built by [ruvnet](https://github.com/ruvnet) ("rUv"); Turbo Flow integrates and configures it rather than building it from scratch.
 
 ---
 
@@ -116,7 +87,7 @@ install, and writes its `rv-*` aliases to a separate file from the core `rf-*` s
 
 ```
 +------------------------------------------------------------------+
-|              TURBO FLOW v4.1.0 — Adventure Wave Labs              |
+|               TURBO FLOW v4.0 — Adventure Wave Labs               |
 +------------------------------------------------------------------+
 |  INTERFACE                                                        |
 |  +---------------+  +---------------+  +---------------+          |
@@ -128,10 +99,6 @@ install, and writes its `rv-*` aliases to a separate file from the core `rf-*` s
 |  60+ Agents | 215+ MCP Tools | Auto-activated Skills              |
 |  AgentDB v3 | RuVector WASM | SONA | 3-Tier Model Routing        |
 |  59 MCP Browser Tools | Observability | Gating                    |
-+------------------------------------------------------------------+
-|  RUV STACK (optional add-on — scripts/setup-ruv-stack.sh)         |
-|  RuVector crate (deepened) | ruVLLM local tier | MetaHarness      |
-|  Skygraph (opt-in, off by default)                                |
 +------------------------------------------------------------------+
 |  PLUGINS (6)                                                      |
 |  +--------------------------------------------------------------+ |
@@ -207,9 +174,6 @@ chmod +x devpods/setup.sh
 ./devpods/setup.sh
 source ~/.bashrc
 turbo-status
-
-# Optional: Ruv Stack Edition (RuVector+, ruVLLM, MetaHarness)
-./scripts/setup-ruv-stack.sh --apply
 ```
 
 ---
@@ -301,20 +265,6 @@ Generates workspace context file with:
 ### Step 10: Aliases + Environment + MCP Registration
 
 50+ aliases across families: `rf-*`, `ruv-*`, `mem-*`, `bd-*`, `wt-*`, `gnx-*`, `aqe-*`, `os-*`, `hooks-*`, `neural-*`, `turbo-status`, `turbo-help`
-
-### Optional: Ruv Stack Edition (`scripts/setup-ruv-stack.sh`)
-
-Run after the 10 steps above, independently, any time:
-
-| Step | Component | Purpose |
-|:-----|:----------|:--------|
-| 1 | RuVector (deepened) | `npm install ruvector` — the package `AGENTDB-VS-RUVECTOR.md` documents as optional |
-| 2 | ruVLLM | Local/offline sparse-attention model tier (`cargo install ruvllm`) |
-| 3 | MetaHarness | Per-repo branded agent-harness generator (`npx metaharness`, run on demand) |
-| 4 | Skygraph | Optional, off by default — pass `--with-skygraph` to include |
-
-Adds a fourth alias family, `rv-*`, in its own file — never touches `~/.turboflow_aliases`.
-See [`docs/RUV-STACK.md`](docs/RUV-STACK.md).
 
 ---
 
@@ -423,18 +373,6 @@ gnx-wiki             # Generate repo wiki from graph
 ```
 </details>
 
-<details>
-<summary><b>Ruv Stack (optional add-on)</b></summary>
-
-```bash
-rv-vector-init         # npm install ruvector — see AGENTDB-VS-RUVECTOR.md for when to use it
-rv-llm-serve           # Start local ruVLLM inference server
-rv-llm-route "task"    # Route a task to the local, $0 ruVLLM tier
-rv-harness-gen         # npx metaharness — scaffold a branded harness for this repo
-rv-sky-demo            # Optional Skygraph demo (only if installed with --with-skygraph)
-```
-</details>
-
 ---
 
 ## Migrating from v3.x
@@ -494,9 +432,6 @@ turbo-help
 
 # 4. Run post-setup verification (13 checks)
 # ./devpods/post-setup.sh
-
-# 5. Optional: install the Ruv Stack Edition
-# ./scripts/setup-ruv-stack.sh --apply
 ```
 
 ---
@@ -505,8 +440,7 @@ turbo-help
 
 | Version | Date | Changes |
 |:--------|:-----|:--------|
-| **v4.1.0** | Jul 2026 | **Ruv Stack Edition**: RuVector (deepened crate), ruVLLM (local model tier), MetaHarness (per-repo harness generator), Skygraph (optional). Pure add-on — `devpods/setup.sh` untouched. |
-| v4.0.0 | Mar 2026 | **Ruflo Migration**: Ruflo v3.5, Beads, GitNexus, Worktrees, Agent Teams, 6 plugins, UI UX Pro Max, OpenSpec |
+| **v4.0.0** | Mar 2026 | **Ruflo Migration**: Ruflo v3.5, Beads, GitNexus, Worktrees, Agent Teams, 6 plugins, UI UX Pro Max, OpenSpec |
 | v3.4.1 | Feb 2025 | Fixes: skill install removed, plugins command, npm fallback |
 | v3.4.0 | Feb 2025 | Complete + Plugins: 36 skills, 15 plugins |
 | v3.3.0 | Feb 2025 | Complete installation: 41 skills, memory, MCP |
@@ -540,7 +474,7 @@ MIT — Copyright (c) 2025-2026 Adventure Wave Labs
 
 **Built & Presented by Adventure Wave Labs**
 
-*Turbo Flow v4.1.0 — Ruflo v3.5 + Ruv Stack Edition. 215+ MCP tools. 6 plugins. Beads. GitNexus. Worktrees. RuVector+. ruVLLM. MetaHarness. One command.*
+*Turbo Flow v4.0 — Ruflo v3.5. 215+ MCP tools. 6 plugins. Beads. GitNexus. Worktrees. One command.*
 
 </div>
 https://github.com/marcuspat/turbo-flow/blob/main/AWLabs.png
