@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Turbo Flow"
+version: "4.0.0"
+date-released: "2026-03-09"
+repository-code: "https://github.com/marcuspat/turbo-flow"
+license: "MIT"
+abstract: "Agentic development environment — 215+ MCP tools, cross-session memory (Beads), a code knowledge graph (GitNexus), and per-agent isolation via git worktrees. One command deploys it to DevPod, Codespaces, or Rackspace Spot."
+authors:
+  - name: "Brandon A Calderon-Morales"
