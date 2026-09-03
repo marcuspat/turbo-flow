@@ -7,11 +7,11 @@
 ![Herramientas MCP](https://img.shields.io/badge/Herramientas_MCP-215+-green?style=for-the-badge)
 ![Plugins](https://img.shields.io/badge/Plugins-6-critical?style=for-the-badge)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-orange?style=for-the-badge)
-![Creando Tu Matrix Labs](https://img.shields.io/badge/Creando_Tu_Matrix_Labs-Constructor-ff6b6b?style=for-the-badge)
+![Adventure Wave Labs](https://img.shields.io/badge/Adventure_Wave_Labs-Constructor-ff6b6b?style=for-the-badge)
 
 **Entorno Completo de Desarrollo Agéntico — Ruflo v3.5 + Beads + Worktrees + Equipos de Agentes**
 
-*Construido y Presentado por [Creando Tu Matrix Labs](https://github.com/creandotumatrixlabs)*
+*Construido y Presentado por [Adventure Wave Labs](https://www.adventureonthewave.com/#projects)*
 
 [Inicio Rápido](#-inicio-rápido) • [Instalación](#-qué-se-instala) • [Plugins](#-plugins-6) • [Comandos](#️-comandos-clave) • [Migración](#-migración-desde-v3x) • [Recursos](#-recursos)
 
@@ -19,14 +19,14 @@
 
 ---
 
-## Acerca de Creando Tu Matrix Labs
+## Acerca de Adventure Wave Labs
 
 <div align="center">
-  <img src="https://github.com/marcuspat/turbo-flow/raw/main/CMLabs.png" alt="Creando Tu Matrix Labs" width="600">
+  <img src="https://raw.githubusercontent.com/adventurewave-labs/.github/main/profile/AWLabs.webp" alt="Adventure Wave Labs" width="600">
 </div>
 
 #
-**Creando Tu Matrix Labs** es el equipo detrás de Turbo Flow un entorno completo de desarrollo agéntico construido para el ecosistema de Claude. Diseñamos, construimos y mantenemos las herramientas que integran orquestación, memoria, inteligencia de código base y aislamiento de agentes en un solo flujo de trabajo optimizado.
+**Adventure Wave Labs** es el equipo detrás de Turbo Flow un entorno completo de desarrollo agéntico construido para el ecosistema de Claude. Diseñamos, construimos y mantenemos las herramientas que integran orquestación, memoria, inteligencia de código base y aislamiento de agentes en un solo flujo de trabajo optimizado.
 
 ---
 
@@ -71,7 +71,7 @@
 
 ```
 +------------------------------------------------------------------+
-|          TURBO FLOW v4.0 — Creando Tu Matrix Labs                 |
+|            TURBO FLOW v4.0 — Adventure Wave Labs                  |
 +------------------------------------------------------------------+
 |  INTERFAZ                                                         |
 |  +---------------+  +---------------+  +---------------+          |
@@ -146,13 +146,13 @@ sudo install devpod /usr/local/bin
 
 ```bash
 # DevPod (recomendado)
-devpod up https://github.com/creandotumatrixlabs/turbo-flow --ide vscode
+devpod up https://github.com/marcuspat/turbo-flow --ide vscode
 
 # Codespaces
 # Sube a GitHub → Abre en Codespace → se ejecuta automáticamente
 
 # Manual
-git clone https://github.com/creandotumatrixlabs/turbo-flow -b main
+git clone https://github.com/marcuspat/turbo-flow -b main
 cd turbo-flow
 chmod +x devpods/setup.sh
 ./devpods/setup.sh
@@ -385,14 +385,11 @@ gnx-wiki             # Generar wiki del repositorio desde el grafo
 
 ```
 turbo-flow/
-├── V3/                          ← archivado v3.0-v3.4.1 (era Claude Flow)
-├── .claude/                     ← habilidades, agentes, configuración
+├── V2/                          ← versión actual
 ├── devpods/
 │   ├── setup.sh                 ← script principal de configuración
 │   ├── post-setup.sh            ← verificación post-configuración
-│   └── context/                 ← archivos de contexto devpod
-├── scripts/
-│   └── generate-claude-md.sh
+│   └── devcontainer_files/      ← archivos de contexto del devcontainer
 ├── CLAUDE.md                    ← contexto del espacio de trabajo (activo)
 └── README.md
 ```
@@ -433,8 +430,8 @@ turbo-help
 
 | Recurso | Enlace |
 |:--------|:-------|
-| Creando Tu Matrix Labs | [GitHub: creandotumatrixlabs](https://github.com/creandotumatrixlabs) |
-| Turbo Flow | [GitHub: creandotumatrixlabs/turbo-flow](https://github.com/creandotumatrixlabs/turbo-flow) |
+| Adventure Wave Labs | [GitHub: adventurewave-labs](https://github.com/adventurewave-labs) |
+| Turbo Flow | [GitHub: marcuspat/turbo-flow](https://github.com/marcuspat/turbo-flow) |
 | Ruflo | [GitHub: ruvnet/ruflo](https://github.com/ruvnet/ruflo) |
 | OpenSpec | [npm: @fission-ai/openspec](https://npmjs.com/package/@fission-ai/openspec) |
 | Agentic QE | [npm: agentic-qe](https://npmjs.com/package/agentic-qe) |
@@ -443,13 +440,13 @@ turbo-help
 
 ## Licencia
 
-MIT — Copyright (c) 2025-2026 Creando Tu Matrix Labs
+MIT — Copyright (c) 2025-2026 Adventure Wave Labs
 
 ---
 
 <div align="center">
 
-**Construido y Presentado por Creando Tu Matrix Labs**
+**Construido y Presentado por Adventure Wave Labs**
 
 *Turbo Flow v4.0 — Ruflo v3.5. 215+ herramientas MCP. 6 plugins. Beads. GitNexus. Worktrees. Un solo comando.*
 
