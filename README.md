@@ -39,7 +39,7 @@ genuine first-run auth screen. Recorded with
 ## About Adventure Wave Labs
 
 <div align="center">
-  <img src="https://i.ibb.co/N6m72sYQ/AWLabs.png" alt="Adventure Wave Labs" width="600">
+  <img src="https://raw.githubusercontent.com/adventurewave-labs/.github/main/profile/AWLabs.webp" alt="Adventure Wave Labs" width="600">
 </div>
 
 **Adventure Wave Labs** is the team behind Turbo Flow, a complete agentic development environment built for the Claude ecosystem. We design, build, and maintain the packaging, setup automation, plugin curation, and workflow integration that brings together orchestration, memory, codebase intelligence, and agent isolation into a single streamlined install. The orchestration core itself — the 215+ MCP tools and 60+ agents referenced throughout this README — is [Ruflo](https://github.com/ruvnet/ruflo) v3.5, built by [ruvnet](https://github.com/ruvnet) ("rUv"); Turbo Flow integrates and configures it rather than building it from scratch.
@@ -401,17 +401,11 @@ gnx-wiki             # Generate repo wiki from graph
 
 ```
 turbo-flow/
-├── V3/                          ← archived v3.0-v3.4.1 (Claude Flow era)
-├── .claude/                     ← skills, agents, settings
+├── V2/                          ← current versioned release
 ├── devpods/
 │   ├── setup.sh                 ← main setup script
 │   ├── post-setup.sh            ← post-setup verification
-│   └── context/                 ← devpod context files
-├── scripts/
-│   ├── generate-claude-md.sh
-│   └── setup-ruv-stack.sh       ← optional Ruv Stack Edition add-on
-├── docs/
-│   └── RUV-STACK.md             ← ruv stack breakdown: what's real, what's wired in
+│   └── devcontainer_files/      ← devcontainer context files
 ├── CLAUDE.md                    ← workspace context (active)
 └── README.md
 ```
@@ -495,4 +489,3 @@ Built with and powers these tools — star the ones you use:
 If Turbo Flow ships value for you, follow [@marcuspat](https://github.com/marcuspat) on GitHub — agentic tooling, Rust crates, and open-source infra drop regularly.
 
 [![Follow @marcuspat](https://img.shields.io/github/followers/marcuspat?label=Follow%20%40marcuspat&style=social)](https://github.com/marcuspat)
-
