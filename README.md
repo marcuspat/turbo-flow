@@ -494,3 +494,5 @@ Built with and powers these tools — star the ones you use:
 If Turbo Flow ships value for you, follow [@marcuspat](https://github.com/marcuspat) on GitHub — agentic tooling, Rust crates, and open-source infra drop regularly.
 
 [![Follow @marcuspat](https://img.shields.io/github/followers/marcuspat?label=Follow%20%40marcuspat&style=social)](https://github.com/marcuspat)
+
+[![MCPVault: claimed](https://mcpvault.io/badge/turbo-flow.svg?theme=dark)](https://mcpvault.io/servers/turbo-flow/health?utm_source=external_badge&utm_medium=referral&utm_campaign=mcp_health_report)
