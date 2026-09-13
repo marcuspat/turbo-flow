@@ -1,7 +1,7 @@
-> **⚠️ SUPERSEDED — this project continues as Turbo Rig (`marcuspat/rig`, 2026-09-11).**
+> **⚠️ SUPERSEDED — this project continues as Turbo Rig (`marcuspat/turbo-rig`, 2026-09-11).**
 > The orchestration layer (Ruflo, swarms, the 215+ MCP tool surface) was retired in favor of a thin rig — constitution, cross-model review gate, git-versioned memory — built on harness-native features instead of an orchestration platform. **This repo keeps one active job:** the devcontainer definitions `devpod-turbo()` uses to boot the remote execution plane.
 >
-> If you arrived here looking for an agentic rig rather than a Ruflo distribution: Turbo Rig is the current thing.
+> If you arrived here looking for an agentic rig rather than a Ruflo distribution: Turbo Rig is the current thing which is currently under development. Stay tuned for its release!
 
 # Turbo Flow v4.0
 
