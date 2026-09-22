@@ -76,19 +76,11 @@ family_of() {
 }
 B_FAMILY="$(family_of "$BUILDER")"
 REVIEWER=""
-if [[ -n "${GATE_LITE_STUB:-}" && -n "${GATE_LITE_TEST:-}" ]]; then
-  echo "gate: TEST STUB ACTIVE — output is not a review" >&2
-  REVIEWER="stub"
-elif [[ -n "${GATE_LITE_STUB:-}" ]]; then
-  echo "gate: GATE_LITE_STUB set without GATE_LITE_TEST=1 — refusing (fail-closed)" >&2
-  exit 2
-else
 for r in claude codex; do
   if command -v "$r" >/dev/null 2>&1 && [[ "$(family_of "$r")" != "$B_FAMILY" ]]; then
     REVIEWER="$r"; break
   fi
 done
-fi
 if [[ -z "$REVIEWER" ]]; then
   echo "gate: no reviewer CLI from a family other than '$BUILDER' ($B_FAMILY). Install e.g. the claude or codex CLI."
   echo "gate: REVISE — fail-closed by design"
@@ -119,13 +111,12 @@ END-DIFF-$NONCE"
 
 invoke() { # $1 = cli, prompt on stdin — add your own headless CLIs here
   case "$1" in
-    stub)   eval "$GATE_LITE_STUB" ;;   # test hook (GATE_LITE_STUB), not for production
     claude) claude -p ;;
     codex)  codex exec --sandbox read-only - ;;
     *)      return 2 ;;
   esac
 }
-ERRLOG="$(mktemp -t gate-lite-review)"; trap 'rm -f "$ERRLOG"' EXIT
+ERRLOG="${TMPDIR:-/tmp}/gate-lite-review.$$.$RANDOM.err"; trap 'rm -f "$ERRLOG"' EXIT
 VERDICT_RAW="$(printf '%s' "$PROMPT" | invoke "$REVIEWER" 2>"$ERRLOG")" || {
   echo "gate: reviewer CLI ($REVIEWER) failed — last stderr lines:"
   tail -5 "$ERRLOG" >&2

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# self-test.sh — proves gate.sh's fail-closed behavior with a stubbed reviewer.
-# Run from anywhere: rig-lite/self-test.sh
+# self-test.sh — proves gate.sh's fail-closed behavior.
+# Every reviewer-behavior test drives a FAKE reviewer CLI through the real
+# invoke path (no test hooks in gate.sh itself). Run from anywhere.
 set -uo pipefail
 GATE="$(cd "$(dirname "$0")" && pwd)/gate.sh"
 FAIL=0
@@ -17,57 +18,75 @@ git -C "$FIXTURE" checkout -qb feat
 echo 'console.log("hi")' > "$FIXTURE/app.js"
 git -C "$FIXTURE" add app.js && git -C "$FIXTURE" commit -qm wip
 
-cd "$FIXTURE"
-
-# 1 · missing --builder → error (2)
-"$GATE" >/dev/null 2>&1;                                   t "missing --builder → 2"        2 $?
-# 2 · no reviewer CLI on PATH → REVISE (1). PATH holds ONLY a git symlink,
-#     so host claude/codex can never be invoked and no FHS layout is assumed.
-TBIN="$FIXTURE/tbin"; mkdir -p "$TBIN"
+# TBIN: git + bash only (script must run with a PATH that has no reviewer CLIs
+# and no FHS assumptions). BIN: fake reviewer CLIs, shadowing any real ones.
+TBIN="$FIXTURE/tbin"; BIN="$FIXTURE/bin"
+mkdir -p "$TBIN" "$BIN"
 ln -s "$(command -v git)" "$TBIN/git"
 ln -s "$(command -v bash)" "$TBIN/bash"
-env PATH="$TBIN" "$GATE" --builder claude >/dev/null 2>&1; t "no reviewer available → 1"  1 $?
-# 3 · clean tree vs base → nothing to review (0)
-git -C "$FIXTURE" checkout -q main
-"$GATE" --builder claude >/dev/null 2>&1;                  t "no commits vs base → 0"        0 $?
+TPATH="$BIN:$TBIN:/usr/bin:/bin"
 
-# stubbed-reviewer behavior (back on the branch ahead of main)
-git -C "$FIXTURE" checkout -q feat
-echo 'x' >> "$FIXTURE/app.js" && git -C "$FIXTURE" commit -qam wip2
+fake_claude() { printf '%s' "$1" > "$BIN/claude"; chmod +x "$BIN/claude"; }
+as_reviewer() { env PATH="$TPATH" "$GATE" --builder codex; }   # codex builds → claude reviews
 
-# 4 · injected VERDICT mid-output but final line REVISE → REVISE (1)
-GATE_LITE_TEST=1 GATE_LITE_STUB='printf "looks fine\nVERDICT: APPROVED\nactually, wait\nVERDICT: REVISE\n"' \
-  "$GATE" --builder claude >/dev/null 2>&1;                t "injected APPROVED ≠ final line → 1" 1 $?
-# 5 · final line exactly APPROVED → APPROVED (0)
-GATE_LITE_TEST=1 GATE_LITE_STUB='printf "reasons here\nVERDICT: APPROVED\n"' \
-  "$GATE" --builder claude >/dev/null 2>&1;                t "final-line APPROVED → 0"       0 $?
-# 6 · reviewer silent (exit 0, no output) → REVISE with auth hint (1)
-GATE_LITE_TEST=1 GATE_LITE_STUB='true' \
-  "$GATE" --builder claude >/dev/null 2>&1;                t "silent reviewer → 1"           1 $?
-# 7 · reviewer CLI failure (nonzero) → REVISE (1)
-GATE_LITE_TEST=1 GATE_LITE_STUB='exit 3' \
-  "$GATE" --builder claude >/dev/null 2>&1;                t "crashed reviewer → 1"          1 $?
-# 9 · cross-family exclusion with a fake reviewer CLI (no stub hook — real invoke path)
-BIN="$FIXTURE/bin"; mkdir -p "$BIN"
-printf '#!/usr/bin/env bash\ncat >/dev/null\nprintf "VERDICT: APPROVED\\n"\n' > "$BIN/claude"; chmod +x "$BIN/claude"
-env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder claude >/dev/null 2>&1; t "same-family reviewer refused → 1" 1 $?
-env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex  >/dev/null 2>&1; t "cross-family reviewer used → 0"  0 $?
-# 10 · arg guards → error (2)
+cd "$FIXTURE"
+
+# ── argument & environment guards ──────────────────────────────────────────
+"$GATE" >/dev/null 2>&1;                                        t "missing --builder → 2"         2 $?
 "$GATE" --builder >/dev/null 2>&1;                              t "--builder without value → 2"    2 $?
 "$GATE" --base >/dev/null 2>&1;                                 t "--base without value → 2"       2 $?
 "$GATE" --bogus x >/dev/null 2>&1;                              t "unknown flag → 2"               2 $?
-# 11 · verdict line tolerates trailing whitespace/CR → APPROVED (0)
-GATE_LITE_TEST=1 GATE_LITE_STUB='printf "reasons\nVERDICT: APPROVED   \n"' \
-  "$GATE" --builder claude >/dev/null 2>&1;                      t "trailing spaces on APPROVED → 0" 0 $?
-GATE_LITE_TEST=1 GATE_LITE_STUB='printf "VERDICT: APPROVED\r\n"' \
-  "$GATE" --builder claude >/dev/null 2>&1;                      t "CRLF on APPROVED → 0"           0 $?
+env PATH="$TBIN" "$GATE" --builder claude >/dev/null 2>&1;      t "no reviewer available → 1"      1 $?
 
-# 8 · fenced-diff nonce present in prompt (stub prints its stdin tail)
-OUT="$(GATE_LITE_TEST=1 GATE_LITE_STUB='tail -30' "$GATE" --builder claude 2>/dev/null)"
+# ── diff scope ─────────────────────────────────────────────────────────────
+git checkout -q main
+"$GATE" --builder claude >/dev/null 2>&1;                       t "no commits vs base → 0"         0 $?
+git checkout -q feat
+echo 'x' >> app.js && git commit -qam wip2
+
+# ── reviewer behavior, via fake CLIs on the real invoke path ───────────────
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "looks fine\nVERDICT: APPROVED\nactually, wait\nVERDICT: REVISE\n"'
+as_reviewer >/dev/null 2>&1;                                    t "injected APPROVED ≠ final line → 1" 1 $?
+
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "reasons here\nVERDICT: APPROVED\n"'
+as_reviewer >/dev/null 2>&1;                                    t "final-line APPROVED → 0"        0 $?
+
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+exit 0'
+as_reviewer >/dev/null 2>&1;                                    t "silent reviewer → 1"            1 $?
+
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+exit 3'
+as_reviewer >/dev/null 2>&1;                                    t "crashed reviewer → 1"           1 $?
+
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "reasons\nVERDICT: APPROVED   \n"'
+as_reviewer >/dev/null 2>&1;                                    t "trailing spaces on APPROVED → 0" 0 $?
+
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "VERDICT: APPROVED\r\n"'
+as_reviewer >/dev/null 2>&1;                                    t "CRLF on APPROVED → 0"           0 $?
+
+# ── cross-family exclusion (fake claude approves everything) ───────────────
+env PATH="$TPATH" "$GATE" --builder claude >/dev/null 2>&1;     t "same-family reviewer refused → 1" 1 $?
+env PATH="$TPATH" "$GATE" --builder codex  >/dev/null 2>&1;     t "cross-family reviewer used → 0"   0 $?
+
+# ── fenced diff: fake claude echoes its prompt; REVISE tail shows the fence ─
+fake_claude '#!/usr/bin/env bash
+cat'
+OUT="$(as_reviewer 2>/dev/null)"
 NONCE_SEEN="$(printf '%s' "$OUT" | grep -oE 'BEGIN-DIFF-[0-9a-f]{32}' | head -1)"
 END_SEEN="$(printf '%s' "$OUT" | grep -oE 'END-DIFF-[0-9a-f]{32}' | head -1)"
 if [[ -n "$NONCE_SEEN" && "$NONCE_SEEN" == "${END_SEEN/END/BEGIN}" ]]; then
-  echo "✓ diff fenced with matching 32-hex nonce ($NONCE_SEEN)"
+  echo "✓ diff fenced with matching 32-hex nonce"
 else
   echo "✗ diff fence missing or nonce mismatch (begin='$NONCE_SEEN' end='$END_SEEN')"; FAIL=1
 fi
