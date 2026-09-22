@@ -117,12 +117,12 @@ else
 fi
 
 # Ruflo
-RF_VERSION=$(npx ruflo@latest --version 2>/dev/null | head -1 || echo "")
+RF_VERSION=$(npx -y ruflo@latest --version 2>/dev/null | head -1 || echo "")
 if [ -n "$RF_VERSION" ]; then
     success "Ruflo $RF_VERSION"
     ((PASS++))
 else
-    fail "Ruflo not responding — run: npx ruflo@latest init"
+    fail "Ruflo not responding — run: npx -y ruflo@latest init"
     ((ISSUES++))
 fi
 
@@ -185,7 +185,7 @@ for cfg in "$HOME/.config/claude/mcp.json" "$HOME/.claude/claude_desktop_config.
 done
 
 # Doctor
-DOCTOR_OUTPUT=$(npx ruflo@latest doctor 2>&1 || true)
+DOCTOR_OUTPUT=$(npx -y ruflo@latest doctor 2>&1 || true)
 if echo "$DOCTOR_OUTPUT" | grep -qi "error\|failed\|critical"; then
     warning "Ruflo doctor found issues:"
     echo "$DOCTOR_OUTPUT" | head -10 | sed 's/^/    /'
@@ -223,7 +223,7 @@ check_plugin() {
 
     # Also check via ruflo plugins list
     if ! $found; then
-        if npx ruflo@latest plugins list 2>/dev/null | grep -qi "$(echo "$name" | sed 's/@claude-flow\///')" 2>/dev/null; then
+        if npx -y ruflo@latest plugins list 2>/dev/null | grep -qi "$(echo "$name" | sed 's/@claude-flow\///')" 2>/dev/null; then
             found=true
         fi
     fi
@@ -237,7 +237,7 @@ check_plugin() {
         success "$display"
         ((PASS++))
     else
-        warning "$display — not found (run: npx ruflo@latest plugins install -n $name)"
+        warning "$display — not found (run: npx -y ruflo@latest plugins install -n $name)"
         ((ISSUES++))
     fi
 }
@@ -257,7 +257,7 @@ section "Step 4: OpenSpec"
 if npm list -g @fission-ai/openspec --depth=0 >/dev/null 2>&1; then
     success "OpenSpec installed globally"
     ((PASS++))
-elif npx @fission-ai/openspec --version >/dev/null 2>&1; then
+elif npx -y @fission-ai/openspec --version >/dev/null 2>&1; then
     success "OpenSpec available via npx"
     ((PASS++))
 else
@@ -280,7 +280,7 @@ elif [ -d "$UIPRO_SKILL_DIR_LOCAL" ] && [ -n "$(ls -A "$UIPRO_SKILL_DIR_LOCAL" 2
     success "UI UX Pro Max skill installed (local)"
     ((PASS++))
 else
-    warning "UI UX Pro Max skill missing — run: npx uipro-cli init --ai claude"
+    warning "UI UX Pro Max skill missing — run: npx -y uipro-cli init --ai claude"
     ((ISSUES++))
 fi
 
@@ -292,7 +292,7 @@ section "Step 6: GitNexus (Codebase Knowledge Graph)"
 if command -v gitnexus >/dev/null 2>&1; then
     success "GitNexus installed globally"
     ((PASS++))
-elif npx gitnexus --version >/dev/null 2>&1; then
+elif npx -y gitnexus --version >/dev/null 2>&1; then
     success "GitNexus available via npx"
     ((PASS++))
 else
@@ -385,7 +385,7 @@ fi
 
 # Check if any repos are actually indexed (GitNexus may be installed but empty).
 # Correct subcommand is `gitnexus list` (human-readable, not `list-repos`/JSON).
-if command -v gitnexus >/dev/null 2>&1 || npx gitnexus --version >/dev/null 2>&1; then
+if command -v gitnexus >/dev/null 2>&1 || npx -y gitnexus --version >/dev/null 2>&1; then
     GNX_LIST=$( (command -v gitnexus >/dev/null 2>&1 && gitnexus list 2>/dev/null) || npx -y gitnexus list 2>/dev/null || echo "")
     REPO_COUNT=$(echo "$GNX_LIST" | grep -ciE "Path:|Indexed:" 2>/dev/null || echo "0")
     if [ "${REPO_COUNT:-0}" -gt 0 ]; then
@@ -637,12 +637,12 @@ section "Step 11: Security Scan"
 
 # Security is handled by Ruflo's built-in AIDefence (claude-flow@alpha is the dead
 # package this migration removed — do NOT reintroduce @claude-flow/cli here).
-if npx ruflo@latest aidefence stats >/dev/null 2>&1; then
+if npx -y ruflo@latest aidefence stats >/dev/null 2>&1; then
     success "Security scanning available (Ruflo AIDefence)"
     ((PASS++))
-    info "Run security scan: npx ruflo@latest aidefence scan"
+    info "Run security scan: npx -y ruflo@latest aidefence scan"
 else
-    warning "Ruflo AIDefence not responding — run: npx ruflo@latest aidefence stats"
+    warning "Ruflo AIDefence not responding — run: npx -y ruflo@latest aidefence stats"
     ((ISSUES++))
 fi
 
@@ -653,7 +653,7 @@ fi
 section "Step 12: Ruflo Daemon"
 
 DAEMON_RUNNING=false
-if npx ruflo@latest daemon status 2>/dev/null | grep -qi "running"; then
+if npx -y ruflo@latest daemon status 2>/dev/null | grep -qi "running"; then
     success "Ruflo daemon already running"
     ((PASS++))
     DAEMON_RUNNING=true
@@ -661,9 +661,9 @@ else
     info "Ruflo daemon not running — attempting to start..."
     # Try starting with retry (up to 3 attempts)
     for attempt in 1 2 3; do
-        if npx ruflo@latest daemon start --timeout 30 >/dev/null 2>&1; then
+        if npx -y ruflo@latest daemon start --timeout 30 >/dev/null 2>&1; then
             sleep 5  # Give daemon time to initialize
-            if npx ruflo@latest daemon status 2>/dev/null | grep -qi "running"; then
+            if npx -y ruflo@latest daemon status 2>/dev/null | grep -qi "running"; then
                 success "Ruflo daemon started (attempt $attempt)"
                 ((PASS++))
                 DAEMON_RUNNING=true
@@ -727,7 +727,7 @@ echo "    1. RESTART CLAUDE CODE  →  Required for MCP & plugins"
 echo "    2. RELOAD SHELL         →  source ~/.bashrc"
 echo "    3. SET API KEY          →  export ANTHROPIC_API_KEY=\"sk-ant-...\""
 echo "    4. VERIFY               →  turbo-status"
-echo "    5. SECURITY SCAN        →  npx ruflo@latest aidefence scan"
+echo "    5. SECURITY SCAN        →  npx -y ruflo@latest aidefence scan"
 echo ""
 echo "  Quick Reference:"
 echo "    ORCHESTRATION   rf-swarm, rf-spawn, rf-doctor, rf-daemon"
@@ -736,6 +736,6 @@ echo "    ISOLATION       wt-add, wt-remove, wt-list"
 echo "    QUALITY         aqe-generate, aqe-gate, os-init"
 echo "    INTELLIGENCE    hooks-train, hooks-route, neural-train"
 echo "    CODEBASE        gnx-analyze-force, gnx-serve, gnx-wiki"
-echo "    SECURITY        npx ruflo@latest aidefence scan"
+echo "    SECURITY        npx -y ruflo@latest aidefence scan"
 echo "    STATUS          turbo-status, turbo-help"
 echo ""

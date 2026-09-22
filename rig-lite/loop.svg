@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#7d8ba1"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#7bd88f"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="680" rx="18" fill="#121722"/>
+  <g stroke="#1f2937" stroke-width="1" opacity=".45">
+    <path d="M0 90H1200M0 190H1200M0 290H1200M0 390H1200M0 490H1200M0 590H1200"/>
+    <path d="M150 0V680M350 0V680M550 0V680M750 0V680M950 0V680M1150 0V680"/>
+  </g>
+
+  <text x="600" y="56" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="34" font-weight="800" letter-spacing="6" fill="#f2b544">THE LOOP</text>
+  <text x="600" y="86" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="17" fill="#7d8ba1">fail closed · evidence beats analysis · agents build — humans merge</text>
+
+  <!-- ring path -->
+  <g>
+    <path d="M600 355 m -170 0 a 170 170 0 1 1 340 0 a 170 170 0 1 1 -340 0" fill="none" stroke="#1f2937" stroke-width="26" stroke-linecap="round"/>
+  </g>
+
+  <!-- 8 nodes around the ring, clockwise from top -->
+  <!-- positions: cx=600+170*sin(θ), cy=355-170*cos(θ) for θ=0,45,...315 -->
+  <!-- SPEC top (600,185); BUILD NE (720,235); GATE E (770,355); PR SE (720,476); UAT S (600,525); MERGE SW (480,476); VERIFY W (430,355); MEMORY NW (480,235) -->
+
+  <!-- arc arrows between nodes (clockwise), drawn outside the ring -->
+  <g stroke="#7d8ba1" stroke-width="3" fill="none" marker-end="url(#a)">
+    <path d="M648 199 A 170 170 0 0 1 706 258"/>
+    <path d="M742 279 A 170 170 0 0 1 752 330"/>
+    <path d="M752 381 A 170 170 0 0 1 729 431"/>
+    <path d="M700 469 A 170 170 0 0 1 654 500"/>
+    <path d="M601 512 A 170 170 0 0 1 548 500"/>
+    <path d="M502 469 A 170 170 0 0 1 470 431"/>
+    <path d="M448 381 A 170 170 0 0 1 448 330"/>
+    <path d="M470 279 A 170 170 0 0 1 495 251"/>
+  </g>
+  <!-- memory -> spec return arrow, green (the self-learning hop) -->
+  <path d="M520 217 A 170 170 0 0 1 556 195" fill="none" stroke="#7bd88f" stroke-width="3" marker-end="url(#ag)"/>
+
+  <!-- node template: rounded square + glyph + label -->
+  <!-- SPEC -->
+  <g font-family="ui-monospace,Menlo,monospace">
+    <rect x="548" y="153" width="104" height="64" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="2.5"/>
+    <text x="600" y="181" text-anchor="middle" font-size="22" font-weight="700" fill="#4dd6c1">spec</text>
+    <text x="600" y="203" text-anchor="middle" font-size="13" fill="#7d8ba1">plan / delta</text>
+
+    <rect x="668" y="203" width="104" height="64" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="2.5"/>
+    <text x="720" y="231" text-anchor="middle" font-size="22" font-weight="700" fill="#4dd6c1">build</text>
+    <text x="720" y="253" text-anchor="middle" font-size="13" fill="#7d8ba1">worktree</text>
+
+    <rect x="718" y="323" width="104" height="64" rx="12" fill="#1a2233" stroke="#f06a6a" stroke-width="3.5"/>
+    <text x="770" y="351" text-anchor="middle" font-size="22" font-weight="700" fill="#f06a6a">GATE</text>
+    <text x="770" y="373" text-anchor="middle" font-size="13" fill="#7d8ba1">cross-model</text>
+
+    <rect x="668" y="444" width="104" height="64" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="2.5"/>
+    <text x="720" y="472" text-anchor="middle" font-size="22" font-weight="700" fill="#4dd6c1">PR</text>
+    <text x="720" y="494" text-anchor="middle" font-size="13" fill="#7d8ba1">verdict + usage</text>
+
+    <rect x="548" y="493" width="104" height="64" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="2.5"/>
+    <text x="600" y="521" text-anchor="middle" font-size="22" font-weight="700" fill="#4dd6c1">UAT</text>
+    <text x="600" y="543" text-anchor="middle" font-size="13" fill="#7d8ba1">preview evidence</text>
+
+    <rect x="428" y="444" width="104" height="64" rx="12" fill="#1a2233" stroke="#f2b544" stroke-width="3.5"/>
+    <text x="480" y="470" text-anchor="middle" font-size="20" font-weight="800" fill="#f2b544">♛ MERGE</text>
+    <text x="480" y="494" text-anchor="middle" font-size="13" fill="#f2b544">human only</text>
+
+    <rect x="378" y="323" width="104" height="64" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="2.5"/>
+    <text x="430" y="351" text-anchor="middle" font-size="22" font-weight="700" fill="#4dd6c1">verify</text>
+    <text x="430" y="373" text-anchor="middle" font-size="13" fill="#7d8ba1">prod + probe</text>
+
+    <rect x="428" y="203" width="104" height="64" rx="12" fill="#1a2233" stroke="#7bd88f" stroke-width="3"/>
+    <text x="480" y="231" text-anchor="middle" font-size="22" font-weight="700" fill="#7bd88f">memory</text>
+    <text x="480" y="253" text-anchor="middle" font-size="13" fill="#7d8ba1">lesson captured</text>
+  </g>
+
+  <!-- center -->
+  <text x="600" y="345" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="30" font-weight="800" letter-spacing="4" fill="#dbe4f0">TURBO RIG</text>
+  <text x="600" y="374" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="14" fill="#7d8ba1">every change, no exceptions</text>
+
+  <!-- footer strip -->
+  <text x="600" y="620" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="16" fill="#7d8ba1">
+    <tspan fill="#f06a6a" font-weight="700">GATE: REVISE</tspan>  → fix &amp; re-gate  ·  <tspan fill="#7bd88f" font-weight="700">GATE: APPROVED</tspan>  → your move  ·  no verdict = REVISE (fail closed)
+  </text>
+  <text x="600" y="650" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="14" fill="#7d8ba1">each run reports tokens + cost · every verdict + evidence lives in the PR</text>
+</svg>

@@ -1,7 +1,48 @@
-> **⚠️ SUPERSEDED — this project continues as Turbo Rig (`marcuspat/turbo-rig`, 2026-09-11).**
-> The orchestration layer (Ruflo, swarms, the 215+ MCP tool surface) was retired in favor of a thin rig — constitution, cross-model review gate, git-versioned memory — built on harness-native features instead of an orchestration platform. **This repo keeps one active job:** the devcontainer definitions `devpod-turbo()` uses to boot the remote execution plane.
->
-> If you arrived here looking for an agentic rig rather than a Ruflo distribution: Turbo Rig is the current thing which is currently under development. Stay tuned for its release!
+> **⚡ TURBO FLOW v5.0-PREVIEW — THE RIG ERA. PRIVATE BETA OPEN.**
+> Turbo Flow continues as **Turbo Rig** — a thin agentic coding rig. The full rig runs in private beta; this repo is its public home: the drop-in governance kit for your v4 install, the evidence, and the beta funnel.
+
+![v5](https://img.shields.io/badge/version-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/private_beta-OPEN-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![study](https://img.shields.io/badge/cross--family_review-71.6%25→89.7%25-c25550?style=flat-square)
+
+## 🎬 The new demo — recorded in a fresh Codespace, nothing preinstalled
+
+![rig-lite demo](demo/rig-lite-demo.gif)
+
+A clean Codespace boots this repo's devcontainer and the install chain runs end-to-end; then rig-lite proves itself in-container — **fail-closed self-test suite** (30+ checks; says so when shellcheck-gated coverage is skipped) and a live gate run (reviewer CLI stubbed; no API keys on the recording box, same rules as the v4 demo). Not a mockup.
+
+## The gate in this kit survived 16 rounds of review
+
+`rig-lite/gate.sh` was itself reviewed by a model family that didn't write it — and got **REVISE'd sixteen times** before earning APPROVED. The findings are exactly the class the gate exists to catch: a prompt-injection hole that let a diff approve itself, a fail-open path that skipped review entirely, a quoting bug that swallowed failing tests, a silent-reviewer misdiagnosis. Every fix became a self-test. **Builder ≠ reviewer isn't a slogan in this repo — it's the reason this script is trustworthy.**
+
+## rig-lite — the missing half of your v4 install
+
+Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig-lite/`](rig-lite/) is a portable governance layer — four files, ten minutes, no new dependencies:
+
+| file | what it gives you |
+|---|---|
+| [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. |
+| [`constitution.md`](rig-lite/constitution.md) | the four laws your agents can read: builder ≠ reviewer · agents never merge · parallel writers get isolated worktrees · secrets never in git. |
+| [`memory.md`](rig-lite/memory.md) | git-versioned cross-session memory — one fact per file + an index, sync rules, lifecycle (diagrams included). |
+| [`self-test.sh`](rig-lite/self-test.sh) | proves the gate's fail-closed behavior — injected `VERDICT` strings, silent/crashed/absent reviewers, deterministic-stage ordering, cross-family exclusion. Run it before you trust it. |
+
+Drop them into any environment: turbo-flow v4, plain git, CI.
+
+## Does builder ≠ reviewer actually matter?
+
+In a controlled 116-task study, cross-family review lifted pass rates from **71.6% → 89.7%**, while same-family self-review barely moved. One recent week of building Turbo Rig with Turbo Rig: **141 PRs · 868 gate runs · 104 parallel lanes** — every merge held by a human.
+
+## Join the private beta
+
+The full rig — integrated gate, constitution, git-versioned memory, automations — is running in private beta.
+
+- **Request access** → [turbo-rig-beta.vercel.app](https://turbo-rig-beta.vercel.app)
+- **Product page** → [turbo-rig.vercel.app](https://turbo-rig.vercel.app) (EN/ES)
+- **Deep dive** → [turbo-rig-deep-dive.vercel.app](https://turbo-rig-deep-dive.vercel.app) · **3D scene** → [turbo-rig-deep-dive-3d.vercel.app](https://turbo-rig-deep-dive-3d.vercel.app)
+
+**Beta feedback:** open an issue or start a discussion here — this repo is the beta's public tracker.
+
+**This repo's active job** is unchanged: the DevPod/Codespaces devcontainer definitions that boot the rig's remote execution plane (guides below).
+
+---
 
 # Turbo Flow v4.0
 

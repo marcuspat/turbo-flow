@@ -1,3 +1,49 @@
+> **⚡ TURBO FLOW v5.0-PREVIEW — LA ERA DEL RIG. BETA PRIVADA ABIERTA.**
+> Turbo Flow continúa como **Turbo Rig** — un rig de programación agéntica, deliberadamente delgado. El rig completo corre en beta privada; este repo es su casa pública: el kit de gobernanza para tu instalación v4, la evidencia, y el embudo de la beta.
+
+![v5](https://img.shields.io/badge/versión-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/beta_privada-ABIERTA-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![estudio](https://img.shields.io/badge/revisión_entre_familias-71.6%25→89.7%25-c25550?style=flat-square)
+
+## 🎬 El demo nuevo — grabado en un Codespace limpio, nada preinstalado
+
+![demo de rig-lite](demo/rig-lite-demo.gif)
+
+Un Codespace limpio arranca el devcontainer de este repo y la cadena de instalación corre de punta a punta; luego rig-lite se demuestra dentro del contenedor — **suite de self-tests fail-closed** (30+ pruebas; avisa cuando se omite la cobertura gated de shellcheck) y una corrida de la compuerta en vivo (CLI revisor simulado; sin API keys en la máquina de grabación, mismas reglas que el demo v4). No es un mockup.
+
+## La compuerta de este kit sobrevivió 16 rondas de revisión
+
+A `rig-lite/gate.sh` lo revisó una familia de modelo que no lo escribió — y recibió **REVISE dieciséis veces** antes de ganar su APPROVED. Los hallazgos son justo la clase de cosas que la compuerta existe para atrapar: un agujero de inyección de prompts que dejaba que un diff se aprobara solo, un camino fail-open que se saltaba la revisión, un bug de quoting que tragaba tests fallidos. Cada fix se volvió un self-test. **Constructor ≠ revisor no es un eslogan en este repo — es la razón por la que este script es confiable.**
+
+## rig-lite — la mitad que le falta a tu instalación v4
+
+Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **no**. [`rig-lite/`](rig-lite/) es una capa de gobernanza portable — cuatro archivos, diez minutos, sin dependencias nuevas:
+
+| archivo | qué te da |
+|---|---|
+| [`gate.sh`](rig-lite/gate.sh) | una compuerta de revisión entre modelos — primero los checks deterministas (gratuitos), luego un revisor de una **familia de modelo distinta** debe devolver un veredicto interpretable `APPROVED` / `REVISE`. Falla cerrado; nunca fusiona. |
+| [`constitution.md`](rig-lite/constitution.md) | las cuatro leyes que tus agentes pueden leer: constructor ≠ revisor · los agentes nunca fusionan · escritores en paralelo obtienen worktrees aislados · los secretos nunca van a git. |
+| [`memory.md`](rig-lite/memory.md) | memoria entre sesiones versionada en git — un hecho por archivo + un índice, reglas de sincronización, ciclo de vida (con diagramas). |
+| [`self-test.sh`](rig-lite/self-test.sh) | demuestra el comportamiento fail-closed de la compuerta — strings `VERDICT` inyectados, revisores silenciosos/caídos/ausentes, orden de la etapa determinista, exclusión entre familias. Ejecútalo antes de confiar. |
+
+Funciona en cualquier entorno: turbo-flow v4, git plano, CI.
+
+## ¿De verdad importa que constructor ≠ revisor?
+
+En un estudio controlado de 116 tareas, la revisión entre familias subió la tasa de aprobación de **71.6% → 89.7%**, mientras que la auto-revisión dentro de la misma familia apenas se movió. Una semana reciente construyendo Turbo Rig con Turbo Rig: **141 PRs · 868 corridas de la compuerta · 104 carriles en paralelo** — cada fusión quedó en manos humanas.
+
+## Únete a la beta privada
+
+El rig completo — compuerta integrada, constitución, memoria versionada en git, automatizaciones — corre en beta privada.
+
+- **Solicita acceso** → [turbo-rig-beta.vercel.app](https://turbo-rig-beta.vercel.app)
+- **Página del producto** → [turbo-rig.vercel.app](https://turbo-rig.vercel.app) (EN/ES)
+- **Deep dive** → [turbo-rig-deep-dive.vercel.app](https://turbo-rig-deep-dive.vercel.app) · **Escena 3D** → [turbo-rig-deep-dive-3d.vercel.app](https://turbo-rig-deep-dive-3d.vercel.app)
+
+**Feedback de la beta:** abre un issue o inicia una discusión aquí — este repo es el tracker público de la beta.
+
+**El trabajo activo de este repo** no cambia: las definiciones devcontainer de DevPod/Codespaces que arrancan el plano de ejecución remoto del rig (guías abajo).
+
+---
+
 # Turbo Flow v4.0 — La Migración a Ruflo
 
 <div align="center">
