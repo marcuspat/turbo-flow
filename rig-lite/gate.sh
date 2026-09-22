@@ -62,6 +62,17 @@ DIFF="$(git diff "$MB" HEAD)"
 # each det_* function signals via exit code: 42 = SKIP (tool/entrypoint
 # absent — out-of-band, untrusted stdout can't fake it), 0 = pass,
 # anything else = FAIL. (Plain functions, not eval'd strings.)
+# one redaction pipeline for every echoed path — stdout AND stderr:
+# ANSI strips, VERDICT neutralization, prefixed + bare secret shapes
+redact() {
+  sed -E -e $'s/\x1b\[[0-9;]*[a-zA-Z]//g' \
+    -e 's/VERDICT:/VERDICT·/g' \
+    -e 's/([Tt]oken|[Kk]ey|[Ss]ecret|[Pp]assword|[Aa]uthorization|Bearer)([=: ]+)[^ ]+/\1\2REDACTED/g' \
+    -e 's/sk-[A-Za-z0-9_-]{8,}/REDACTED/g' \
+    -e 's/(ghp|gho|ghu|ghs)_[A-Za-z0-9]{20,}/REDACTED/g' \
+    -e 's/AKIA[0-9A-Z]{12,}/REDACTED/g'
+}
+
 det_shellcheck() {
   command -v shellcheck >/dev/null || { echo skip; return 42; }
   mapfile -t f < <(git diff --name-only --diff-filter=d "$MB" HEAD -- "*.sh")
@@ -177,13 +188,13 @@ invoke() { # $1 = cli, prompt on stdin — add your own headless CLIs here
 ERRLOG="$(mktemp "${TMPDIR:-/tmp}/gate-lite-review.XXXXXX")"; trap 'rm -f "$ERRLOG"' EXIT
 VERDICT_RAW="$(printf '%s' "$PROMPT" | invoke "$REVIEWER" 2>"$ERRLOG")" || {
   echo "gate: reviewer CLI ($REVIEWER) failed — last stderr lines (secrets redacted):"
-  tail -5 "$ERRLOG" | sed -E 's/([Tt]oken|[Kk]ey|[Ss]ecret|[Pp]assword|[Aa]uthorization|Bearer)([=: ]+)[^ ]+/\1\2REDACTED/g' -e 's/sk-[A-Za-z0-9_-]{8,}/REDACTED/g' -e 's/(ghp|gho|ghu|ghs)_[A-Za-z0-9]{20,}/REDACTED/g' -e 's/AKIA[0-9A-Z]{12,}/REDACTED/g' >&2
+  tail -5 "$ERRLOG" | redact >&2
   echo "gate: REVISE — fail-closed by design"
   exit 1
 }
 if [[ -z "${VERDICT_RAW//[[:space:]]/}" ]]; then
   echo "gate: reviewer ($REVIEWER) returned no output — likely auth/quota; stderr log (secrets redacted):"
-  tail -5 "$ERRLOG" | sed -E 's/([Tt]oken|[Kk]ey|[Ss]ecret|[Pp]assword|[Aa]uthorization|Bearer)([=: ]+)[^ ]+/\1\2REDACTED/g' -e 's/sk-[A-Za-z0-9_-]{8,}/REDACTED/g' -e 's/(ghp|gho|ghu|ghs)_[A-Za-z0-9]{20,}/REDACTED/g' -e 's/AKIA[0-9A-Z]{12,}/REDACTED/g' >&2
+  tail -5 "$ERRLOG" | redact >&2
   echo "gate: REVISE — fail-closed by design"
   exit 1
 fi
@@ -194,7 +205,7 @@ if [[ "$LAST_LINE" == "VERDICT: APPROVED" ]]; then
   echo "gate: the merge button is still yours — humans merge."
   exit 0
 else
-  printf '%s\n' "$VERDICT_RAW" | tail -20 | sed -E -e $'s/\x1b\[[0-9;]*[a-zA-Z]//g' -e 's/VERDICT:/VERDICT·/g' -e 's/([Tt]oken|[Kk]ey|[Ss]ecret|[Pp]assword|[Aa]uthorization|Bearer)([=: ]+)[^ ]+/\1\2REDACTED/g' -e 's/sk-[A-Za-z0-9_-]{8,}/REDACTED/g' -e 's/(ghp|gho|ghu|ghs)_[A-Za-z0-9]{20,}/REDACTED/g' -e 's/AKIA[0-9A-Z]{12,}/REDACTED/g' 
+  printf '%s\n' "$VERDICT_RAW" | tail -20 | redact
   echo "gate: REVISE — final line was not 'VERDICT: APPROVED'. Fail-closed by design."
   exit 1
 fi

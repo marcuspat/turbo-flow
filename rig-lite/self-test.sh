@@ -153,6 +153,20 @@ else
   echo "✗ secret leaked in echo"; FAIL=1
 fi
 
+# ── stderr-path redaction: crashed reviewer leaking a token in stderr ─────
+fresh_ahead
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+echo "auth failed: token sk-live-abcdef123456 expired" >&2
+exit 3'
+OUT="$(as_reviewer 2>&1)"; RC=$?
+t "crashed reviewer → 1" 1 $RC
+if printf '%s' "$OUT" | grep -q 'REDACTED' && ! printf '%s' "$OUT" | grep -q 'sk-live-abcdef'; then
+  echo "✓ stderr leak redacted on failure path"
+else
+  echo "✗ stderr leak survived"; FAIL=1
+fi
+
 # ── --base guards: base at/ahead of HEAD must fail closed, not pass ───────
 "$GATE" --builder claude --base HEAD >/dev/null 2>&1;  t "--base HEAD → 2" 2 $?
 "$GATE" --builder claude --base feat  >/dev/null 2>&1; t "--base feat (self) → 2" 2 $?
