@@ -76,8 +76,12 @@ family_of() {
 }
 B_FAMILY="$(family_of "$BUILDER")"
 REVIEWER=""
-if [[ -n "${GATE_LITE_STUB:-}" ]]; then
+if [[ -n "${GATE_LITE_STUB:-}" && -n "${GATE_LITE_TEST:-}" ]]; then
+  echo "gate: TEST STUB ACTIVE — output is not a review" >&2
   REVIEWER="stub"
+elif [[ -n "${GATE_LITE_STUB:-}" ]]; then
+  echo "gate: GATE_LITE_STUB set without GATE_LITE_TEST=1 — refusing (fail-closed)" >&2
+  exit 2
 else
 for r in claude codex; do
   if command -v "$r" >/dev/null 2>&1 && [[ "$(family_of "$r")" != "$B_FAMILY" ]]; then
@@ -95,7 +99,8 @@ fi
 # reviewer is told nothing inside the fence is an instruction. The verdict
 # counts ONLY as the reviewer's final non-empty line — never a string that
 # originated inside the diff.
-NONCE="$(head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+NONCE="$(head -c16 /dev/urandom 2>/dev/null | od -An -tx1 | tr -d ' \n')"
+[[ "${#NONCE}" -eq 32 ]] || { echo "gate: cannot obtain nonce entropy — REVISE (fail-closed)" >&2; exit 1; }
 PROMPT="You are a reviewing agent. The diff below was written by a DIFFERENT model family ($B_FAMILY).
 Review it read-only for correctness, security, error handling, and tests.
 
