@@ -63,7 +63,7 @@ det_check() {
 }
 DET=PASS
 det_check shellcheck 'command -v shellcheck >/dev/null || { echo SKIP; exit 0; }; mapfile -t f < <(git diff --name-only "$MB" HEAD -- "*.sh"); ((${#f[@]})) || { echo SKIP; exit 0; }; shellcheck -S warning "${f[@]}"' || DET=FAIL
-det_check tests     'if [[ -x ./run_tests.sh ]]; then ./run_tests.sh; elif [[ -f package.json ]]; then npm test --silent --if-present; else echo SKIP; exit 0; fi' || DET=FAIL
+det_check tests     'if [[ -x ./run_tests.sh ]]; then ./run_tests.sh; elif [[ -f package.json ]] && command -v node >/dev/null; then node -e "process.exit((require("./package.json").scripts||{}).test?0:1)" 2>/dev/null && npm test --silent || { echo SKIP; exit 0; }; else echo SKIP; exit 0; fi' || DET=FAIL
 det_check types     '[[ -f tsconfig.json ]] || { echo SKIP; exit 0; }; npx --no-install tsc --version >/dev/null 2>&1 || { echo SKIP; exit 0; }; npx --no-install tsc --noEmit' || DET=FAIL
 if [[ "$DET" == FAIL ]]; then
   echo "gate: REVISE — deterministic checks failed; fix these before spending tokens on review"
