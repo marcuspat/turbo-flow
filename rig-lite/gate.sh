@@ -44,24 +44,27 @@ DIFF="$(git diff "$MB" HEAD)"
 [[ -n "$DIFF" ]] || { echo "gate: no textual diff vs $BASE"; exit 0; }
 
 # ── 1 · deterministic checks (free — run before spending tokens) ──────────
-# a check command exits: 0 pass · 1 fail · 2 skip (tool/entrypoint absent)
+# a check command signals by output: last line exactly "SKIP" when the
+# tool/entrypoint is absent; otherwise exit 0 = pass, anything else = FAIL
+# (exit codes alone can't encode skip — tools overload them with real errors)
 det_check() {
-  local name="$1" cmd="$2" out rc
+  local name="$1" cmd="$2" out rc last
   out="$(eval "$cmd" 2>&1)"; rc=$?
-  if [[ $rc -eq 0 ]]; then
-    echo "▸ $name ......... pass"
-  elif [[ $rc -eq 2 ]]; then
+  last="$(printf '%s\n' "$out" | tail -1)"
+  if [[ $rc -eq 0 && "$last" == "SKIP" ]]; then
     echo "▸ $name ......... skip"
+  elif [[ $rc -eq 0 ]]; then
+    echo "▸ $name ......... pass"
   else
     echo "▸ $name ......... FAIL"
-    printf '%s\n' "$out" | tail -5 | sed 's/^/    /'
+    printf '%s\n' "$out" | grep -v '^SKIP$' | tail -5 | sed 's/^/    /'
     return 1
   fi
 }
 DET=PASS
-det_check shellcheck 'command -v shellcheck >/dev/null || exit 2; mapfile -t f < <(git ls-files "*.sh"); ((${#f[@]})) || exit 2; shellcheck -S warning "${f[@]}"' || DET=FAIL
-det_check tests     'if [[ -x ./run_tests.sh ]]; then ./run_tests.sh; elif [[ -f package.json ]]; then npm test --silent --if-present; else exit 2; fi' || DET=FAIL
-det_check types     '[[ -f tsconfig.json ]] || exit 2; npx --no-install tsc --version >/dev/null 2>&1 || exit 2; npx --no-install tsc --noEmit' || DET=FAIL
+det_check shellcheck 'command -v shellcheck >/dev/null || { echo SKIP; exit 0; }; mapfile -t f < <(git ls-files "*.sh"); ((${#f[@]})) || { echo SKIP; exit 0; }; shellcheck -S warning "${f[@]}"' || DET=FAIL
+det_check tests     'if [[ -x ./run_tests.sh ]]; then ./run_tests.sh; elif [[ -f package.json ]]; then npm test --silent --if-present; else echo SKIP; exit 0; fi' || DET=FAIL
+det_check types     '[[ -f tsconfig.json ]] || { echo SKIP; exit 0; }; npx --no-install tsc --version >/dev/null 2>&1 || { echo SKIP; exit 0; }; npx --no-install tsc --noEmit' || DET=FAIL
 if [[ "$DET" == FAIL ]]; then
   echo "gate: REVISE — deterministic checks failed; fix these before spending tokens on review"
   exit 1
@@ -140,7 +143,7 @@ if [[ "$LAST_LINE" == "VERDICT: APPROVED" ]]; then
   echo "gate: the merge button is still yours — humans merge."
   exit 0
 else
-  printf '%s\n' "$VERDICT_RAW" | tail -20 | sed $'s/\x1b\[[0-9;]*[a-zA-Z]//g' 
+  printf '%s\n' "$VERDICT_RAW" | tail -20 | sed -e $'s/\x1b\[[0-9;]*[a-zA-Z]//g' -e 's/VERDICT:/VERDICT·/g' 
   echo "gate: REVISE — final line was not 'VERDICT: APPROVED'. Fail-closed by design."
   exit 1
 fi

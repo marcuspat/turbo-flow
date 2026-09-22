@@ -24,6 +24,7 @@ TBIN="$FIXTURE/tbin"; BIN="$FIXTURE/bin"
 mkdir -p "$TBIN" "$BIN"
 ln -s "$(command -v git)" "$TBIN/git"
 ln -s "$(command -v bash)" "$TBIN/bash"
+printf '#!/usr/bin/env bash\nexit 9\n' > "$BIN/codex"; chmod +x "$BIN/codex"   # shadow any real codex
 TPATH="$BIN:$TBIN:/usr/bin:/bin"
 
 fake_claude() { printf '%s' "$1" > "$BIN/claude"; chmod +x "$BIN/claude"; }
