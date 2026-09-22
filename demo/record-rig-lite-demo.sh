@@ -2,7 +2,7 @@
 # demo.sh — the rig-lite demo recorded via asciinema in a fresh Codespace.
 # Warm-run this once BEFORE recording so the recorded pass hits warm caches.
 set -uo pipefail
-cd "$(dirname "$0")/.."   # repo root
+cd /workspaces/turbo-flow
 
 t() { # type a command char-by-char, then run it
   local cmd="$1"; local i=0
