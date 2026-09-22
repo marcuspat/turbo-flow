@@ -30,6 +30,12 @@ printf '#!/usr/bin/env bash\nexit 9\n' > "$BIN/codex"; chmod +x "$BIN/codex"   #
 TPATH="$BIN:$TBIN:/usr/bin:/bin"
 
 fake_claude() { printf '%s' "$1" > "$BIN/claude"; chmod +x "$BIN/claude"; }
+# fresh ahead-of-main state for any test that needs one — no shared arithmetic
+fresh_ahead() {
+  git checkout -q -B feat main 2>/dev/null || git checkout -q feat
+  echo "f$RANDOM$RANDOM" >> app.js
+  git add -A && git commit -qm "fixture $RANDOM"
+}
 as_reviewer() { env PATH="$TPATH" "$GATE" --builder codex; }   # codex builds → claude reviews
 
 cd "$FIXTURE"
@@ -42,10 +48,7 @@ cd "$FIXTURE"
 "$GATE" --builder nobody >/dev/null 2>&1;                       t "unknown builder → 2"            2 $?
 env PATH="$TBIN" "$GATE" --builder claude >/dev/null 2>&1;      t "no reviewer available → 1"      1 $?
 
-# ── diff scope ─────────────────────────────────────────────────────────────
-git checkout -q main
-"$GATE" --builder claude >/dev/null 2>&1;                       t "no commits vs base → 0"         0 $?
-git checkout -q feat
+# (the old "no commits vs base → 0" case is now the fail-closed --base-at-HEAD guard → 2, covered below)
 echo 'x' >> app.js && git commit -qam wip2
 
 # ── reviewer behavior, via fake CLIs on the real invoke path ───────────────
@@ -132,10 +135,23 @@ t "npm absent + no test script → skip → 0" 0 $RC
 git reset -q --hard HEAD~1
 git reset -q --hard HEAD~1
 
-# ── --no-exec: skips executable checks, keeps the gate flow ────────────────
+# ── --no-exec: skips executable checks, keeps the gate flow
+fresh_ahead ────────────────
 OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
 t "--no-exec → reviewer still runs → 0" 0 $RC
 printf '%s' "$OUT" | grep -q -- '--no-exec: untrusted branch' && echo "✓ --no-exec skip markers shown" || { echo "✗ missing --no-exec markers"; FAIL=1; }
+
+# ── secret redaction on echoed reviewer output
+fresh_ahead ─────────────────────────────
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "reasons: used token: sk-live-abcdef123456 here\nBearer abcdef123\nVERDICT: REVISE\n"'
+OUT="$(as_reviewer 2>/dev/null)"
+if printf '%s' "$OUT" | grep -q 'REDACTED' && ! printf '%s' "$OUT" | grep -q 'sk-live-abcdef'; then
+  echo "✓ secrets redacted in echoed reviewer output"
+else
+  echo "✗ secret leaked in echo"; FAIL=1
+fi
 
 # ── --base guards: base at/ahead of HEAD must fail closed, not pass ───────
 "$GATE" --builder claude --base HEAD >/dev/null 2>&1;  t "--base HEAD → 2" 2 $?
@@ -162,7 +178,8 @@ else
   echo "⚠ shellcheck not installed — det_shellcheck path untested this run"
 fi
 
-# ── fenced diff: fake claude echoes its prompt; REVISE tail shows the fence ─
+# ── fenced diff: fake claude echoes its prompt; REVISE tail shows the fence
+fresh_ahead ─
 fake_claude '#!/usr/bin/env bash
 cat'
 OUT="$(as_reviewer 2>/dev/null)"
