@@ -7,10 +7,19 @@
 # Fail-closed: anything ambiguous, errored, or spoofed is REVISE.
 #
 # Usage:
-#   gate.sh --builder <cli> [--base main]
+#   gate.sh --builder <cli> [--base main] [--no-exec]
 #           --builder is REQUIRED: the CLI that wrote the branch
 #           (claude, codex, ...) so its family can be excluded.
+#           --no-exec skips the executable deterministic checks
+#           (tests/types) and keeps static analysis only — for
+#           branches you don't trust enough to run.
 # Exit codes: 0 APPROVED · 1 REVISE (fix and re-run) · 2 error
+#
+# Trust boundary: the deterministic stage EXECUTES the branch's own
+# toolchain entrypoints (run_tests.sh / npm scripts / local tsc) —
+# that is unavoidable for real checks and is exactly how CI behaves.
+# For third-party branches, use --no-exec, or run the whole gate
+# inside a container/VM you're willing to burn.
 #
 # Wire it into any environment — turbo-flow v4, plain git, CI.
 # It never merges; the merge button stays human.
@@ -18,8 +27,10 @@ set -uo pipefail
 
 BASE="main"
 BUILDER=""
+NOEXEC=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --no-exec) NOEXEC=1; shift ;;
     --base) [[ $# -ge 2 ]] || { echo "gate: --base needs a value" >&2; exit 2; }; BASE="$2"; shift 2 ;;
     --builder) [[ $# -ge 2 ]] || { echo "gate: --builder needs a value" >&2; exit 2; }; BUILDER="$2"; shift 2 ;;
     -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
@@ -87,8 +98,13 @@ det_check() {
 }
 DET=PASS
 det_check shellcheck det_shellcheck || DET=FAIL
-det_check tests     det_tests     || DET=FAIL
-det_check types     det_types     || DET=FAIL
+if [[ $NOEXEC -eq 1 ]]; then
+  echo "▸ tests ......... skip (--no-exec: untrusted branch)"
+  echo "▸ types ......... skip (--no-exec: untrusted branch)"
+else
+  det_check tests   det_tests     || DET=FAIL
+  det_check types   det_types     || DET=FAIL
+fi
 
 if [[ "$DET" == FAIL ]]; then
   echo "gate: REVISE — deterministic checks failed; fix these before spending tokens on review"

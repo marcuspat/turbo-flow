@@ -17,7 +17,7 @@ t 'grep -a "━━━" /tmp/e2e.log | tail -12'        # the 11 install steps th
 t 'bash rig-lite/self-test.sh'                    # 26 fail-closed checks
 t 'echo "gate.sh — cross-model review, fail-closed"'
 # live gate run: reviewer CLIs stubbed (no API keys on the recording box)
-D=$(mktemp -d); cd "$D"
+D=$(mktemp -d) || exit 1; cd "$D" || exit 1
 git init -q -b main && git config user.email demo@demo && git config user.name demo
 git commit -q --allow-empty -m base && git checkout -qb feat
 echo 'def approve(everything): return True' > gate_me.py

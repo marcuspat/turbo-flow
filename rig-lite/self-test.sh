@@ -117,6 +117,11 @@ t "package.json without test script → skip, gate APPROVED → 0" 0 $RC
 printf '%s' "$OUT" | grep -q 'gate: APPROVED' && echo "✓ no-script skip flows through to approval" || { echo "✗ expected approval"; FAIL=1; }
 git reset -q --hard HEAD~3 2>/dev/null || true
 
+# ── --no-exec: skips executable checks, keeps the gate flow ────────────────
+OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
+t "--no-exec → reviewer still runs → 0" 0 $RC
+printf '%s' "$OUT" | grep -q -- '--no-exec: untrusted branch' && echo "✓ --no-exec skip markers shown" || { echo "✗ missing --no-exec markers"; FAIL=1; }
+
 # ── fenced diff: fake claude echoes its prompt; REVISE tail shows the fence ─
 fake_claude '#!/usr/bin/env bash
 cat'
