@@ -1,3 +1,36 @@
+> **⚡ TURBO FLOW v5.0-PREVIEW — LA ERA DEL RIG. BETA PRIVADA ABIERTA.**
+> Turbo Flow continúa como **Turbo Rig** — un rig de programación agéntica, deliberadamente delgado. El rig completo corre en beta privada; este repo es su casa pública: el kit de gobernanza para tu instalación v4, la evidencia, y el embudo de la beta.
+
+## rig-lite — la mitad que le falta a tu instalación v4
+
+Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **no**. [`rig-lite/`](rig-lite/) es una capa de gobernanza portable — tres archivos, diez minutos, sin dependencias nuevas:
+
+| archivo | qué te da |
+|---|---|
+| [`gate.sh`](rig-lite/gate.sh) | una compuerta de revisión entre modelos — primero los checks deterministas (gratuitos), luego un revisor de una **familia de modelo distinta** debe devolver un veredicto interpretable `APPROVED` / `REVISE`. Falla cerrado; nunca fusiona. |
+| [`constitution.md`](rig-lite/constitution.md) | las cuatro leyes que tus agentes pueden leer: constructor ≠ revisor · los agentes nunca fusionan · escritores en paralelo obtienen worktrees aislados · los secretos nunca van a git. |
+| [`memory.md`](rig-lite/memory.md) | memoria entre sesiones versionada en git — un hecho por archivo + un índice, reglas de sincronización, ciclo de vida (con diagramas). |
+
+Funciona en cualquier entorno: turbo-flow v4, git plano, CI.
+
+## ¿De verdad importa que constructor ≠ revisor?
+
+En un estudio controlado de 116 tareas, la revisión entre familias subió la tasa de aprobación de **71.6% → 89.7%**, mientras que la auto-revisión dentro de la misma familia apenas se movió. Una semana reciente construyendo Turbo Rig con Turbo Rig: **141 PRs · 868 corridas de la compuerta · 104 carriles en paralelo** — cada fusión quedó en manos humanas.
+
+## Únete a la beta privada
+
+El rig completo — compuerta integrada, constitución, memoria versionada en git, automatizaciones — corre en beta privada.
+
+- **Solicita acceso** → [turbo-rig-beta.vercel.app](https://turbo-rig-beta.vercel.app)
+- **Página del producto** → [turbo-rig.vercel.app](https://turbo-rig.vercel.app) (EN/ES)
+- **Deep dive** → [turbo-rig-deep-dive.vercel.app](https://turbo-rig-deep-dive.vercel.app) · **Escena 3D** → [turbo-rig-deep-dive-3d.vercel.app](https://turbo-rig-deep-dive-3d.vercel.app)
+
+**Feedback de la beta:** abre un issue o inicia una discusión aquí — este repo es el tracker público de la beta.
+
+**El trabajo activo de este repo** no cambia: las definiciones devcontainer de DevPod/Codespaces que arrancan el plano de ejecución remoto del rig (guías abajo).
+
+---
+
 # Turbo Flow v4.0 — La Migración a Ruflo
 
 <div align="center">

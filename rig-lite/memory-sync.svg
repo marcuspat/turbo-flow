@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="ac" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="#f06a6a"/></marker>
+    <marker id="at" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="#4dd6c1"/></marker>
+    <marker id="aa" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="#f2b544"/></marker>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#121722"/><stop offset="1" stop-color="#161d2c"/></linearGradient>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <g stroke="#1f2937" stroke-width="1">
+    <path d="M0 100 H1200 M0 200 H1200 M0 300 H1200 M0 400 H1200 M0 500 H1200 M0 600 H1200 M0 700 H1200"/>
+    <path d="M100 0 V800 M200 0 V800 M300 0 V800 M400 0 V800 M500 0 V800 M600 0 V800 M700 0 V800 M800 0 V800 M900 0 V800 M1000 0 V800 M1100 0 V800"/>
+  </g>
+
+  <text x="600" y="66" text-anchor="middle" font-size="38" font-weight="700" fill="#dbe4f0">ONE BRAIN, FOUR BODIES</text>
+  <text x="600" y="98" text-anchor="middle" font-size="17" font-style="italic" fill="#7d8ba1">instances never talk to each other — git is the protocol, GitHub is the switchboard</text>
+  <text x="600" y="130" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="14" fill="#7d8ba1"><tspan fill="#f06a6a">coral arrow = PUSH</tspan> (append a NEW inbox file, commit, pull-rebase first)   ·   <tspan fill="#4dd6c1">teal arrow = PULL</tspan> (spine loads at every session start)</text>
+
+  <!-- HUB -->
+  <rect x="440" y="300" width="320" height="130" rx="12" fill="#1a2233" stroke="#f2b544" stroke-width="2.5"/>
+  <text x="600" y="330" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="13" fill="#f2b544">GITHUB · PRIVATE</text>
+  <text x="600" y="356" text-anchor="middle" font-size="20" font-weight="700" fill="#dbe4f0">marcuspat/turbo-rig</text>
+  <text x="600" y="382" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="14" fill="#dbe4f0">memory/ · decisions · gotchas</text>
+  <text x="600" y="400" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="14" fill="#dbe4f0">· project-index · inbox</text>
+  <text x="600" y="421" text-anchor="middle" font-size="14" font-style="italic" fill="#7bd88f">full git history = the backup</text>
+
+  <!-- TL LAPTOP -->
+  <rect x="70" y="160" width="260" height="110" rx="10" fill="#1a2233" stroke="#4dd6c1" stroke-width="2"/>
+  <text x="200" y="192" text-anchor="middle" font-size="18" font-weight="700" fill="#dbe4f0">LAPTOP</text>
+  <text x="200" y="216" text-anchor="middle" font-size="14" fill="#7d8ba1">cockpit · the merge button</text>
+  <text x="200" y="240" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12.5" fill="#7bd88f">appends inbox · 23:00 raw sync</text>
+  <!-- TR CODESPACE -->
+  <rect x="870" y="160" width="260" height="110" rx="10" fill="#1a2233" stroke="#4dd6c1" stroke-width="2"/>
+  <text x="1000" y="192" text-anchor="middle" font-size="18" font-weight="700" fill="#dbe4f0">CODESPACE</text>
+  <text x="1000" y="216" text-anchor="middle" font-size="14" fill="#7d8ba1">ephemeral — dies after the job</text>
+  <text x="1000" y="240" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12.5" fill="#7bd88f">pushes its report, then vanishes</text>
+  <!-- BL VPS -->
+  <rect x="70" y="545" width="260" height="110" rx="10" fill="#1a2233" stroke="#f2b544" stroke-width="2.5"/>
+  <text x="200" y="577" text-anchor="middle" font-size="18" font-weight="700" fill="#dbe4f0">VPS · night shift</text>
+  <text x="200" y="601" text-anchor="middle" font-size="14" fill="#7d8ba1">sweep · scan · liveness</text>
+  <text x="200" y="625" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12.5" fill="#f2b544">♛ 23:30 — the SOLE consolidator</text>
+  <!-- BR ANY MACHINE -->
+  <rect x="870" y="545" width="260" height="110" rx="10" fill="#1a2233" stroke="#4dd6c1" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="1000" y="577" text-anchor="middle" font-size="18" font-weight="700" fill="#dbe4f0">ANY MACHINE</text>
+  <text x="1000" y="601" text-anchor="middle" font-size="14" fill="#7d8ba1">clone + bootstrap --wire</text>
+  <text x="1000" y="625" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12.5" fill="#7bd88f">= brand-new instance, full brain</text>
+
+  <!-- TL arrows: push card->hub, pull hub->card -->
+  <line x1="330" y1="205" x2="452" y2="322" stroke="#f06a6a" stroke-width="2.5" marker-end="url(#ac)"/>
+  <line x1="448" y1="360" x2="336" y2="242" stroke="#4dd6c1" stroke-width="2.5" marker-end="url(#at)"/>
+  <!-- TR arrows -->
+  <line x1="870" y1="205" x2="748" y2="322" stroke="#f06a6a" stroke-width="2.5" marker-end="url(#ac)"/>
+  <line x1="752" y1="360" x2="864" y2="242" stroke="#4dd6c1" stroke-width="2.5" marker-end="url(#at)"/>
+  <!-- BL arrows (VPS: thick amber push = sole writer path) -->
+  <line x1="330" y1="605" x2="452" y2="438" stroke="#f2b544" stroke-width="3.5" marker-end="url(#aa)"/>
+  <line x1="448" y1="402" x2="336" y2="572" stroke="#4dd6c1" stroke-width="2.5" marker-end="url(#at)"/>
+  <!-- BR arrows -->
+  <line x1="870" y1="605" x2="748" y2="438" stroke="#f06a6a" stroke-width="2.5" marker-end="url(#ac)"/>
+  <line x1="752" y1="402" x2="864" y2="572" stroke="#4dd6c1" stroke-width="2.5" marker-end="url(#at)"/>
+
+  <!-- amber push label -->
+  <text x="336" y="551" font-family="ui-monospace,Menlo,monospace" font-size="12.5" fill="#f2b544" transform="rotate(-33 336 551)">push: folds inbox → the 3 files</text>
+
+  <!-- RULE CHIPS -->
+  <g font-size="14" fill="#dbe4f0">
+    <rect x="55" y="695" width="350" height="52" rx="8" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.5"/>
+    <text x="230" y="716" text-anchor="middle" font-weight="700" fill="#4dd6c1">inbox = multi-writer safe</text>
+    <text x="230" y="736" text-anchor="middle" fill="#7d8ba1">every write is a NEW file — git auto-merges</text>
+
+    <rect x="425" y="695" width="350" height="52" rx="8" fill="#1a2233" stroke="#f2b544" stroke-width="1.5"/>
+    <text x="600" y="716" text-anchor="middle" font-weight="700" fill="#f2b544">the 3 files = ONE writer</text>
+    <text x="600" y="736" text-anchor="middle" fill="#7d8ba1">decisions · gotchas · project-index — VPS only</text>
+
+    <rect x="795" y="695" width="350" height="52" rx="8" fill="#1a2233" stroke="#f06a6a" stroke-width="1.5"/>
+    <text x="970" y="716" text-anchor="middle" font-weight="700" fill="#f06a6a">conflict → inbox note, never force</text>
+    <text x="970" y="736" text-anchor="middle" fill="#7d8ba1">history keeps every version — nothing is lost</text>
+  </g>
+
+  <text x="600" y="776" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="13.5" fill="#7d8ba1">23:00 raw sync → 23:30 consolidate → 01:00 gate sweep → 08:00 digest — every instance pulls by morning · every push = an offsite backup</text>
+</svg>

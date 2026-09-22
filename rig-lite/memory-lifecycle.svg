@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="ac" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="#f06a6a"/></marker>
+    <marker id="at" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="#4dd6c1"/></marker>
+    <marker id="aa" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="#f2b544"/></marker>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#121722"/><stop offset="1" stop-color="#161d2c"/></linearGradient>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <g stroke="#1f2937" stroke-width="1">
+    <path d="M0 100 H1200 M0 200 H1200 M0 300 H1200 M0 400 H1200 M0 500 H1200 M0 600 H1200 M0 700 H1200"/>
+    <path d="M100 0 V800 M200 0 V800 M300 0 V800 M400 0 V800 M500 0 V800 M600 0 V800 M700 0 V800 M800 0 V800 M900 0 V800 M1000 0 V800 M1100 0 V800"/>
+  </g>
+
+  <text x="600" y="64" text-anchor="middle" font-size="36" font-weight="700" fill="#dbe4f0">WHERE EVERY INSTANCE'S MEMORY LANDS</text>
+  <text x="600" y="96" text-anchor="middle" font-size="17" font-style="italic" fill="#7d8ba1">inside memory/ — raw capture in, durable facts folded nightly, every version kept forever</text>
+  <text x="190" y="144" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="13.5" font-weight="700" fill="#4dd6c1">1 · WHO WRITES</text>
+  <text x="555" y="144" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="13.5" font-weight="700" fill="#dbe4f0">2 · WHERE IT LANDS</text>
+  <text x="930" y="144" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="13.5" font-weight="700" fill="#f2b544">3 · WHAT IT BECOMES</text>
+
+  <!-- INSTANCE CHIPS -->
+  <g font-size="14">
+    <rect x="70" y="180" width="250" height="96" rx="10" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.8"/>
+    <text x="195" y="210" text-anchor="middle" font-weight="700" fill="#dbe4f0" font-size="15.5">LAPTOP — a session learns</text>
+    <text x="195" y="234" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#7bd88f">"Railway PR envs share</text>
+    <text x="195" y="251" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#7bd88f">the prod DB" → one line</text>
+
+    <rect x="70" y="308" width="250" height="96" rx="10" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.8"/>
+    <text x="195" y="338" text-anchor="middle" font-weight="700" fill="#dbe4f0" font-size="15.5">VPS — a night job runs</text>
+    <text x="195" y="362" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#7bd88f">scan findings, sweep</text>
+    <text x="195" y="379" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#7bd88f">verdicts → report file</text>
+
+    <rect x="70" y="436" width="250" height="96" rx="10" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.8"/>
+    <text x="195" y="466" text-anchor="middle" font-weight="700" fill="#dbe4f0" font-size="15.5">CODESPACE — canary job</text>
+    <text x="195" y="490" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#7bd88f">portability PASS/FAIL</text>
+    <text x="195" y="507" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#7bd88f">→ report, then it dies</text>
+
+    <rect x="70" y="564" width="250" height="96" rx="10" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.8"/>
+    <text x="195" y="594" text-anchor="middle" font-weight="700" fill="#dbe4f0" font-size="15.5">ANY CLI — one-off task</text>
+    <text x="195" y="618" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#7bd88f">dated session learning</text>
+    <text x="195" y="635" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#7bd88f">→ inbox note</text>
+  </g>
+
+  <!-- arrows chips -> inbox -->
+  <line x1="320" y1="228" x2="408" y2="290" stroke="#4dd6c1" stroke-width="2.2" marker-end="url(#at)"/>
+  <line x1="320" y1="356" x2="408" y2="370" stroke="#4dd6c1" stroke-width="2.2" marker-end="url(#at)"/>
+  <line x1="320" y1="484" x2="408" y2="450" stroke="#4dd6c1" stroke-width="2.2" marker-end="url(#at)"/>
+  <line x1="320" y1="612" x2="408" y2="520" stroke="#4dd6c1" stroke-width="2.2" marker-end="url(#at)"/>
+
+  <!-- INBOX CARD -->
+  <rect x="415" y="220" width="280" height="400" rx="12" fill="#1a2233" stroke="#dbe4f0" stroke-width="2"/>
+  <text x="555" y="252" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="16" font-weight="700" fill="#dbe4f0">memory/inbox/</text>
+  <text x="555" y="272" text-anchor="middle" font-size="12.5" font-style="italic" fill="#7d8ba1">every write = a NEW file</text>
+  <g font-family="ui-monospace,Menlo,monospace" font-size="12.5">
+    <rect x="435" y="290" width="240" height="56" rx="6" fill="#121722" stroke="#4dd6c1" stroke-width="1"/>
+    <text x="447" y="312" fill="#dbe4f0">2026-09-18.md</text>
+    <text x="447" y="332" fill="#4dd6c1">← laptop's one-liner</text>
+
+    <rect x="435" y="358" width="240" height="56" rx="6" fill="#121722" stroke="#f2b544" stroke-width="1"/>
+    <text x="447" y="380" fill="#dbe4f0">security-2026-09-18.md</text>
+    <text x="447" y="400" fill="#f2b544">← vps scan report</text>
+
+    <rect x="435" y="426" width="240" height="56" rx="6" fill="#121722" stroke="#f06a6a" stroke-width="1"/>
+    <text x="447" y="448" fill="#dbe4f0">portability-2026-10-01.md</text>
+    <text x="447" y="468" fill="#f06a6a">← codespace canary</text>
+
+    <rect x="435" y="494" width="240" height="56" rx="6" fill="#121722" stroke="#7d8ba1" stroke-width="1"/>
+    <text x="447" y="516" fill="#dbe4f0">2026-09-19.md</text>
+    <text x="447" y="536" fill="#7d8ba1">← any cli's note</text>
+  </g>
+  <text x="555" y="586" text-anchor="middle" font-size="13" fill="#7bd88f">distinct files → git auto-merges</text>
+  <text x="555" y="605" text-anchor="middle" font-size="13" fill="#7bd88f">no two instances collide</text>
+
+  <!-- consolidation arrow -->
+  <line x1="700" y1="420" x2="768" y2="420" stroke="#f2b544" stroke-width="4" marker-end="url(#aa)"/>
+  <text x="734" y="398" text-anchor="middle" font-size="15" fill="#f2b544">♛</text>
+  <text x="734" y="452" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="#f2b544">23:30</text>
+
+  <!-- DURABLE BRAIN CARD -->
+  <rect x="775" y="220" width="355" height="400" rx="12" fill="#1a2233" stroke="#f2b544" stroke-width="2.5"/>
+  <text x="952" y="252" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="16" font-weight="700" fill="#f2b544">THE DURABLE FILES</text>
+  <text x="952" y="272" text-anchor="middle" font-size="12.5" font-style="italic" fill="#7d8ba1">one writer only — the VPS folds inbox in</text>
+  <g font-family="ui-monospace,Menlo,monospace" font-size="12.5">
+    <rect x="795" y="290" width="315" height="96" rx="6" fill="#121722" stroke="#f2b544" stroke-width="1"/>
+    <text x="807" y="312" fill="#f2b544">decisions.md</text>
+    <text x="807" y="334" fill="#dbe4f0">- 2026-09-18 — Always-on plane</text>
+    <text x="807" y="352" fill="#dbe4f0">  designed (night shift)…</text>
+    <text x="807" y="372" fill="#7d8ba1">dated · why-it-is-this-way</text>
+
+    <rect x="795" y="398" width="315" height="96" rx="6" fill="#121722" stroke="#f2b544" stroke-width="1"/>
+    <text x="807" y="420" fill="#f2b544">gotchas.md</text>
+    <text x="807" y="442" fill="#dbe4f0">- 2026-09-16 — UAT against</text>
+    <text x="807" y="460" fill="#dbe4f0">  ancuria PR previews…</text>
+    <text x="807" y="480" fill="#7d8ba1">dated · environment facts</text>
+
+    <rect x="795" y="506" width="315" height="96" rx="6" fill="#121722" stroke="#f2b544" stroke-width="1"/>
+    <text x="807" y="528" fill="#f2b544">project-index.md</text>
+    <text x="807" y="550" fill="#dbe4f0">| ancuria | real-estate MX |</text>
+    <text x="807" y="568" fill="#dbe4f0">  active |</text>
+    <text x="807" y="588" fill="#7d8ba1">what's alive, where it lives</text>
+  </g>
+
+  <!-- GIT HISTORY BAR -->
+  <rect x="70" y="672" width="1060" height="88" rx="10" fill="#1a2233" stroke="#7bd88f" stroke-width="1.8"/>
+  <text x="600" y="700" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="14.5" font-weight="700" fill="#7bd88f">BENEATH IT ALL — GIT HISTORY: nothing is overwritten, only added</text>
+  <line x1="150" y1="730" x2="1050" y2="730" stroke="#7bd88f" stroke-width="2"/>
+  <g font-family="ui-monospace,Menlo,monospace" font-size="11.5" fill="#7d8ba1">
+    <circle cx="220" cy="730" r="6" fill="#4dd6c1"/><text x="220" y="752" text-anchor="middle">commit · raw sync 23:00</text>
+    <circle cx="460" cy="730" r="6" fill="#f2b544"/><text x="460" y="752" text-anchor="middle">commit · consolidate 23:30</text>
+    <circle cx="700" cy="730" r="6" fill="#f06a6a"/><text x="700" y="752" text-anchor="middle">push → offsite backup on GitHub</text>
+    <circle cx="940" cy="730" r="6" fill="#7bd88f"/><text x="940" y="752" text-anchor="middle">any past version restorable</text>
+  </g>
+</svg>
