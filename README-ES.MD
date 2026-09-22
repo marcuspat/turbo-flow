@@ -10,6 +10,7 @@ Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **n
 | [`gate.sh`](rig-lite/gate.sh) | una compuerta de revisión entre modelos — primero los checks deterministas (gratuitos), luego un revisor de una **familia de modelo distinta** debe devolver un veredicto interpretable `APPROVED` / `REVISE`. Falla cerrado; nunca fusiona. |
 | [`constitution.md`](rig-lite/constitution.md) | las cuatro leyes que tus agentes pueden leer: constructor ≠ revisor · los agentes nunca fusionan · escritores en paralelo obtienen worktrees aislados · los secretos nunca van a git. |
 | [`memory.md`](rig-lite/memory.md) | memoria entre sesiones versionada en git — un hecho por archivo + un índice, reglas de sincronización, ciclo de vida (con diagramas). |
+| [`self-test.sh`](rig-lite/self-test.sh) | demuestra el comportamiento fail-closed de la compuerta en 8 pruebas — strings `VERDICT` inyectados, revisores silenciosos/caídos, revisores ausentes. Ejecútalo antes de confiar. |
 
 Funciona en cualquier entorno: turbo-flow v4, git plano, CI.
 
