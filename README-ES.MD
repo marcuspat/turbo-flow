@@ -1,7 +1,7 @@
 > **⚡ TURBO FLOW v5.0-PREVIEW — LA ERA DEL RIG. BETA PRIVADA ABIERTA.**
 > Turbo Flow continúa como **Turbo Rig** — un rig de programación agéntica, deliberadamente delgado. El rig completo corre en beta privada; este repo es su casa pública: el kit de gobernanza para tu instalación v4, la evidencia, y el embudo de la beta.
 
-![v5](https://img.shields.io/badge/versión-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/beta_privada-ABIERTA-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-26/26-e0a63c?style=flat-square) ![estudio](https://img.shields.io/badge/revisión_entre_familias-71.6%25→89.7%25-c25550?style=flat-square)
+![v5](https://img.shields.io/badge/versión-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/beta_privada-ABIERTA-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL PASS-e0a63c?style=flat-square) ![estudio](https://img.shields.io/badge/revisión_entre_familias-71.6%25→89.7%25-c25550?style=flat-square)
 
 ## 🎬 El demo nuevo — grabado en un Codespace limpio, nada preinstalado
 

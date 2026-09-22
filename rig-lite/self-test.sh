@@ -208,5 +208,12 @@ else
   echo "✗ diff fence missing or nonce mismatch (begin='$NONCE_SEEN' end='$END_SEEN')"; FAIL=1
 fi
 
+SKIPPED_SC=0
+command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
 echo
-[[ $FAIL -eq 0 ]] && echo "self-test: ALL PASS" || { echo "self-test: FAILURES"; exit 1; }
+if [[ $FAIL -ne 0 ]]; then echo "self-test: FAILURES"; exit 1; fi
+if [[ $SKIPPED_SC -eq 1 ]]; then
+  echo "self-test: ALL PASS — ⚠ 2 shellcheck-gated checks SKIPPED (install shellcheck for full coverage)"
+else
+  echo "self-test: ALL PASS (full coverage)"
+fi

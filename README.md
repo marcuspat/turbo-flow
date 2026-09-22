@@ -1,13 +1,13 @@
 > **⚡ TURBO FLOW v5.0-PREVIEW — THE RIG ERA. PRIVATE BETA OPEN.**
 > Turbo Flow continues as **Turbo Rig** — a thin agentic coding rig. The full rig runs in private beta; this repo is its public home: the drop-in governance kit for your v4 install, the evidence, and the beta funnel.
 
-![v5](https://img.shields.io/badge/version-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/private_beta-OPEN-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-26/26-e0a63c?style=flat-square) ![study](https://img.shields.io/badge/cross--family_review-71.6%25→89.7%25-c25550?style=flat-square)
+![v5](https://img.shields.io/badge/version-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/private_beta-OPEN-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL PASS-e0a63c?style=flat-square) ![study](https://img.shields.io/badge/cross--family_review-71.6%25→89.7%25-c25550?style=flat-square)
 
 ## 🎬 The new demo — recorded in a fresh Codespace, nothing preinstalled
 
 ![rig-lite demo](demo/rig-lite-demo.gif)
 
-A clean Codespace boots this repo's devcontainer and the install chain runs end-to-end; then rig-lite proves itself in-container — **26 fail-closed self-tests** and a live gate run (reviewer CLI stubbed; no API keys on the recording box, same rules as the v4 demo). Not a mockup.
+A clean Codespace boots this repo's devcontainer and the install chain runs end-to-end; then rig-lite proves itself in-container — **fail-closed self-test suite** (30+ checks; says so when shellcheck-gated coverage is skipped) and a live gate run (reviewer CLI stubbed; no API keys on the recording box, same rules as the v4 demo). Not a mockup.
 
 ## The gate in this kit survived 16 rounds of review
 
