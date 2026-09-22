@@ -3,7 +3,7 @@
 
 ## rig-lite — the missing half of your v4 install
 
-Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig-lite/`](rig-lite/) is a portable governance layer — three files, ten minutes, no new dependencies:
+Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig-lite/`](rig-lite/) is a portable governance layer — four files, ten minutes, no new dependencies:
 
 | file | what it gives you |
 |---|---|

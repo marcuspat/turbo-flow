@@ -21,9 +21,12 @@ cd "$FIXTURE"
 
 # 1 · missing --builder → error (2)
 "$GATE" >/dev/null 2>&1;                                   t "missing --builder → 2"        2 $?
-# 2 · no reviewer CLI on PATH → REVISE (1). PATH pinned so a real claude/codex
-#     CLI on the host machine can never be invoked by this test.
-env PATH=/usr/bin:/bin "$GATE" --builder claude >/dev/null 2>&1; t "no reviewer available → 1"  1 $?
+# 2 · no reviewer CLI on PATH → REVISE (1). PATH holds ONLY a git symlink,
+#     so host claude/codex can never be invoked and no FHS layout is assumed.
+TBIN="$FIXTURE/tbin"; mkdir -p "$TBIN"
+ln -s "$(command -v git)" "$TBIN/git"
+ln -s "$(command -v bash)" "$TBIN/bash"
+env PATH="$TBIN" "$GATE" --builder claude >/dev/null 2>&1; t "no reviewer available → 1"  1 $?
 # 3 · clean tree vs base → nothing to review (0)
 git -C "$FIXTURE" checkout -q main
 "$GATE" --builder claude >/dev/null 2>&1;                  t "no commits vs base → 0"        0 $?
@@ -47,14 +50,27 @@ GATE_LITE_TEST=1 GATE_LITE_STUB='exit 3' \
 # 9 · cross-family exclusion with a fake reviewer CLI (no stub hook — real invoke path)
 BIN="$FIXTURE/bin"; mkdir -p "$BIN"
 printf '#!/usr/bin/env bash\ncat >/dev/null\nprintf "VERDICT: APPROVED\\n"\n' > "$BIN/claude"; chmod +x "$BIN/claude"
-env PATH="$BIN:/usr/bin:/bin" "$GATE" --builder claude >/dev/null 2>&1; t "same-family reviewer refused → 1" 1 $?
-env PATH="$BIN:/usr/bin:/bin" "$GATE" --builder codex  >/dev/null 2>&1; t "cross-family reviewer used → 0"  0 $?
-# 10 · flag without value → error (2)
-"$GATE" --builder >/dev/null 2>&1;                              t "flag without value → 2"         2 $?
+env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder claude >/dev/null 2>&1; t "same-family reviewer refused → 1" 1 $?
+env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex  >/dev/null 2>&1; t "cross-family reviewer used → 0"  0 $?
+# 10 · arg guards → error (2)
+"$GATE" --builder >/dev/null 2>&1;                              t "--builder without value → 2"    2 $?
+"$GATE" --base >/dev/null 2>&1;                                 t "--base without value → 2"       2 $?
+"$GATE" --bogus x >/dev/null 2>&1;                              t "unknown flag → 2"               2 $?
+# 11 · verdict line tolerates trailing whitespace/CR → APPROVED (0)
+GATE_LITE_TEST=1 GATE_LITE_STUB='printf "reasons\nVERDICT: APPROVED   \n"' \
+  "$GATE" --builder claude >/dev/null 2>&1;                      t "trailing spaces on APPROVED → 0" 0 $?
+GATE_LITE_TEST=1 GATE_LITE_STUB='printf "VERDICT: APPROVED\r\n"' \
+  "$GATE" --builder claude >/dev/null 2>&1;                      t "CRLF on APPROVED → 0"           0 $?
 
 # 8 · fenced-diff nonce present in prompt (stub prints its stdin tail)
 OUT="$(GATE_LITE_TEST=1 GATE_LITE_STUB='tail -30' "$GATE" --builder claude 2>/dev/null)"
-if printf '%s' "$OUT" | grep -q 'BEGIN-DIFF-'; then echo "✓ diff fenced with nonce"; else echo "✗ diff fence missing"; FAIL=1; fi
+NONCE_SEEN="$(printf '%s' "$OUT" | grep -oE 'BEGIN-DIFF-[0-9a-f]{32}' | head -1)"
+END_SEEN="$(printf '%s' "$OUT" | grep -oE 'END-DIFF-[0-9a-f]{32}' | head -1)"
+if [[ -n "$NONCE_SEEN" && "$NONCE_SEEN" == "${END_SEEN/END/BEGIN}" ]]; then
+  echo "✓ diff fenced with matching 32-hex nonce ($NONCE_SEEN)"
+else
+  echo "✗ diff fence missing or nonce mismatch (begin='$NONCE_SEEN' end='$END_SEEN')"; FAIL=1
+fi
 
 echo
 [[ $FAIL -eq 0 ]] && echo "self-test: ALL PASS" || { echo "self-test: FAILURES"; exit 1; }

@@ -125,7 +125,7 @@ invoke() { # $1 = cli, prompt on stdin — add your own headless CLIs here
     *)      return 2 ;;
   esac
 }
-ERRLOG="$(mktemp /tmp/gate-lite-review.XXXXXX.err)"; trap 'rm -f "$ERRLOG"' EXIT
+ERRLOG="$(mktemp -t gate-lite-review)"; trap 'rm -f "$ERRLOG"' EXIT
 VERDICT_RAW="$(printf '%s' "$PROMPT" | invoke "$REVIEWER" 2>"$ERRLOG")" || {
   echo "gate: reviewer CLI ($REVIEWER) failed — last stderr lines:"
   tail -5 "$ERRLOG" >&2
@@ -138,7 +138,7 @@ if [[ -z "${VERDICT_RAW//[[:space:]]/}" ]]; then
   echo "gate: REVISE — fail-closed by design"
   exit 1
 fi
-LAST_LINE="$(printf '%s\n' "$VERDICT_RAW" | grep -v '^[[:space:]]*$' | tail -1)"
+LAST_LINE="$(printf '%s\n' "$VERDICT_RAW" | grep -v '^[[:space:]]*$' | tail -1 | tr -d '\r' | sed 's/[[:space:]]*$//')"
 
 if [[ "$LAST_LINE" == "VERDICT: APPROVED" ]]; then
   echo "gate: APPROVED ✓  (reviewer: $REVIEWER · builder family: $B_FAMILY · branch: $BRANCH)"

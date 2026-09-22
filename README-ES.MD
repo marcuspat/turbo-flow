@@ -3,7 +3,7 @@
 
 ## rig-lite — la mitad que le falta a tu instalación v4
 
-Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **no**. [`rig-lite/`](rig-lite/) es una capa de gobernanza portable — tres archivos, diez minutos, sin dependencias nuevas:
+Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **no**. [`rig-lite/`](rig-lite/) es una capa de gobernanza portable — cuatro archivos, diez minutos, sin dependencias nuevas:
 
 | archivo | qué te da |
 |---|---|
