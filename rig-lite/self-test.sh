@@ -116,7 +116,7 @@ git commit -qam wip5
 OUT="$(env PATH="$BIN:$PATH" "$GATE" --builder codex 2>/dev/null)"; RC=$?
 t "package.json without test script → skip, gate APPROVED → 0" 0 $RC
 printf '%s' "$OUT" | grep -q 'gate: APPROVED' && echo "✓ no-script skip flows through to approval" || { echo "✗ expected approval"; FAIL=1; }
-git reset -q --hard HEAD~3 2>/dev/null || true
+git reset -q --hard HEAD~3
 
 # ── node-without-npm: tests check skips instead of failing ─────────────────
 NPBIN="$BINS/npbin"; mkdir -p "$NPBIN"
@@ -150,7 +150,7 @@ if command -v shellcheck >/dev/null 2>&1; then
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck flags bad .sh in diff → 1" 1 $RC
   printf '%s' "$OUT" | grep -q 'SC[0-9]' && echo "✓ shellcheck finding surfaced" || { echo "✗ expected shellcheck diagnostic"; FAIL=1; }
-  printf '#!/usr/bin/env bash\necho "$FIXED"\n' > bad.sh && git mv -q good.sh 2>/dev/null; git add -A && git commit -qm fixsh
+  printf '#!/usr/bin/env bash\necho "$FIXED"\n' > bad.sh && git add -A && git commit -qm fixsh
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck clean diff + deleted file ignored → 0" 0 $RC
 else

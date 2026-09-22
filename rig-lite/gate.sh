@@ -179,8 +179,8 @@ VERDICT_RAW="$(printf '%s' "$PROMPT" | invoke "$REVIEWER" 2>"$ERRLOG")" || {
   exit 1
 }
 if [[ -z "${VERDICT_RAW//[[:space:]]/}" ]]; then
-  echo "gate: reviewer ($REVIEWER) returned no output — likely auth/quota; stderr log:"
-  tail -5 "$ERRLOG" >&2
+  echo "gate: reviewer ($REVIEWER) returned no output — likely auth/quota; stderr log (secrets redacted):"
+  tail -5 "$ERRLOG" | sed -E 's/([Tt]oken|[Kk]ey|[Ss]ecret|[Pp]assword|[Aa]uthorization|Bearer)([=: ]+)[^ ]+/\1\2REDACTED/g' >&2
   echo "gate: REVISE — fail-closed by design"
   exit 1
 fi
