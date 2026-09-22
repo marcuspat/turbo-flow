@@ -145,7 +145,7 @@ printf '%s' "$OUT" | grep -q -- '--no-exec: untrusted branch' && echo "✓ --no-
 fresh_ahead
 fake_claude '#!/usr/bin/env bash
 cat >/dev/null
-printf "reasons: used token: sk-live-abcdef123456 here\nBearer abcdef123\nVERDICT: REVISE\n"'
+printf "reasons: used token: sk-live-abcdef123456 here\nBearer abcdef123\nbare: ghp_AbCdEfGhIjKlMnOpQrSt123456789012345678\nkey AKIAIOSFODNN7EXAMPLE8888\nVERDICT: REVISE\n"'
 OUT="$(as_reviewer 2>/dev/null)"
 if printf '%s' "$OUT" | grep -q 'REDACTED' && ! printf '%s' "$OUT" | grep -q 'sk-live-abcdef'; then
   echo "✓ secrets redacted in echoed reviewer output"

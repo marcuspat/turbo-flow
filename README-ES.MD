@@ -1,13 +1,13 @@
 > **⚡ TURBO FLOW v5.0-PREVIEW — LA ERA DEL RIG. BETA PRIVADA ABIERTA.**
 > Turbo Flow continúa como **Turbo Rig** — un rig de programación agéntica, deliberadamente delgado. El rig completo corre en beta privada; este repo es su casa pública: el kit de gobernanza para tu instalación v4, la evidencia, y el embudo de la beta.
 
-![v5](https://img.shields.io/badge/versión-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/beta_privada-ABIERTA-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL PASS-e0a63c?style=flat-square) ![estudio](https://img.shields.io/badge/revisión_entre_familias-71.6%25→89.7%25-c25550?style=flat-square)
+![v5](https://img.shields.io/badge/versión-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/beta_privada-ABIERTA-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![estudio](https://img.shields.io/badge/revisión_entre_familias-71.6%25→89.7%25-c25550?style=flat-square)
 
 ## 🎬 El demo nuevo — grabado en un Codespace limpio, nada preinstalado
 
 ![demo de rig-lite](demo/rig-lite-demo.gif)
 
-Un Codespace limpio arranca el devcontainer de este repo y la cadena de instalación corre de punta a punta; luego rig-lite se demuestra dentro del contenedor — **26 self-tests fail-closed** y una corrida de la compuerta en vivo (CLI revisor simulado; sin API keys en la máquina de grabación, mismas reglas que el demo v4). No es un mockup.
+Un Codespace limpio arranca el devcontainer de este repo y la cadena de instalación corre de punta a punta; luego rig-lite se demuestra dentro del contenedor — **suite de self-tests fail-closed** (30+ pruebas; avisa cuando se omite la cobertura gated de shellcheck) y una corrida de la compuerta en vivo (CLI revisor simulado; sin API keys en la máquina de grabación, mismas reglas que el demo v4). No es un mockup.
 
 ## La compuerta de este kit sobrevivió 16 rondas de revisión
 
