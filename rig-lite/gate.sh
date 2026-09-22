@@ -20,8 +20,8 @@ BASE="main"
 BUILDER=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --base) BASE="$2"; shift 2 ;;
-    --builder) BUILDER="$2"; shift 2 ;;
+    --base) [[ $# -ge 2 ]] || { echo "gate: --base needs a value" >&2; exit 2; }; BASE="$2"; shift 2 ;;
+    --builder) [[ $# -ge 2 ]] || { echo "gate: --builder needs a value" >&2; exit 2; }; BUILDER="$2"; shift 2 ;;
     -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac

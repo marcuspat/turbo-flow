@@ -44,6 +44,14 @@ GATE_LITE_TEST=1 GATE_LITE_STUB='true' \
 # 7 · reviewer CLI failure (nonzero) → REVISE (1)
 GATE_LITE_TEST=1 GATE_LITE_STUB='exit 3' \
   "$GATE" --builder claude >/dev/null 2>&1;                t "crashed reviewer → 1"          1 $?
+# 9 · cross-family exclusion with a fake reviewer CLI (no stub hook — real invoke path)
+BIN="$FIXTURE/bin"; mkdir -p "$BIN"
+printf '#!/usr/bin/env bash\ncat >/dev/null\nprintf "VERDICT: APPROVED\\n"\n' > "$BIN/claude"; chmod +x "$BIN/claude"
+env PATH="$BIN:/usr/bin:/bin" "$GATE" --builder claude >/dev/null 2>&1; t "same-family reviewer refused → 1" 1 $?
+env PATH="$BIN:/usr/bin:/bin" "$GATE" --builder codex  >/dev/null 2>&1; t "cross-family reviewer used → 0"  0 $?
+# 10 · flag without value → error (2)
+"$GATE" --builder >/dev/null 2>&1;                              t "flag without value → 2"         2 $?
+
 # 8 · fenced-diff nonce present in prompt (stub prints its stdin tail)
 OUT="$(GATE_LITE_TEST=1 GATE_LITE_STUB='tail -30' "$GATE" --builder claude 2>/dev/null)"
 if printf '%s' "$OUT" | grep -q 'BEGIN-DIFF-'; then echo "✓ diff fenced with nonce"; else echo "✗ diff fence missing"; FAIL=1; fi
