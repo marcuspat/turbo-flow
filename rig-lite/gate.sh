@@ -64,15 +64,21 @@ det_shellcheck() {
   ((${#f[@]})) || { echo SKIP; return 0; }
   shellcheck -S warning "${f[@]}"
 }
+TIMEOUT_BIN="$(command -v timeout || command -v gtimeout || true)"
+# untrusted entrypoints can hang, not just fail — cap them (GNU coreutils on
+# Linux; gtimeout on macOS w/ coreutils; without either, run bare and say so)
 det_tests() {
   if [[ -x ./run_tests.sh ]]; then
     echo "⚠ running ./run_tests.sh — the branch's own test entrypoint (untrusted until reviewed)"
+    if [[ -n "$TIMEOUT_BIN" ]]; then "$TIMEOUT_BIN" 600 ./run_tests.sh; return $?; fi
+    echo "⚠ no timeout(1) available — running without a hang cap"
     ./run_tests.sh; return $?
   fi
   [[ -f package.json ]] || { echo SKIP; return 0; }
   command -v node >/dev/null || { echo SKIP; return 0; }
   if node -p "!!(require('./package.json').scripts||{}).test" 2>/dev/null | grep -q true; then
     command -v npm >/dev/null || { echo "test script present but npm not installed — fail-closed (install npm, or --no-exec for untrusted branches)"; return 1; }
+    if [[ -n "$TIMEOUT_BIN" ]]; then "$TIMEOUT_BIN" 600 npm test --silent; return $?; fi
     npm test --silent; return $?
   fi
   node -e "require('./package.json')" 2>/dev/null && { echo SKIP; return 0; }

@@ -4,7 +4,7 @@
     "remoteUser": "vscode",
     "features": {
         "ghcr.io/devcontainers/features/rust:1": {
-            "version": "latest"
+            "version": "1.97.1"
         },
         "ghcr.io/devcontainers/features/docker-in-docker:2": {
             "moby": false

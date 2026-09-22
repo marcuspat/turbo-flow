@@ -137,6 +137,26 @@ OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/
 t "--no-exec → reviewer still runs → 0" 0 $RC
 printf '%s' "$OUT" | grep -q -- '--no-exec: untrusted branch' && echo "✓ --no-exec skip markers shown" || { echo "✗ missing --no-exec markers"; FAIL=1; }
 
+# ── det_shellcheck: diff-scoped, deleted files ignored (needs shellcheck) ──
+if command -v shellcheck >/dev/null 2>&1; then
+  ensure_ahead_sh() {
+    git checkout -q -B feat main
+    printf '#!/usr/bin/env bash\necho $UNQUOTED\n' > bad.sh
+    printf '#!/usr/bin/env bash\necho ok\n' > good.sh
+    git add -A && git commit -qm shfix
+    git rm -q good.sh && git commit -qm "delete good.sh"
+  }
+  ensure_ahead_sh
+  OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
+  t "shellcheck flags bad .sh in diff → 1" 1 $RC
+  printf '%s' "$OUT" | grep -q 'SC[0-9]' && echo "✓ shellcheck finding surfaced" || { echo "✗ expected shellcheck diagnostic"; FAIL=1; }
+  printf '#!/usr/bin/env bash\necho "$FIXED"\n' > bad.sh && git mv -q good.sh 2>/dev/null; git add -A && git commit -qm fixsh
+  OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
+  t "shellcheck clean diff + deleted file ignored → 0" 0 $RC
+else
+  echo "⚠ shellcheck not installed — det_shellcheck path untested this run"
+fi
+
 # ── fenced diff: fake claude echoes its prompt; REVISE tail shows the fence ─
 fake_claude '#!/usr/bin/env bash
 cat'
