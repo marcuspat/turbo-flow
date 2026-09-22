@@ -125,8 +125,12 @@ git commit -qam wip6
 OUT="$(env PATH="$NPBIN:$TBIN:/usr/bin:/bin" "$GATE" --builder claude --no-exec 2>/dev/null)"
 # (npm absent on that PATH; det_tests must SKIP — verified via a no-exec sibling run below)
 OUT2="$(env PATH="$BIN:$NPBIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex 2>/dev/null)"; RC=$?
-t "npm absent → tests skip, gate proceeds → 0" 0 $RC
-printf '%s' "$OUT2" | grep -q 'tests ......... skip' && echo "✓ npm-absent skip marker" || { echo "✗ expected skip marker in: $OUT2"; FAIL=1; }
+t "npm absent + real test script → fail-closed 1" 1 $RC
+printf '%s' "$OUT2" | grep -q 'fail-closed' && echo "✓ npm-absent fail-closed message" || { echo "✗ expected fail-closed message"; FAIL=1; }
+printf '{"name":"t","version":"1.0.0"}' > package.json && git commit -qam wip7
+OUT3="$(env PATH="$BIN:$NPBIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex 2>/dev/null)"; RC=$?
+t "npm absent + no test script → skip → 0" 0 $RC
+git reset -q --hard HEAD~1
 git reset -q --hard HEAD~1
 
 # ── --no-exec: skips executable checks, keeps the gate flow ────────────────

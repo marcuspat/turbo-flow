@@ -72,7 +72,7 @@ det_tests() {
   [[ -f package.json ]] || { echo SKIP; return 0; }
   command -v node >/dev/null || { echo SKIP; return 0; }
   if node -p "!!(require('./package.json').scripts||{}).test" 2>/dev/null | grep -q true; then
-    command -v npm >/dev/null || { echo SKIP; return 0; }
+    command -v npm >/dev/null || { echo "test script present but npm not installed — fail-closed (install npm, or --no-exec for untrusted branches)"; return 1; }
     npm test --silent; return $?
   fi
   node -e "require('./package.json')" 2>/dev/null && { echo SKIP; return 0; }
@@ -167,8 +167,8 @@ invoke() { # $1 = cli, prompt on stdin — add your own headless CLIs here
 }
 ERRLOG="$(mktemp "${TMPDIR:-/tmp}/gate-lite-review.XXXXXX")"; trap 'rm -f "$ERRLOG"' EXIT
 VERDICT_RAW="$(printf '%s' "$PROMPT" | invoke "$REVIEWER" 2>"$ERRLOG")" || {
-  echo "gate: reviewer CLI ($REVIEWER) failed — last stderr lines:"
-  tail -5 "$ERRLOG" >&2
+  echo "gate: reviewer CLI ($REVIEWER) failed — last stderr lines (secrets redacted):"
+  tail -5 "$ERRLOG" | sed -E 's/([Tt]oken|[Kk]ey|[Ss]ecret|[Pp]assword|[Aa]uthorization|Bearer)([=: ]+)[^ ]+/\1\2REDACTED/g' >&2
   echo "gate: REVISE — fail-closed by design"
   exit 1
 }
