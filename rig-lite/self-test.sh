@@ -93,6 +93,24 @@ t "passing tests → past det stage (no reviewer → 1)" 1 $RC
 printf '%s' "$OUT" | grep -q 'no reviewer CLI' && echo "✓ det stage passed to reviewer selection" || { echo "✗ expected reviewer-stage message"; FAIL=1; }
 rm -f run_tests.sh
 
+# ── npm branch of det_tests (host PATH, reviewer CLIs shadowed by BIN) ─────
+printf '{"name":"t","version":"1.0.0","scripts":{"test":"exit 1"}}' > package.json
+git add package.json && git commit -qm wip3
+OUT="$(env PATH="$BIN:$PATH" "$GATE" --builder codex 2>/dev/null)"; RC=$?
+t "npm failing test script → 1" 1 $RC
+printf '%s' "$OUT" | grep -q 'deterministic checks failed' && echo "✓ npm failure hits det stage" || { echo "✗ npm failure not caught"; FAIL=1; }
+printf '{"name":"t","version":"1.0.0","scripts":{"test":"exit 0"}}' > package.json
+git commit -qam wip4
+OUT="$(env PATH="$BIN:$PATH" "$GATE" --builder codex 2>/dev/null)"; RC=$?
+t "npm passing test script → full gate APPROVED → 0" 0 $RC
+printf '%s' "$OUT" | grep -q 'gate: APPROVED' && echo "✓ npm pass flows through to approval" || { echo "✗ expected approval"; FAIL=1; }
+printf '{"name":"t","version":"1.0.0"}' > package.json
+git commit -qam wip5
+OUT="$(env PATH="$BIN:$PATH" "$GATE" --builder codex 2>/dev/null)"; RC=$?
+t "package.json without test script → skip, gate APPROVED → 0" 0 $RC
+printf '%s' "$OUT" | grep -q 'gate: APPROVED' && echo "✓ no-script skip flows through to approval" || { echo "✗ expected approval"; FAIL=1; }
+git reset -q --hard HEAD~3 2>/dev/null || true
+
 # ── fenced diff: fake claude echoes its prompt; REVISE tail shows the fence ─
 fake_claude '#!/usr/bin/env bash
 cat'
