@@ -24,6 +24,7 @@ TBIN="$FIXTURE/tbin"; BIN="$FIXTURE/bin"
 mkdir -p "$TBIN" "$BIN"
 ln -s "$(command -v git)" "$TBIN/git"
 ln -s "$(command -v bash)" "$TBIN/bash"
+for b in env grep sed tail head tr od cat mktemp; do ln -s "$(command -v "$b")" "$TBIN/$b"; done
 printf '#!/usr/bin/env bash\nexit 9\n' > "$BIN/codex"; chmod +x "$BIN/codex"   # shadow any real codex
 TPATH="$BIN:$TBIN:/usr/bin:/bin"
 
