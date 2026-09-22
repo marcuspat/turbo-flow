@@ -60,7 +60,7 @@ DIFF="$(git diff "$MB" HEAD)"
 # (plain functions, not eval'd strings — nested quoting is where gates die)
 det_shellcheck() {
   command -v shellcheck >/dev/null || { echo SKIP; return 0; }
-  mapfile -t f < <(git diff --name-only "$MB" HEAD -- "*.sh")
+  mapfile -t f < <(git diff --name-only --diff-filter=d "$MB" HEAD -- "*.sh")
   ((${#f[@]})) || { echo SKIP; return 0; }
   shellcheck -S warning "${f[@]}"
 }
@@ -72,6 +72,7 @@ det_tests() {
   [[ -f package.json ]] || { echo SKIP; return 0; }
   command -v node >/dev/null || { echo SKIP; return 0; }
   if node -p "!!(require('./package.json').scripts||{}).test" 2>/dev/null | grep -q true; then
+    command -v npm >/dev/null || { echo SKIP; return 0; }
     npm test --silent; return $?
   fi
   node -e "require('./package.json')" 2>/dev/null && { echo SKIP; return 0; }

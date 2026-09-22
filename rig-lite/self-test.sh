@@ -117,6 +117,18 @@ t "package.json without test script → skip, gate APPROVED → 0" 0 $RC
 printf '%s' "$OUT" | grep -q 'gate: APPROVED' && echo "✓ no-script skip flows through to approval" || { echo "✗ expected approval"; FAIL=1; }
 git reset -q --hard HEAD~3 2>/dev/null || true
 
+# ── node-without-npm: tests check skips instead of failing ─────────────────
+NPBIN="$FIXTURE/npbin"; mkdir -p "$NPBIN"
+ln -s "$(command -v node)" "$NPBIN/node"
+printf '{"name":"t","version":"1.0.0","scripts":{"test":"exit 0"}}' > package.json
+git commit -qam wip6
+OUT="$(env PATH="$NPBIN:$TBIN:/usr/bin:/bin" "$GATE" --builder claude --no-exec 2>/dev/null)"
+# (npm absent on that PATH; det_tests must SKIP — verified via a no-exec sibling run below)
+OUT2="$(env PATH="$BIN:$NPBIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex 2>/dev/null)"; RC=$?
+t "npm absent → tests skip, gate proceeds → 0" 0 $RC
+printf '%s' "$OUT2" | grep -q 'tests ......... skip' && echo "✓ npm-absent skip marker" || { echo "✗ expected skip marker in: $OUT2"; FAIL=1; }
+git reset -q --hard HEAD~1
+
 # ── --no-exec: skips executable checks, keeps the gate flow ────────────────
 OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
 t "--no-exec → reviewer still runs → 0" 0 $RC
