@@ -137,6 +137,11 @@ OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/
 t "--no-exec → reviewer still runs → 0" 0 $RC
 printf '%s' "$OUT" | grep -q -- '--no-exec: untrusted branch' && echo "✓ --no-exec skip markers shown" || { echo "✗ missing --no-exec markers"; FAIL=1; }
 
+# ── --base guards: base at/ahead of HEAD must fail closed, not pass ───────
+"$GATE" --builder claude --base HEAD >/dev/null 2>&1;  t "--base HEAD → 2" 2 $?
+"$GATE" --builder claude --base feat  >/dev/null 2>&1; t "--base feat (self) → 2" 2 $?
+"$GATE" --builder claude --base nope >/dev/null 2>&1; t "--base missing branch → 2" 2 $?
+
 # ── det_shellcheck: diff-scoped, deleted files ignored (needs shellcheck) ──
 if command -v shellcheck >/dev/null 2>&1; then
   ensure_ahead_sh() {

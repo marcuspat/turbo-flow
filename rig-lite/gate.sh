@@ -48,6 +48,10 @@ git rev-parse --verify "$BASE" >/dev/null 2>&1 || { echo "gate: base branch '$BA
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 MB="$(git merge-base "$BASE" HEAD 2>/dev/null)" || { echo "gate: cannot resolve merge-base with '$BASE'" >&2; exit 2; }
+if [[ "$MB" == "$(git rev-parse HEAD)" ]]; then
+  echo "gate: base '$BASE' is at HEAD — nothing to review. A wrong --base must not pass a review (fail-closed)." >&2
+  exit 2
+fi
 if [[ "$(git rev-list --count "$MB"..HEAD)" -eq 0 ]]; then
   echo "gate: no commits vs $BASE — nothing to review"; exit 0
 fi
