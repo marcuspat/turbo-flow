@@ -195,7 +195,7 @@ if [[ "$LAST_LINE" == "VERDICT: APPROVED" ]]; then
   echo "gate: the merge button is still yours — humans merge."
   exit 0
 else
-  printf '%s\n' "$VERDICT_RAW" | tail -20 | sed -e $'s/\x1b\[[0-9;]*[a-zA-Z]//g' -e 's/VERDICT:/VERDICT·/g' -E -e 's/([Tt]oken|[Kk]ey|[Ss]ecret|[Pp]assword|[Aa]uthorization|Bearer)([=: ]+)[^ ]+/\1\2REDACTED/g' 
+  printf '%s\n' "$VERDICT_RAW" | tail -20 | sed -E -e $'s/\x1b\[[0-9;]*[a-zA-Z]//g' -e 's/VERDICT:/VERDICT·/g' -e 's/([Tt]oken|[Kk]ey|[Ss]ecret|[Pp]assword|[Aa]uthorization|Bearer)([=: ]+)[^ ]+/\1\2REDACTED/g' 
   echo "gate: REVISE — final line was not 'VERDICT: APPROVED'. Fail-closed by design."
   exit 1
 fi

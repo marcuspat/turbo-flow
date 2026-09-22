@@ -135,14 +135,14 @@ t "npm absent + no test script → skip → 0" 0 $RC
 git reset -q --hard HEAD~1
 git reset -q --hard HEAD~1
 
-# ── --no-exec: skips executable checks, keeps the gate flow
-fresh_ahead ────────────────
+# ── --no-exec: skips executable checks, keeps the gate flow ────────────────
+fresh_ahead
 OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
 t "--no-exec → reviewer still runs → 0" 0 $RC
 printf '%s' "$OUT" | grep -q -- '--no-exec: untrusted branch' && echo "✓ --no-exec skip markers shown" || { echo "✗ missing --no-exec markers"; FAIL=1; }
 
-# ── secret redaction on echoed reviewer output
-fresh_ahead ─────────────────────────────
+# ── secret redaction on echoed reviewer output ─────────────────────────────
+fresh_ahead
 fake_claude '#!/usr/bin/env bash
 cat >/dev/null
 printf "reasons: used token: sk-live-abcdef123456 here\nBearer abcdef123\nVERDICT: REVISE\n"'
@@ -178,8 +178,8 @@ else
   echo "⚠ shellcheck not installed — det_shellcheck path untested this run"
 fi
 
-# ── fenced diff: fake claude echoes its prompt; REVISE tail shows the fence
-fresh_ahead ─
+# ── fenced diff: fake claude echoes its prompt; REVISE tail shows the fence ─
+fresh_ahead
 fake_claude '#!/usr/bin/env bash
 cat'
 OUT="$(as_reviewer 2>/dev/null)"
