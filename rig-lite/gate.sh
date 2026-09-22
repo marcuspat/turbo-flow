@@ -57,7 +57,7 @@ det_check() {
 DET=PASS
 det_check shellcheck 'command -v shellcheck >/dev/null || exit 2; mapfile -t f < <(git ls-files "*.sh"); ((${#f[@]})) || exit 2; shellcheck -S warning "${f[@]}"' || DET=FAIL
 det_check tests     'if [[ -x ./run_tests.sh ]]; then ./run_tests.sh; elif [[ -f package.json ]] && grep -q "\"test\"" package.json; then npm test --silent; else exit 2; fi' || DET=FAIL
-det_check types     '[[ -f tsconfig.json ]] || exit 2; npx --no-install tsc --noEmit' || DET=FAIL
+det_check types     '[[ -f tsconfig.json ]] || exit 2; npx --no-install tsc --version >/dev/null 2>&1 || exit 2; npx --no-install tsc --noEmit' || DET=FAIL
 if [[ "$DET" == FAIL ]]; then
   echo "gate: REVISE — deterministic checks failed; fix these before spending tokens on review"
   exit 1
@@ -116,7 +116,7 @@ invoke() { # $1 = cli, prompt on stdin — add your own headless CLIs here
     *)      return 2 ;;
   esac
 }
-ERRLOG="${TMPDIR:-/tmp}/gate-lite-review.$$.$RANDOM.err"; trap 'rm -f "$ERRLOG"' EXIT
+ERRLOG="$(mktemp "${TMPDIR:-/tmp}/gate-lite-review.XXXXXX")"; trap 'rm -f "$ERRLOG"' EXIT
 VERDICT_RAW="$(printf '%s' "$PROMPT" | invoke "$REVIEWER" 2>"$ERRLOG")" || {
   echo "gate: reviewer CLI ($REVIEWER) failed — last stderr lines:"
   tail -5 "$ERRLOG" >&2

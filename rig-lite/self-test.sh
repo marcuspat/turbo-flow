@@ -79,6 +79,17 @@ as_reviewer >/dev/null 2>&1;                                    t "CRLF on APPRO
 env PATH="$TPATH" "$GATE" --builder claude >/dev/null 2>&1;     t "same-family reviewer refused → 1" 1 $?
 env PATH="$TPATH" "$GATE" --builder codex  >/dev/null 2>&1;     t "cross-family reviewer used → 0"   0 $?
 
+# ── deterministic stage: failures stop the gate BEFORE any reviewer ───────
+printf '#!/usr/bin/env bash\nexit 1\n' > run_tests.sh; chmod +x run_tests.sh
+OUT="$(env PATH="$TBIN" "$GATE" --builder claude 2>/dev/null)"; RC=$?
+t "failing tests → 1 (before reviewer)" 1 $RC
+printf '%s' "$OUT" | grep -q 'deterministic checks failed' && echo "✓ deterministic-stage message" || { echo "✗ wrong stage message"; FAIL=1; }
+printf '#!/usr/bin/env bash\nexit 0\n' > run_tests.sh
+OUT="$(env PATH="$TBIN" "$GATE" --builder claude 2>/dev/null)"; RC=$?
+t "passing tests → past det stage (no reviewer → 1)" 1 $RC
+printf '%s' "$OUT" | grep -q 'no reviewer CLI' && echo "✓ det stage passed to reviewer selection" || { echo "✗ expected reviewer-stage message"; FAIL=1; }
+rm -f run_tests.sh
+
 # ── fenced diff: fake claude echoes its prompt; REVISE tail shows the fence ─
 fake_claude '#!/usr/bin/env bash
 cat'
