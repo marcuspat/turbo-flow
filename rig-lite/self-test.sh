@@ -178,6 +178,14 @@ else
   echo "⚠ shellcheck not installed — det_shellcheck path untested this run"
 fi
 
+# ── untrusted exit-42 must FAIL, not skip ───────────────────────────────────
+fresh_ahead
+printf '#!/usr/bin/env bash\nexit 42\n' > run_tests.sh; chmod +x run_tests.sh
+git add -A && git commit -qm exit42
+OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex 2>/dev/null)"; RC=$?
+t "entrypoint exits 42 → FAIL (1), not skip" 1 $RC
+printf '%s' "$OUT" | grep -q 'FAIL' && echo "✓ exit-42 reported as failure" || { echo "✗ expected FAIL report"; FAIL=1; }
+
 # ── --no-exec must NOT execute the branch entrypoint ───────────────────────
 fresh_ahead
 printf '#!/usr/bin/env bash\ntouch /tmp/gate-lite-noexec-probe\n' > run_tests.sh; chmod +x run_tests.sh

@@ -74,16 +74,16 @@ TIMEOUT_BIN="$(command -v timeout || command -v gtimeout || true)"
 det_tests() {
   if [[ -x ./run_tests.sh ]]; then
     echo "⚠ running ./run_tests.sh — the branch's own test entrypoint (untrusted until reviewed)"
-    if [[ -n "$TIMEOUT_BIN" ]]; then "$TIMEOUT_BIN" 600 ./run_tests.sh; return $?; fi
+    if [[ -n "$TIMEOUT_BIN" ]]; then "$TIMEOUT_BIN" 600 ./run_tests.sh; rc=$?; [[ $rc -eq 42 ]] && return 1; return $rc; fi
     echo "⚠ no timeout(1) available — running without a hang cap"
-    ./run_tests.sh; return $?
+    ./run_tests.sh; rc=$?; [[ $rc -eq 42 ]] && return 1; return $rc
   fi
   [[ -f package.json ]] || { echo skip; return 42; }
   command -v node >/dev/null || { echo skip; return 42; }
   if node -p "!!(require('./package.json').scripts||{}).test" 2>/dev/null | grep -q true; then
     command -v npm >/dev/null || { echo "test script present but npm not installed — fail-closed (install npm, or --no-exec for untrusted branches)"; return 1; }
-    if [[ -n "$TIMEOUT_BIN" ]]; then "$TIMEOUT_BIN" 600 npm test --silent; return $?; fi
-    npm test --silent; return $?
+    if [[ -n "$TIMEOUT_BIN" ]]; then "$TIMEOUT_BIN" 600 npm test --silent; rc=$?; [[ $rc -eq 42 ]] && return 1; return $rc; fi
+    npm test --silent; rc=$?; [[ $rc -eq 42 ]] && return 1; return $rc
   fi
   node -e "require('./package.json')" 2>/dev/null && { echo skip; return 42; }
   return 1   # package.json present but unreadable — that's a fail, not a skip
@@ -91,7 +91,7 @@ det_tests() {
 det_types() {
   [[ -f tsconfig.json ]] || { echo skip; return 42; }
   npx --no-install tsc --version >/dev/null 2>&1 || { echo skip; return 42; }
-  npx --no-install tsc --noEmit
+  npx --no-install tsc --noEmit; rc=$?; [[ $rc -eq 42 ]] && return 1; return $rc
 }
 det_check() {
   local name="$1" fn="$2" out rc last
