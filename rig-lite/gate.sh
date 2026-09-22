@@ -27,6 +27,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ -z "$BUILDER" ]] && { echo "gate: --builder <cli> is required (claude, codex, ...) — the reviewer must come from a different family" >&2; exit 2; }
+case "$BUILDER" in
+  claude|claude-code|anthropic|codex|gpt|openai|o3|o4|glm|zcode|zai|gemini|google|grok|xai) ;;
+  *) echo "gate: unknown builder '$BUILDER' — family exclusion can't be enforced, refusing (known: claude, codex, glm, gemini, grok, ...)" >&2; exit 2 ;;
+esac
 TOP="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "gate: not a git repo" >&2; exit 2; }
 cd "$TOP"
 git rev-parse --verify "$BASE" >/dev/null 2>&1 || { echo "gate: base branch '$BASE' not found" >&2; exit 2; }

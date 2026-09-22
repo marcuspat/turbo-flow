@@ -36,6 +36,7 @@ cd "$FIXTURE"
 "$GATE" --builder >/dev/null 2>&1;                              t "--builder without value → 2"    2 $?
 "$GATE" --base >/dev/null 2>&1;                                 t "--base without value → 2"       2 $?
 "$GATE" --bogus x >/dev/null 2>&1;                              t "unknown flag → 2"               2 $?
+"$GATE" --builder nobody >/dev/null 2>&1;                       t "unknown builder → 2"            2 $?
 env PATH="$TBIN" "$GATE" --builder claude >/dev/null 2>&1;      t "no reviewer available → 1"      1 $?
 
 # ── diff scope ─────────────────────────────────────────────────────────────
