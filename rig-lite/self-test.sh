@@ -9,8 +9,9 @@ t() { # name expected actual
   if [[ "$2" == "$3" ]]; then echo "✓ $1"; else echo "✗ $1 — expected exit $2, got $3"; FAIL=1; fi
 }
 
-FIXTURE="$(mktemp -d)"
-trap 'rm -rf "$FIXTURE"' EXIT
+FIXTURE="$(mktemp -d)"      # the git fixture — fake CLI dirs live OUTSIDE it
+BINS="$(mktemp -d)"
+trap 'rm -rf "$FIXTURE" "$BINS"' EXIT
 git -C "$FIXTURE" init -q -b main
 git -C "$FIXTURE" config user.email t@t.t && git -C "$FIXTURE" config user.name t
 git -C "$FIXTURE" commit -q --allow-empty -m base
@@ -20,7 +21,7 @@ git -C "$FIXTURE" add app.js && git -C "$FIXTURE" commit -qm wip
 
 # TBIN: git + bash only (script must run with a PATH that has no reviewer CLIs
 # and no FHS assumptions). BIN: fake reviewer CLIs, shadowing any real ones.
-TBIN="$FIXTURE/tbin"; BIN="$FIXTURE/bin"
+TBIN="$BINS/tbin"; BIN="$BINS/bin"
 mkdir -p "$TBIN" "$BIN"
 ln -s "$(command -v git)" "$TBIN/git"
 ln -s "$(command -v bash)" "$TBIN/bash"
@@ -81,7 +82,7 @@ as_reviewer >/dev/null 2>&1;                                    t "CRLF on APPRO
 # ── cross-family exclusion ─────────────────────────────────────────────────
 # claude-only PATH (no codex at all): builder=claude must REFUSE the only
 # available reviewer; assert the refusal message so a crash can't mask it
-CBIN="$FIXTURE/cbin"; mkdir -p "$CBIN"
+CBIN="$BINS/cbin"; mkdir -p "$CBIN"
 cp "$BIN/claude" "$CBIN/claude"
 OUT="$(env PATH="$CBIN:$TBIN:/usr/bin:/bin" "$GATE" --builder claude 2>/dev/null)"; RC=$?
 t "same-family reviewer refused → 1" 1 $RC
@@ -118,16 +119,14 @@ printf '%s' "$OUT" | grep -q 'gate: APPROVED' && echo "✓ no-script skip flows 
 git reset -q --hard HEAD~3 2>/dev/null || true
 
 # ── node-without-npm: tests check skips instead of failing ─────────────────
-NPBIN="$FIXTURE/npbin"; mkdir -p "$NPBIN"
+NPBIN="$BINS/npbin"; mkdir -p "$NPBIN"
 ln -s "$(command -v node)" "$NPBIN/node"
 printf '{"name":"t","version":"1.0.0","scripts":{"test":"exit 0"}}' > package.json
-git commit -qam wip6
-OUT="$(env PATH="$NPBIN:$TBIN:/usr/bin:/bin" "$GATE" --builder claude --no-exec 2>/dev/null)"
-# (npm absent on that PATH; det_tests must SKIP — verified via a no-exec sibling run below)
+git add -A && git commit -qm wip6
 OUT2="$(env PATH="$BIN:$NPBIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex 2>/dev/null)"; RC=$?
 t "npm absent + real test script → fail-closed 1" 1 $RC
 printf '%s' "$OUT2" | grep -q 'fail-closed' && echo "✓ npm-absent fail-closed message" || { echo "✗ expected fail-closed message"; FAIL=1; }
-printf '{"name":"t","version":"1.0.0"}' > package.json && git commit -qam wip7
+printf '{"name":"t","version":"1.0.0"}' > package.json && git add -A && git commit -qm wip7
 OUT3="$(env PATH="$BIN:$NPBIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex 2>/dev/null)"; RC=$?
 t "npm absent + no test script → skip → 0" 0 $RC
 git reset -q --hard HEAD~1
