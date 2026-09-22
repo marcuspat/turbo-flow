@@ -1,6 +1,18 @@
 > **⚡ TURBO FLOW v5.0-PREVIEW — THE RIG ERA. PRIVATE BETA OPEN.**
 > Turbo Flow continues as **Turbo Rig** — a thin agentic coding rig. The full rig runs in private beta; this repo is its public home: the drop-in governance kit for your v4 install, the evidence, and the beta funnel.
 
+![v5](https://img.shields.io/badge/version-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/private_beta-OPEN-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-26/26-e0a63c?style=flat-square) ![study](https://img.shields.io/badge/cross--family_review-71.6%25→89.7%25-c25550?style=flat-square)
+
+## 🎬 The new demo — recorded in a fresh Codespace, nothing preinstalled
+
+![rig-lite demo](demo/rig-lite-demo.gif)
+
+A clean Codespace boots this repo's devcontainer and the install chain runs end-to-end; then rig-lite proves itself in-container — **26 fail-closed self-tests** and a live gate run (reviewer CLI stubbed; no API keys on the recording box, same rules as the v4 demo). Not a mockup.
+
+## The gate in this kit survived 16 rounds of review
+
+`rig-lite/gate.sh` was itself reviewed by a model family that didn't write it — and got **REVISE'd sixteen times** before earning APPROVED. The findings are exactly the class the gate exists to catch: a prompt-injection hole that let a diff approve itself, a fail-open path that skipped review entirely, a quoting bug that swallowed failing tests, a silent-reviewer misdiagnosis. Every fix became a self-test. **Builder ≠ reviewer isn't a slogan in this repo — it's the reason this script is trustworthy.**
+
 ## rig-lite — the missing half of your v4 install
 
 Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig-lite/`](rig-lite/) is a portable governance layer — four files, ten minutes, no new dependencies:

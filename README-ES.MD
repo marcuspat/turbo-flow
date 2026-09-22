@@ -1,6 +1,18 @@
 > **⚡ TURBO FLOW v5.0-PREVIEW — LA ERA DEL RIG. BETA PRIVADA ABIERTA.**
 > Turbo Flow continúa como **Turbo Rig** — un rig de programación agéntica, deliberadamente delgado. El rig completo corre en beta privada; este repo es su casa pública: el kit de gobernanza para tu instalación v4, la evidencia, y el embudo de la beta.
 
+![v5](https://img.shields.io/badge/versión-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/beta_privada-ABIERTA-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-26/26-e0a63c?style=flat-square) ![estudio](https://img.shields.io/badge/revisión_entre_familias-71.6%25→89.7%25-c25550?style=flat-square)
+
+## 🎬 El demo nuevo — grabado en un Codespace limpio, nada preinstalado
+
+![demo de rig-lite](demo/rig-lite-demo.gif)
+
+Un Codespace limpio arranca el devcontainer de este repo y la cadena de instalación corre de punta a punta; luego rig-lite se demuestra dentro del contenedor — **26 self-tests fail-closed** y una corrida de la compuerta en vivo (CLI revisor simulado; sin API keys en la máquina de grabación, mismas reglas que el demo v4). No es un mockup.
+
+## La compuerta de este kit sobrevivió 16 rondas de revisión
+
+A `rig-lite/gate.sh` lo revisó una familia de modelo que no lo escribió — y recibió **REVISE dieciséis veces** antes de ganar su APPROVED. Los hallazgos son justo la clase de cosas que la compuerta existe para atrapar: un agujero de inyección de prompts que dejaba que un diff se aprobara solo, un camino fail-open que se saltaba la revisión, un bug de quoting que tragaba tests fallidos. Cada fix se volvió un self-test. **Constructor ≠ revisor no es un eslogan en este repo — es la razón por la que este script es confiable.**
+
 ## rig-lite — la mitad que le falta a tu instalación v4
 
 Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **no**. [`rig-lite/`](rig-lite/) es una capa de gobernanza portable — cuatro archivos, diez minutos, sin dependencias nuevas:
