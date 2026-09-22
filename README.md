@@ -10,7 +10,7 @@ Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig
 | [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. |
 | [`constitution.md`](rig-lite/constitution.md) | the four laws your agents can read: builder ≠ reviewer · agents never merge · parallel writers get isolated worktrees · secrets never in git. |
 | [`memory.md`](rig-lite/memory.md) | git-versioned cross-session memory — one fact per file + an index, sync rules, lifecycle (diagrams included). |
-| [`self-test.sh`](rig-lite/self-test.sh) | proves the gate's fail-closed behavior in 8 checks — injected `VERDICT` strings, silent/crashed reviewers, missing reviewers. Run it before you trust it. |
+| [`self-test.sh`](rig-lite/self-test.sh) | proves the gate's fail-closed behavior — injected `VERDICT` strings, silent/crashed/absent reviewers, deterministic-stage ordering, cross-family exclusion. Run it before you trust it. |
 
 Drop them into any environment: turbo-flow v4, plain git, CI.
 

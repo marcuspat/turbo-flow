@@ -56,7 +56,7 @@ det_check() {
 }
 DET=PASS
 det_check shellcheck 'command -v shellcheck >/dev/null || exit 2; mapfile -t f < <(git ls-files "*.sh"); ((${#f[@]})) || exit 2; shellcheck -S warning "${f[@]}"' || DET=FAIL
-det_check tests     'if [[ -x ./run_tests.sh ]]; then ./run_tests.sh; elif [[ -f package.json ]] && grep -q "\"test\"" package.json; then npm test --silent; else exit 2; fi' || DET=FAIL
+det_check tests     'if [[ -x ./run_tests.sh ]]; then ./run_tests.sh; elif [[ -f package.json ]]; then npm test --silent --if-present; else exit 2; fi' || DET=FAIL
 det_check types     '[[ -f tsconfig.json ]] || exit 2; npx --no-install tsc --version >/dev/null 2>&1 || exit 2; npx --no-install tsc --noEmit' || DET=FAIL
 if [[ "$DET" == FAIL ]]; then
   echo "gate: REVISE — deterministic checks failed; fix these before spending tokens on review"
@@ -136,7 +136,7 @@ if [[ "$LAST_LINE" == "VERDICT: APPROVED" ]]; then
   echo "gate: the merge button is still yours — humans merge."
   exit 0
 else
-  printf '%s\n' "$VERDICT_RAW" | tail -20
+  printf '%s\n' "$VERDICT_RAW" | tail -20 | sed $'s/\x1b\[[0-9;]*[a-zA-Z]//g' 
   echo "gate: REVISE — final line was not 'VERDICT: APPROVED'. Fail-closed by design."
   exit 1
 fi
