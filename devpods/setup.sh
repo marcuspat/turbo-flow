@@ -755,11 +755,11 @@ Isolation: Git worktrees per parallel agent.
 - Orchestration: `npx -y ruflo@latest` (NOT claude-flow)
 - Swarms: `npx -y ruflo swarm init --topology hierarchical --max-agents 8`
 - Memory: Beads (`bd`), Native Tasks, AgentDB (`npx -y ruflo agentdb`)
-- Codebase Graph: GitNexus (`npx gitnexus analyze`)
+- Codebase Graph: GitNexus (`npx -y gitnexus analyze`)
 - Browser: via Ruflo's bundled browser tools (59 MCP tools, element refs, snapshots)
 - Observability: via Ruflo's built-in session tracking + AttestationLog
 - Plugins: agentic-qe, code-intelligence, test-intelligence, perf-optimizer, teammate, gastown-bridge
-- Specs: OpenSpec (`npx @fission-ai/openspec`)
+- Specs: OpenSpec (`npx -y @fission-ai/openspec`)
 
 ## Ruflo Plugins
 - **Agentic QE**: 58 QE agents — TDD, coverage, security scanning, chaos engineering
@@ -771,7 +771,7 @@ Isolation: Git worktrees per parallel agent.
 - **OpenSpec**: spec-driven development (`os init`, `os`)
 
 ## Codebase Intelligence (GitNexus)
-- Index repo: `npx gitnexus analyze` (run from repo root, creates knowledge graph)
+- Index repo: `npx -y gitnexus analyze` (run from repo root, creates knowledge graph)
 - Before editing shared code: check blast radius via GitNexus MCP tools
 - Auto-creates AGENTS.md and CLAUDE.md context files
 - One MCP server serves all indexed repos — no per-project config needed
@@ -881,15 +881,15 @@ wt-list() { git worktree list; }
 wt-clean() { git worktree prune; }
 
 # --- GitNexus (codebase knowledge graph) ---
-alias gnx='npx gitnexus'
-alias gnx-analyze='npx gitnexus analyze'
-alias gnx-analyze-force='npx gitnexus analyze --force'
-alias gnx-mcp='npx gitnexus mcp'
-alias gnx-serve='npx gitnexus serve'
-alias gnx-status='npx gitnexus status'
-alias gnx-wiki='npx gitnexus wiki'
-alias gnx-list='npx gitnexus list'
-alias gnx-clean='npx gitnexus clean'
+alias gnx='npx -y gitnexus'
+alias gnx-analyze='npx -y gitnexus analyze'
+alias gnx-analyze-force='npx -y gitnexus analyze --force'
+alias gnx-mcp='npx -y gitnexus mcp'
+alias gnx-serve='npx -y gitnexus serve'
+alias gnx-status='npx -y gitnexus status'
+alias gnx-wiki='npx -y gitnexus wiki'
+alias gnx-list='npx -y gitnexus list'
+alias gnx-clean='npx -y gitnexus clean'
 
 # --- Agentic QE (via ruflo plugin) ---
 alias aqe='npx -y ruflo@latest plugins run agentic-qe'
@@ -897,8 +897,8 @@ alias aqe-generate='npx -y ruflo@latest plugins run agentic-qe generate'
 alias aqe-gate='npx -y ruflo@latest plugins run agentic-qe gate'
 
 # --- OpenSpec (spec-driven development) ---
-alias os='npx @fission-ai/openspec'
-alias os-init='npx @fission-ai/openspec init'
+alias os='npx -y @fission-ai/openspec'
+alias os-init='npx -y @fission-ai/openspec init'
 
 # --- Hooks Intelligence (ruflo native) ---
 alias hooks-pre='npx -y ruflo@latest hooks pre-edit'
@@ -940,7 +940,7 @@ turbo-status() {
     npx -y ruflo@latest plugins list 2>/dev/null | head -10 || echo "  Run: rf-plugins"
     echo ""
     echo "Codebase Intelligence:"
-    command -v gitnexus &>/dev/null && echo "  ✓ GitNexus" || (npx gitnexus --version 2>/dev/null && echo "  ✓ GitNexus (via npx)" || echo "  ○ GitNexus")
+    command -v gitnexus &>/dev/null && echo "  ✓ GitNexus" || (npx -y gitnexus --version 2>/dev/null && echo "  ✓ GitNexus (via npx)" || echo "  ○ GitNexus")
     echo ""
     echo "Workspace:"
     [ -f "CLAUDE.md" ] && echo "  ✓ CLAUDE.md" || echo "  ✗ CLAUDE.md (run setup again)"

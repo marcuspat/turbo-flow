@@ -54,7 +54,10 @@ det_shellcheck() {
   shellcheck -S warning "${f[@]}"
 }
 det_tests() {
-  if [[ -x ./run_tests.sh ]]; then ./run_tests.sh; return $?; fi
+  if [[ -x ./run_tests.sh ]]; then
+    echo "⚠ running ./run_tests.sh — the branch's own test entrypoint (untrusted until reviewed)"
+    ./run_tests.sh; return $?
+  fi
   [[ -f package.json ]] || { echo SKIP; return 0; }
   command -v node >/dev/null || { echo SKIP; return 0; }
   if node -p "!!(require('./package.json').scripts||{}).test" 2>/dev/null | grep -q true; then
