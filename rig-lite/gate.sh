@@ -59,14 +59,14 @@ DIFF="$(git diff "$MB" HEAD)"
 [[ -n "$DIFF" ]] || { echo "gate: no textual diff vs $BASE"; exit 0; }
 
 # ── 1 · deterministic checks (free — run before spending tokens) ──────────
-# each det_* function signals by output: last line exactly "SKIP" when the
+# each det_* function signals by output: last line exactly "gate-lite:SKIP" when the
 # tool/entrypoint is absent; otherwise exit 0 = pass, anything else = FAIL
 # (plain functions, not eval'd strings — nested quoting is where gates die)
 det_shellcheck() {
-  command -v shellcheck >/dev/null || { echo SKIP; return 0; }
+  command -v shellcheck >/dev/null || { echo "gate-lite:SKIP"; return 0; }
   mapfile -t f < <(git diff --name-only --diff-filter=d "$MB" HEAD -- "*.sh")
-  ((${#f[@]})) || { echo SKIP; return 0; }
-  shellcheck -S warning "${f[@]}"
+  ((${#f[@]})) || { echo "gate-lite:SKIP"; return 0; }
+  shellcheck -S warning -- "${f[@]}"
 }
 TIMEOUT_BIN="$(command -v timeout || command -v gtimeout || true)"
 # untrusted entrypoints can hang, not just fail — cap them (GNU coreutils on
@@ -78,32 +78,32 @@ det_tests() {
     echo "⚠ no timeout(1) available — running without a hang cap"
     ./run_tests.sh; return $?
   fi
-  [[ -f package.json ]] || { echo SKIP; return 0; }
-  command -v node >/dev/null || { echo SKIP; return 0; }
+  [[ -f package.json ]] || { echo "gate-lite:SKIP"; return 0; }
+  command -v node >/dev/null || { echo "gate-lite:SKIP"; return 0; }
   if node -p "!!(require('./package.json').scripts||{}).test" 2>/dev/null | grep -q true; then
     command -v npm >/dev/null || { echo "test script present but npm not installed — fail-closed (install npm, or --no-exec for untrusted branches)"; return 1; }
     if [[ -n "$TIMEOUT_BIN" ]]; then "$TIMEOUT_BIN" 600 npm test --silent; return $?; fi
     npm test --silent; return $?
   fi
-  node -e "require('./package.json')" 2>/dev/null && { echo SKIP; return 0; }
+  node -e "require('./package.json')" 2>/dev/null && { echo "gate-lite:SKIP"; return 0; }
   return 1   # package.json present but unreadable — that's a fail, not a skip
 }
 det_types() {
-  [[ -f tsconfig.json ]] || { echo SKIP; return 0; }
-  npx --no-install tsc --version >/dev/null 2>&1 || { echo SKIP; return 0; }
+  [[ -f tsconfig.json ]] || { echo "gate-lite:SKIP"; return 0; }
+  npx --no-install tsc --version >/dev/null 2>&1 || { echo "gate-lite:SKIP"; return 0; }
   npx --no-install tsc --noEmit
 }
 det_check() {
   local name="$1" fn="$2" out rc last
   out="$("$fn" 2>&1)"; rc=$?
   last="$(printf '%s\n' "$out" | tail -1)"
-  if [[ $rc -eq 0 && "$last" == "SKIP" ]]; then
+  if [[ $rc -eq 0 && "$last" == "gate-lite:SKIP" ]]; then
     echo "▸ $name ......... skip"
   elif [[ $rc -eq 0 ]]; then
     echo "▸ $name ......... pass"
   else
     echo "▸ $name ......... FAIL"
-    printf '%s\n' "$out" | grep -v '^SKIP$' | tail -5 | sed 's/^/    /'
+    printf '%s\n' "$out" | grep -v '^gate-lite:SKIP$' | tail -5 | sed 's/^/    /'
     return 1
   fi
 }
