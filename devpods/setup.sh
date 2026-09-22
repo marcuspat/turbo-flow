@@ -869,7 +869,7 @@ wt-add() {
     export DATABASE_SCHEMA="wt_${name}_$(date +%s)"
     # Auto-index with GitNexus if available
     if command -v npx &>/dev/null; then
-        (cd ".worktrees/$name" && npx gitnexus analyze 2>/dev/null &)
+        (cd ".worktrees/$name" && npx -y gitnexus analyze 2>/dev/null &)
     fi
 }
 wt-remove() {

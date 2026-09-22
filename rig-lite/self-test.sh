@@ -78,8 +78,14 @@ cat >/dev/null
 printf "VERDICT: APPROVED\r\n"'
 as_reviewer >/dev/null 2>&1;                                    t "CRLF on APPROVED → 0"           0 $?
 
-# ── cross-family exclusion (fake claude approves everything) ───────────────
-env PATH="$TPATH" "$GATE" --builder claude >/dev/null 2>&1;     t "same-family reviewer refused → 1" 1 $?
+# ── cross-family exclusion ─────────────────────────────────────────────────
+# claude-only PATH (no codex at all): builder=claude must REFUSE the only
+# available reviewer; assert the refusal message so a crash can't mask it
+CBIN="$FIXTURE/cbin"; mkdir -p "$CBIN"
+cp "$BIN/claude" "$CBIN/claude"
+OUT="$(env PATH="$CBIN:$TBIN:/usr/bin:/bin" "$GATE" --builder claude 2>/dev/null)"; RC=$?
+t "same-family reviewer refused → 1" 1 $RC
+printf '%s' "$OUT" | grep -q 'no reviewer CLI from a family other'   && echo "✓ refusal message (not a crash)" || { echo "✗ expected refusal message, got: $OUT"; FAIL=1; }
 env PATH="$TPATH" "$GATE" --builder codex  >/dev/null 2>&1;     t "cross-family reviewer used → 0"   0 $?
 
 # ── deterministic stage: failures stop the gate BEFORE any reviewer ───────
