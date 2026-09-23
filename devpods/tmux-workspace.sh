@@ -4,7 +4,7 @@ set -ex
 readonly DEVPOD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Ensure required variables have defaults
-: "${WORKSPACE_FOLDER:=/workspaces/turbo-flow-claude}"
+: "${WORKSPACE_FOLDER:=$(cd "$DEVPOD_DIR/.." && pwd)}"
 : "${DEVPOD_WORKSPACE_FOLDER:=$WORKSPACE_FOLDER}"
 : "${AGENTS_DIR:=$WORKSPACE_FOLDER/agents}"
 
@@ -76,5 +76,12 @@ tmux send-keys -t workspace:1 "echo 'DevPod Dir: $DEVPOD_DIR'" C-m
 tmux select-window -t workspace:0
 echo "✅ TMux workspace 'workspace' created successfully!"
 echo "📝 Attaching to tmux session..."
-# Attach to the session
-tmux attach-session -t workspace
+# --no-attach: explicit headless/postAttach mode. Without it, attach only
+# from an interactive terminal — CI/plain-ssh runs succeed with a pointer
+# instead of dying on "not a terminal".
+if [ "${1:-}" = "--no-attach" ] || { [ "${1:-}" != "--no-attach" ] && ! { [ -t 0 ] && [ -t 1 ]; }; }; then
+    echo "✅ Session 'workspace' ready — attach with: tmux attach -t workspace"
+else
+    echo "📝 Attaching to tmux session..."
+    tmux attach-session -t workspace
+fi
