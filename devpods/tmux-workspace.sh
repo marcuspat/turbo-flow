@@ -40,6 +40,14 @@ fi
 # Ensure we're in the workspace directory
 cd "$WORKSPACE_FOLDER"
 
+# quality-of-life options are idempotent globals — applied on every run
+# AFTER a session exists (tmux needs a live server), incl. kept sessions
+apply_qol() {
+    tmux set-option -g history-limit 50000
+    tmux set-option -g mouse on
+    tmux set-window-option -g mode-keys vi
+}
+
 # Session policy: an existing session is KEPT (postAttach runs on every client
 # attach — recreating would kill running Claude panes each reconnect); use
 # --rebuild to force recreation. Kept sessions skip the build below but still
@@ -66,14 +74,6 @@ elif tmux has-session -t workspace 2>/dev/null; then
         fi
     fi
 fi
-
-# quality-of-life options are idempotent globals — applied on every run
-# AFTER a session exists (tmux needs a live server), incl. kept sessions
-apply_qol() {
-    tmux set-option -g history-limit 50000
-    tmux set-option -g mouse on
-    tmux set-window-option -g mode-keys vi
-}
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
     # Create new session with first window for Claude
