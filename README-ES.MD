@@ -40,7 +40,7 @@ El rig completo — compuerta integrada, constitución, memoria versionada en gi
 
 **Feedback de la beta:** abre un issue o inicia una discusión aquí — este repo es el tracker público de la beta.
 
-**El trabajo activo de este repo** no cambia: las definiciones devcontainer de DevPod/Codespaces que arrancan el plano de ejecución remoto del rig (guías abajo).
+**El trabajo activo de este repo** no cambia: el devcontainer Codespaces-first que arranca el plano de ejecución remoto — **abre este repo en un Codespace y `postCreate` corre toda la cadena de instalación** (ver `github_codespaces_setup.md`). Los planes de Kubernetes/otras nubes viven ahora en [`legacy/k8s-planes/`](legacy/k8s-planes/) — mantenidos por la comunidad, sin verificar desde v4.
 
 ---
 
@@ -155,7 +155,7 @@ El rig completo — compuerta integrada, constitución, memoria versionada en gi
 |  UI UX Pro Max | OpenSpec | 36+ Habilidades auto-activadas Ruflo |
 +------------------------------------------------------------------+
 |  INFRAESTRUCTURA                                                  |
-|  DevPod | Codespaces | Rackspace Spot                            |
+|  Codespaces (primario, verificado en cada release) | Linux/macOS local | planes k8s legacy |
 +------------------------------------------------------------------+
 ```
 

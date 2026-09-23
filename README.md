@@ -40,7 +40,7 @@ The full rig — integrated gate, constitution, git-versioned memory, automation
 
 **Beta feedback:** open an issue or start a discussion here — this repo is the beta's public tracker.
 
-**This repo's active job** is unchanged: the DevPod/Codespaces devcontainer definitions that boot the rig's remote execution plane (guides below).
+**This repo's active job** is unchanged: the Codespaces-first devcontainer that boots the remote execution plane — **open this repo in a Codespace and `postCreate` runs the whole install chain** (see `github_codespaces_setup.md`). Kubernetes/other-cloud planes now live in [`legacy/k8s-planes/`](legacy/k8s-planes/) — community-maintained, unverified since v4.
 
 ---
 
@@ -171,7 +171,7 @@ genuine first-run auth screen. Recorded with
 |  UI UX Pro Max | OpenSpec | 36+ Ruflo Auto-activated Skills       |
 +------------------------------------------------------------------+
 |  INFRASTRUCTURE                                                   |
-|  DevPod | Codespaces | Rackspace Spot                            |
+|  Codespaces (primary, release-verified) | local Linux/macOS | legacy k8s planes |
 +------------------------------------------------------------------+
 ```
 
