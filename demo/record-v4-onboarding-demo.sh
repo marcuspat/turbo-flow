@@ -27,7 +27,8 @@ t 'tmux list-windows -t workspace'
 echo "📝 attaching — tour of all four windows…"
 ( sleep 2.5
   for w in 0 1 2 3 0; do tmux select-window -t workspace:$w 2>/dev/null; sleep 3.5; done
-  tmux detach-client -s workspace 2>/dev/null ) &
+  DETACH_TTY="$(tmux list-clients -t workspace -F '#{client_tty}' 2>/dev/null | head -1)"
+  [ -n "$DETACH_TTY" ] && tmux detach-client -t "$DETACH_TTY" 2>/dev/null ) &
 tmux attach-session -t workspace
 sleep 0.5
 

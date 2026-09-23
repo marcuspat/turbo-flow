@@ -126,7 +126,9 @@ class Monitor:
                 if (prevrow is None or row["total"] > prevrow["total"]
                         or (row["total"] == prevrow["total"] and row["ts"] < prevrow["ts"])):
                     self.dedup[key] = row
-        horizon = now - RETENTION
+        # evict WIDER than the widest renderable window (7d + 1h) so a
+        # long-running --watch never under-reports vs a fresh process
+        horizon = now - RETENTION - 3600
         for k in [k for k, r in self.dedup.items() if r["ts"] < horizon]:
             del self.dedup[k]
         return list(self.dedup.values())
