@@ -43,9 +43,13 @@ echo "📝 attaching — tour of all four windows, then Claude live in window 1�
     tmux send-keys -t workspace:$w C-c
     # confirm the exit before typing into the next window: wait for the pane
     # to return to a shell (or time out and proceed — the tour continues)
+    PANE_ID="$(tmux list-panes -t workspace:$w -F '#{pane_id}' 2>/dev/null | head -1)"
     for _ in 1 2 3 4 5; do
       sleep 1
-      [ "$(tmux list-panes -t workspace:$w -F '#{pane_current_command}' 2>/dev/null)" = "bash" ] && break
+      CMDS="$(tmux list-panes -t workspace:$w -F '#{pane_id}:#{pane_current_command}' 2>/dev/null)"
+      # single pane whose shell is back (bash or sh — not node/claude)
+      [ "$(printf '%s\n' "$CMDS" | wc -l | tr -d ' ')" = "1" ] \
+        && ! printf '%s' "$CMDS" | grep -qE ':(node|claude)$' && break
     done
   done
   # detach only OUR attached client (this recorder's tty) — humans stay attached
