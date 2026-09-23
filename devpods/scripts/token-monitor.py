@@ -268,13 +268,16 @@ def selftest():
     m5 = Monitor(root=tmp)
     got = [r for r in m5.collect(now) if (r["tin"], r["tout"]) in ((100, 50), (500, 250))]
     assert len(got) == 1 and got[0]["tin"] == 500, got  # merged, fullest won
-    # parse_args: every documented form
+    # parse_args: every documented form + every rejection path
     a = parse_args(["--watch", "5"])
-    assert a["watch"] and a["refresh"] == 5.0, a
+    assert a["watch"] and a["refresh"] == 5.0 and not a["errors"], a
     a = parse_args(["--since=30m"])
-    assert a["win"] == "30m", a
+    assert a["win"] == "30m" and not a["errors"], a
     a = parse_args(["--since", "1h", "--json"])
     assert a["win"] == "1h" and a["json"], a
+    assert parse_args(["--since"])["errors"], "missing value must error"
+    assert parse_args(["--bogus"])["errors"], "unknown flag must error"
+    assert parse_args(["stray"])["errors"], "stray positional must error"
     # eviction: rows older than 7d+1h evicted; boundary rows kept
     mon4 = Monitor(root=tmp)
     mon4.dedup[("old", "x")] = {"ts": now - RETENTION - 7200, "model": "m", "tin": 0, "cc": 0, "cr": 0, "tout": 0, "total": 0, "proj": "p"}
@@ -319,7 +322,7 @@ def parse_args(argv):
         elif a == "--color" or a == "--color=always":
             out["color"] = True
         elif a.startswith("-"):
-            out["errors"] = a
+            out["errors"] = f"unknown flag: {a}"
         i += 1
     return out
 
@@ -332,7 +335,7 @@ def main(argv):
             print(f"self-test: FAILURES — {e}", file=sys.stderr)
             return 3
     if args["errors"]:
-        print(f"unknown flag: {args['errors']}", file=sys.stderr)
+        print(args["errors"], file=sys.stderr)
         return 1
     win = args["win"]
     refresh = args["refresh"]
