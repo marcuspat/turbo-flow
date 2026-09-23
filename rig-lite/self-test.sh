@@ -174,9 +174,14 @@ fi
 
 # ── det_shellcheck: diff-scoped, deleted files ignored (needs shellcheck) ──
 if command -v shellcheck >/dev/null 2>&1; then
+  # approver for the SECOND test below; the FIRST asserts the det stage fails
+  # BEFORE any reviewer runs — that ordering is the property under test
+  fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "reasons here\nVERDICT: APPROVED\n"'
   ensure_ahead_sh() {
     git checkout -q -B feat main
-    printf '#!/usr/bin/env bash\necho $UNQUOTED\n' > bad.sh
+    printf '#!/usr/bin/env bash\nUNUSED_VAR=hello\necho hi\n' > bad.sh   # SC2034 (warning) — survives -S warning
     printf '#!/usr/bin/env bash\necho ok\n' > good.sh
     git add -A && git commit -qm shfix
     git rm -q good.sh && git commit -qm "delete good.sh"
@@ -184,8 +189,8 @@ if command -v shellcheck >/dev/null 2>&1; then
   ensure_ahead_sh
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck flags bad .sh in diff → 1" 1 $RC
-  printf '%s' "$OUT" | grep -q 'SC[0-9]' && echo "✓ shellcheck finding surfaced" || { echo "✗ expected shellcheck diagnostic"; FAIL=1; }
-  printf '#!/usr/bin/env bash\necho "$FIXED"\n' > bad.sh && git add -A && git commit -qm fixsh
+  printf '%s' "$OUT" | grep -q 'UNUSED_VAR' && echo "✓ shellcheck finding surfaced (by variable name — code-number agnostic)" || { echo "✗ expected shellcheck diagnostic"; FAIL=1; }
+  printf '#!/usr/bin/env bash\nFIXED=done\necho "$FIXED"\n' > bad.sh && git add -A && git commit -qm fixsh
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck clean diff + deleted file ignored → 0" 0 $RC
 else
@@ -202,6 +207,9 @@ printf '%s' "$OUT" | grep -q 'FAIL' && echo "✓ exit-42 reported as failure" ||
 
 # ── --no-exec must NOT execute the branch entrypoint ───────────────────────
 fresh_ahead
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "reasons here\nVERDICT: APPROVED\n"'
 printf '#!/usr/bin/env bash\ntouch /tmp/gate-lite-noexec-probe\n' > run_tests.sh; chmod +x run_tests.sh
 rm -f /tmp/gate-lite-noexec-probe
 git add -A && git commit -qm probe

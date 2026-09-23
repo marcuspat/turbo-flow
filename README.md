@@ -69,9 +69,9 @@ The full rig — integrated gate, constitution, git-versioned memory, automation
 
 ## 🎬 Demo
 
-![Turbo Flow demo](https://raw.githubusercontent.com/marcuspat/marcuspat/main/demos/turbo-flow-demo.gif)
+![Turbo Flow v4 onboarding demo](demo/v4-onboarding-demo.gif)
 
-A real, unedited run of the full onboarding chain — `codespace_setup.sh` →
+Re-recorded 2026-09 on `main` after the script fixes (unattended `npx -y` installs, detached daemon, `--no-attach` headless tmux): a real, unedited run of the onboarding chain — `codespace_setup.sh` →
 `setup.sh` → `post-setup.sh` → `tmux-workspace.sh` (11 install steps, 6-plugin
 verify: Claude Code, Ruflo v3.5, Dolt + Beads, GitNexus, OpenSpec) — sped up,
 then a real reattach to the live tmux session it creates: a tour through all
