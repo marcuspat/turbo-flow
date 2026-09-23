@@ -1311,11 +1311,12 @@ else
 fi
 # ── tmux workspace policy (behavioral; isolated socket) ─────────────────────
 if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspace.sh" ]; then
-  if bash "$DEVPOD_DIR/tests/test-tmux-workspace.sh" 2>&1 | tee /tmp/tf-twtest.log | tail -3; then
-    :
+  if bash "$DEVPOD_DIR/tests/test-tmux-workspace.sh" > /tmp/tf-twtest.log 2>&1; then
+    tail -3 /tmp/tf-twtest.log
   else
     FAIL=1
-    echo "  ✗ tmux-workspace behavioral tests failed (see /tmp/tf-twtest.log)"
+    tail -5 /tmp/tf-twtest.log
+    echo "  ✗ tmux-workspace behavioral tests failed (full log: /tmp/tf-twtest.log)"
   fi
 fi
 exit $FAIL

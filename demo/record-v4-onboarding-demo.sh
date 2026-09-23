@@ -9,6 +9,13 @@ export AGENTS_DIR=/workspaces/turbo-flow/agents DEVPOD_DIR=/workspaces/turbo-flo
 export PATH=$HOME/.npm-global/bin:$HOME/.local/bin:$PATH
 export TERM=xterm-256color   # tmux attach refuses dumb/absent TERM (recording pty)
 
+# credential-free enforcement: the claude segment must show the GENUINE first-run
+# screen — abort rather than record a logged-in session (leaks, real usage data)
+if command -v claude >/dev/null 2>&1 && claude auth status >/dev/null 2>&1; then
+  echo "recorder: claude is AUTHENTICATED on this box — record from a credential-free Codespace" >&2
+  exit 1
+fi
+
 t() { # type a command char-by-char, then run it
   local cmd="$1"; local i=0
   while (( i < ${#cmd} )); do printf '%s' "${cmd:i:1}"; i=$((i+1)); sleep 0.012; done
