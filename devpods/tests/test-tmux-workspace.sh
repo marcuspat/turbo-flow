@@ -6,7 +6,6 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 TW="$HERE/../tmux-workspace.sh"
 SHIM="$(mktemp -d)"
-trap 'tmux kill-server 2>/dev/null || true; rm -rf "$SHIM"' EXIT
 command -v tmux >/dev/null 2>&1 || { echo "tmux not installed — tests skipped"; exit 0; }
 REAL_TMUX="$(command -v tmux)"
 printf '#!/usr/bin/env bash
@@ -14,6 +13,9 @@ exec %s -L twtest "$@"
 ' "$REAL_TMUX" > "$SHIM/tmux"
 chmod +x "$SHIM/tmux"
 export PATH="$SHIM:$PATH"
+# trap set ONLY after the shim is live: it must kill the ISOLATED server, never
+# production (early exits above happen before any trap exists)
+trap '"$SHIM/tmux" kill-server 2>/dev/null || true; rm -rf "$SHIM"' EXIT
 export WORKSPACE_FOLDER="$(cd "$HERE/../.." && pwd)"
 FAIL=0
 tmux kill-server 2>/dev/null || true   # no stale twtest server may back test 2
