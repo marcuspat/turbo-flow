@@ -16,8 +16,9 @@ if ! command -v claude >/dev/null 2>&1; then
   echo "recorder: claude CLI missing — the demo requires it" >&2; exit 1
 fi
 AUTH_OUT="$(claude auth status 2>&1 || true)"
-case "$AUTH_OUT" in
-  *[Nn]ot*\ [Ll]ogged\ [Ii]n*|*[Ll]ogged\ [Oo]ut*|*[Nn]o\ \[aA]PI\ \[kK]ey*|*not\ authenticated*)
+AUTH_LC="$(printf '%s' "$AUTH_OUT" | tr '[:upper:]' '[:lower:]')"
+case " $AUTH_LC " in
+  *" not logged in "*|*" logged out "*|*" no api key "*|*" not authenticated "*)
     echo "recorder: claude confirmed logged out — genuine first-run screen incoming" ;;
   *)
     echo "recorder: claude auth state unclear or authenticated — record from a credential-free Codespace" >&2
