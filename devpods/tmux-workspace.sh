@@ -50,6 +50,7 @@ if [ "$REBUILD" -eq 1 ]; then
 elif tmux has-session -t workspace 2>/dev/null; then
     echo "✅ workspace session already running — keeping it (--rebuild to recreate)"
     SKIP_BUILD=1
+    apply_qol   # kept session may predate current option defaults
     # self-heal: the monitor window closes when its process dies — recreate it
     if ! tmux list-windows -t workspace -F '#{window_name}' 2>/dev/null | grep -q '^Claude-Monitor'; then
         if command -v python3 >/dev/null 2>&1 && [ -f "$WORKSPACE_FOLDER/devpods/scripts/token-monitor.py" ]; then
@@ -66,15 +67,18 @@ elif tmux has-session -t workspace 2>/dev/null; then
     fi
 fi
 
-# quality-of-life options are idempotent globals — applied on every run,
-# including kept sessions (they may have been created by an older script)
-tmux set-option -g history-limit 50000
-tmux set-option -g mouse on
-tmux set-window-option -g mode-keys vi
+# quality-of-life options are idempotent globals — applied on every run
+# AFTER a session exists (tmux needs a live server), incl. kept sessions
+apply_qol() {
+    tmux set-option -g history-limit 50000
+    tmux set-option -g mouse on
+    tmux set-window-option -g mode-keys vi
+}
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
     # Create new session with first window for Claude
     tmux new-session -d -s workspace -n "Claude-1" -c "$WORKSPACE_FOLDER"
+    apply_qol
     # Create second window for Claude
     tmux new-window -t workspace:1 -n "Claude-2" -c "$WORKSPACE_FOLDER"
     # Create third window for Claude monitor

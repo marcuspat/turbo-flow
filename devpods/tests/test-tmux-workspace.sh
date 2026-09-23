@@ -7,9 +7,12 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 TW="$HERE/../tmux-workspace.sh"
 SHIM="$(mktemp -d)"
 trap 'rm -rf "$SHIM"' EXIT
-printf '#!/usr/bin/env bash\nexec /usr/bin/tmux -L twtest "$@"\n' > "$SHIM/tmux"
+command -v tmux >/dev/null 2>&1 || { echo "tmux not installed — tests skipped"; exit 0; }
+REAL_TMUX="$(command -v tmux)"
+printf '#!/usr/bin/env bash
+exec %s -L twtest "$@"
+' "$REAL_TMUX" > "$SHIM/tmux"
 chmod +x "$SHIM/tmux"
-if ! command -v tmux >/dev/null 2>&1; then echo "tmux not installed — tests skipped"; exit 0; fi
 export PATH="$SHIM:$PATH"
 export WORKSPACE_FOLDER="$(cd "$HERE/../.." && pwd)"
 FAIL=0
@@ -32,13 +35,15 @@ tmux kill-window -t workspace:2 2>/dev/null || true
 bash "$TW" --no-attach >/dev/null 2>&1; sleep 1
 tmux list-windows -t workspace -F '#{window_name}' | grep -q '^Claude-Monitor' \
   && echo "✓ monitor window self-healed" || { echo "✗ monitor not healed"; FAIL=1; }
-# 5 · --rebuild recreates a fresh session (marker process from the old one gone)
+# 5 · --rebuild recreates a fresh session (pane PID changes = true recreation)
+OLD_PID="$(tmux list-panes -t workspace:0 -F '#{pane_pid}' | head -1)"
 bash "$TW" --rebuild --no-attach >/dev/null 2>&1; t "rebuild → 0" 0 $?
 tmux list-windows -t workspace -F '#{window_name}' | grep -q '^Claude-Monitor' \
   && echo "✓ rebuild built fresh workspace" || { echo "✗ rebuild missing windows"; FAIL=1; }
-sleep 1
-[[ -e "$SHIM/marker" ]] && echo "✗ rebuild left the old pane's marker (session not recreated)" && FAIL=1 \
-  || echo "✓ rebuild recreated the session (old pane gone)"
+sleep 0.5
+NEW_PID="$(tmux list-panes -t workspace:0 -F '#{pane_pid}' | head -1)"
+[[ -n "$OLD_PID" && "$NEW_PID" != "$OLD_PID" ]] && echo "✓ rebuild recreated the session (pane PID changed)" \
+  || { echo "✗ rebuild did not recreate (same pane PID)"; FAIL=1; }
 
 # teardown: the isolated socket dies with this test
 tmux kill-server 2>/dev/null || true
