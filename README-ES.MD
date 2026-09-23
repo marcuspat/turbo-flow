@@ -188,7 +188,7 @@ El rig completo — compuerta integrada, constitución, memoria versionada en gi
 3. En el primer attach, el workspace tmux de cuatro ventanas se construye solo: dos paneles de Claude, el **monitor de tokens** en vivo, y `htop`. El perfil de terminal por defecto entra directo a la sesión.
 4. Verifica: `turbo-status` · `turbo-help` · `bash devpods/tf-verify.sh`
 
-Eso es todo — el GIF del demo del onboarding (abajo) es exactamente este camino, grabado sin editar.
+Eso es todo — el GIF del demo del onboarding (arriba) es exactamente este camino, grabado sin editar.
 
 ### Local (Linux / macOS)
 
