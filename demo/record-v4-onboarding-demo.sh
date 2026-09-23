@@ -17,8 +17,8 @@ if ! command -v claude >/dev/null 2>&1; then
 fi
 AUTH_OUT="$(claude auth status 2>&1 || true)"
 AUTH_LC="$(printf '%s' "$AUTH_OUT" | tr '[:upper:]' '[:lower:]')"
-case " $AUTH_LC " in
-  *" not logged in "*|*" logged out "*|*" no api key "*|*" not authenticated "*)
+case "$AUTH_LC" in
+  *"not logged in"*|*"logged out"*|*"no api key"*|*"not authenticated"*)
     echo "recorder: claude confirmed logged out — genuine first-run screen incoming" ;;
   *)
     echo "recorder: claude auth state unclear or authenticated — record from a credential-free Codespace" >&2
