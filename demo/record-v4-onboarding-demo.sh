@@ -15,14 +15,14 @@ export TERM=xterm-256color   # tmux attach refuses dumb/absent TERM (recording p
 if ! command -v claude >/dev/null 2>&1; then
   echo "recorder: claude CLI missing — the demo requires it" >&2; exit 1
 fi
-AUTH_OUT="$(claude auth status 2>&1 || true)"
-AUTH_LC="$(printf '%s' "$AUTH_OUT" | tr '[:upper:]' '[:lower:]')"
-case "$AUTH_LC" in
-  *"not logged in"*|*"logged out"*|*"no api key"*|*"not authenticated"*)
-    echo "recorder: claude confirmed logged out — genuine first-run screen incoming" ;;
-  *)
-    echo "recorder: claude auth state unclear or authenticated — record from a credential-free Codespace" >&2
-    exit 1 ;;   # full auth output NOT echoed: it can carry account/session identifiers
+AUTH_JSON="$(claude auth status 2>/dev/null || true)"
+LOGGED_IN="$(printf '%s' "$AUTH_JSON" | jq -r '.loggedIn // "unparseable"' 2>/dev/null || echo unparseable)"
+case "$LOGGED_IN" in
+  false)
+    echo "recorder: claude reports loggedIn:false — genuine first-run screen incoming" ;;
+  true|*)
+    echo "recorder: claude authenticated or auth state unparseable — record from a credential-free Codespace" >&2
+    exit 1 ;;
 esac
 
 t() { # type a command char-by-char, then run it
