@@ -95,6 +95,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$HERE/../../.devcontainer/devcont
   [[ "$PC" == *"chmod +x \${containerWorkspaceFolder}/devpods/*.sh 2>/dev/null || true"* ]] \
   && echo "✓ chmod is failure-tolerant" || { echo "✗ chmod intolerance"; FAIL=1; }
   [[ "$PC" == *"if sudo apt-get update && sudo apt-get install"* ]] && echo "✓ setup gated on apt success" || { echo "✗ apt gate regressed"; FAIL=1; }
+  if bash -n <<<"$PC" 2>/dev/null; then echo "✓ postCreateCommand parses as bash"; else echo "✗ postCreateCommand is not valid bash"; FAIL=1; fi
 else
   echo "⚠ devcontainer contract check SKIPPED (python3 or devcontainer.json unavailable)"
 fi
