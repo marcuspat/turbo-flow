@@ -1309,4 +1309,13 @@ if [ "$FAIL" -eq 0 ]; then
 else
   echo "    Fix the failures above — don't add exceptions."
 fi
+# ── tmux workspace policy (behavioral; isolated socket) ─────────────────────
+if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspace.sh" ]; then
+  if bash "$DEVPOD_DIR/tests/test-tmux-workspace.sh" 2>&1 | tee /tmp/tf-twtest.log | tail -3; then
+    :
+  else
+    FAIL=1
+    echo "  ✗ tmux-workspace behavioral tests failed (see /tmp/tf-twtest.log)"
+  fi
+fi
 exit $FAIL

@@ -26,11 +26,14 @@ bash "$TW" --no-attach >/dev/null 2>&1; t "build → 0" 0 $?
 tmux has-session -t workspace 2>/dev/null; t "session exists" 0 $?
 N=$(tmux list-windows -t workspace -F '#{window_name}' | wc -l | tr -d ' ')
 t "4 windows built" 4 "$N"
-# 3 · re-attach keeps the session AND the pane process
+# 3 · re-attach keeps the session AND the pane process (PID-verified: the
+# marker file alone would exist even if the session had been nuked)
 tmux send-keys -t workspace:0 "touch $SHIM/marker; sleep 30" C-m; sleep 1
+PANE_PID="$(tmux list-panes -t workspace:0 -F '#{pane_pid}' | head -1)"
 OUT="$(bash "$TW" --no-attach 2>&1)"; t "re-attach → 0" 0 $?
 [[ "$OUT" == *"keeping it"* ]] && echo "✓ kept-session message" || { echo "✗ expected keep message"; FAIL=1; }
-[[ -e "$SHIM/marker" ]] && echo "✓ pane process survived the re-attach" || { echo "✗ pane process died"; FAIL=1; }
+kill -0 "$PANE_PID" 2>/dev/null && echo "✓ pane process survived the re-attach (PID $PANE_PID alive)" \
+  || { echo "✗ pane process died on re-attach"; FAIL=1; }
 # 4 · monitor window death self-heals on the next run
 tmux kill-window -t workspace:2 2>/dev/null || true
 bash "$TW" --no-attach >/dev/null 2>&1; sleep 1
