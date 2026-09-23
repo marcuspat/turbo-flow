@@ -43,9 +43,11 @@ cd "$WORKSPACE_FOLDER"
 # quality-of-life options are idempotent globals — applied on every run
 # AFTER a session exists (tmux needs a live server), incl. kept sessions
 apply_qol() {
-    tmux set-option -g history-limit 50000
-    tmux set-option -g mouse on
-    tmux set-window-option -g mode-keys vi
+    # QoL options must never be fatal (set -e): a refused option (odd terminal,
+    # old tmux) shouldn't block the workspace
+    tmux set-option -g history-limit 50000 2>/dev/null || true
+    tmux set-option -g mouse on 2>/dev/null || true
+    tmux set-window-option -g mode-keys vi 2>/dev/null || true
 }
 
 # Session policy: an existing session is KEPT (postAttach runs on every client
