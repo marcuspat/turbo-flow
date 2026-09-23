@@ -1183,6 +1183,23 @@ echo "==> $PASS pass / $FAIL fail"
 if [ "$FAIL" -gt 0 ]; then
   echo
   echo "==> FIX HINTS (copy-paste for next-claude or you):"
+# ── tmux workspace policy (behavioral; isolated socket) ─────────────────────
+if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspace.sh" ]; then
+  TWLOG="$(mktemp /tmp/tf-twtest.XXXXXXXX)"   # GNU mktemp: X's terminate the template; removed below
+  if bash "$DEVPOD_DIR/tests/test-tmux-workspace.sh" > "$TWLOG" 2>&1; then
+    tail -3 "$TWLOG"
+  else
+    FAIL=$((FAIL+1))
+    FAILED_GATES+=("tmux-workspace-behavioral")
+    tail -5 "$TWLOG"
+    echo "  ✗ tmux-workspace behavioral tests failed (full log kept at: $TWLOG)"
+    TWLOG=""   # keep the failure log for the operator — only clean on success
+  fi
+  [ -n "$TWLOG" ] && rm -f "$TWLOG" || true
+else
+  echo "  ⚠ tmux-workspace behavioral tests SKIPPED (tmux or test file unavailable)"
+fi
+
   for gate in "${FAILED_GATES[@]}"; do
     case "$gate" in
       ruflo-cli-latest|aqe-cli-latest|npm-globals-current)
@@ -1270,23 +1287,6 @@ if [ "$FAIL" -gt 0 ]; then
         ;;
     esac
   done
-fi
-
-# ── tmux workspace policy (behavioral; isolated socket) ─────────────────────
-if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspace.sh" ]; then
-  TWLOG="$(mktemp /tmp/tf-twtest.XXXXXXXX)"   # GNU mktemp: X's terminate the template; removed below
-  if bash "$DEVPOD_DIR/tests/test-tmux-workspace.sh" > "$TWLOG" 2>&1; then
-    tail -3 "$TWLOG"
-  else
-    FAIL=$((FAIL+1))
-    FAILED_GATES+=("tmux-workspace-behavioral")
-    tail -5 "$TWLOG"
-    echo "  ✗ tmux-workspace behavioral tests failed (full log kept at: $TWLOG)"
-    TWLOG=""   # keep the failure log for the operator — only clean on success
-  fi
-  [ -n "$TWLOG" ] && rm -f "$TWLOG" || true
-else
-  echo "  ⚠ tmux-workspace behavioral tests SKIPPED (tmux or test file unavailable)"
 fi
 
 # Persist last-run timestamp so turbo-status can show "ran Xh ago"
