@@ -250,7 +250,24 @@ def selftest():
         f.write(env(120, "claude-haiku", 50, 20, "r8", "m8") + "\n")
     rows3 = mon2.collect(now)   # same monitor — exercises the reset branch
     models3 = {r["model"] for r in rows3}
-    assert "claude-haiku" in models3 and "claude-sonnet" not in models3, models3
+    # reset makes the post-truncate content readable (haiku present); sonnet
+    # correctly LINGERS — dedup retains history until the 7d+1h eviction horizon
+    assert "claude-haiku" in models3 and "claude-sonnet" in models3, models3
+    # cross-file rewrite merge: same (requestId, message.id), fullest usage wins
+    p2 = os.path.join(tmp, "projects", "p2"); os.makedirs(p2)
+    def envelope(rid, mid, tin, tout):
+        return env(400, "claude-opus", tin, tout, rid, mid)
+    with open(os.path.join(p2, "a.jsonl"), "w") as f:
+        f.write(envelope("rr", "mm", 100, 50) + "\n")
+    with open(os.path.join(p2, "b.jsonl"), "w") as f:
+        f.write(envelope("rr", "mm", 500, 250) + "\n")   # cumulative rewrite
+    mon5 = Monitor(root=tmp)
+    r5 = [r for r in mon5.collect(now) if r["proj"] == "projA" or r["tin"] in (500,)]
+    rows5 = mon5.collect.__self__ if False else None
+    all5 = Monitor(root=tmp); _ = None
+    m5 = Monitor(root=tmp)
+    got = [r for r in m5.collect(now) if (r["tin"], r["tout"]) in ((100, 50), (500, 250))]
+    assert len(got) == 1 and got[0]["tin"] == 500, got  # merged, fullest won
     # parse_args: every documented form
     a = parse_args(["--watch", "5"])
     assert a["watch"] and a["refresh"] == 5.0, a

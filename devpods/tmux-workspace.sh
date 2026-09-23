@@ -51,18 +51,23 @@ if command -v htop >/dev/null 2>&1; then
 else
     tmux send-keys -t workspace:3 "echo 'htop not installed. Run: sudo apt-get install -y htop'" C-m
 fi
-# Set up Claude Monitor window — live token dashboard (ported from the rig)
-# fallbacks kept for environments without python3
+# Set up Claude Monitor window — live token dashboard (ported from the rig).
+# The window IS the monitor process: tmux's own -c uses the same
+# $WORKSPACE_FOLDER the guard checks, so the constant relative command resolves
+# by construction — no typed shell, no interpolation. Fallbacks recreate the
+# window as a shell pane for environments without python3.
 TOKEN_MONITOR="$WORKSPACE_FOLDER/devpods/scripts/token-monitor.py"
-# guard and command are one contract: the pane cwd IS $WORKSPACE_FOLDER (set at
-# window creation with -c), so the constant relative command below resolves to
-# exactly the file this guard checks — and nothing interpolated gets typed
 if command -v python3 >/dev/null 2>&1 && [ -f "$TOKEN_MONITOR" ]; then
-    tmux send-keys -t workspace:2 -l "python3 devpods/scripts/token-monitor.py --watch 5"
-    tmux send-keys -t workspace:2 C-m
+    tmux kill-window -t workspace:2 2>/dev/null || true
+    tmux new-window -t workspace:2 -n "Claude-Monitor" -c "$WORKSPACE_FOLDER" \
+        -d "python3 devpods/scripts/token-monitor.py --watch 5"
 elif command -v claude-monitor >/dev/null 2>&1; then
+    tmux kill-window -t workspace:2 2>/dev/null || true
+    tmux new-window -t workspace:2 -n "Claude-Monitor" -c "$WORKSPACE_FOLDER" -d
     tmux send-keys -t workspace:2 "claude-monitor" C-m
 elif command -v claude-usage-cli >/dev/null 2>&1; then
+    tmux kill-window -t workspace:2 2>/dev/null || true
+    tmux new-window -t workspace:2 -n "Claude-Monitor" -c "$WORKSPACE_FOLDER" -d
     tmux send-keys -t workspace:2 "claude-usage-cli" C-m
 else
     tmux send-keys -t workspace:2 "echo 'Claude monitor tools not installed'" C-m
