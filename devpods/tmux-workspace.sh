@@ -27,6 +27,9 @@ if ! command -v tmux >/dev/null 2>&1; then
 fi
 # Ensure we're in the workspace directory
 cd "$WORKSPACE_FOLDER"
+if [ "$SKIP_BUILD" -eq 1 ]; then
+    :   # session kept — skip the build, still reach the attach logic below
+else
 # Re-attach safety: an existing session is KEPT unless --rebuild — postAttach
 # runs on every client attach, and nuking the session would kill running
 # Claude panes each reconnect
@@ -38,11 +41,12 @@ for arg in "$@"; do
         *) echo "unknown flag: $arg (use --rebuild, --no-attach)" >&2; exit 2 ;;
     esac
 done
+SKIP_BUILD=0
 if [ "$REBUILD" -eq 1 ]; then
     tmux kill-session -t workspace 2>/dev/null || true
 elif tmux has-session -t workspace 2>/dev/null; then
-    echo "✅ workspace session already running — keeping it (tmux attach -t workspace to rejoin; --rebuild to recreate)"
-    exit 0
+    echo "✅ workspace session already running — keeping it (--rebuild to recreate)"
+    SKIP_BUILD=1   # don't nuke running panes; fall through so interactive runs still attach
 fi
 # Create new session with first window for Claude
 tmux new-session -d -s workspace -n "Claude-1" -c "$WORKSPACE_FOLDER"
@@ -103,6 +107,8 @@ tmux send-keys -t workspace:1 "echo 'DevPod Dir: $DEVPOD_DIR'" C-m
 tmux select-window -t workspace:0
 echo "✅ TMux workspace 'workspace' created successfully!"
 echo "📝 Attaching to tmux session..."
+fi
+
 # --no-attach: explicit headless/postAttach mode. Without it, attach only
 # from an interactive terminal — CI/plain-ssh runs succeed with a pointer
 # instead of dying on "not a terminal".
