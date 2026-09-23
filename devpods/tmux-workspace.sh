@@ -55,7 +55,8 @@ fi
 # fallbacks kept for environments without python3
 TOKEN_MONITOR="$WORKSPACE_FOLDER/devpods/scripts/token-monitor.py"
 if command -v python3 >/dev/null 2>&1 && [ -f "$TOKEN_MONITOR" ]; then
-    tmux send-keys -t workspace:2 "python3 '$TOKEN_MONITOR' --watch 5" C-m
+    # path is workspace-controlled (no spaces/quotes) — sent unquoted for a clean pane command
+    tmux send-keys -t workspace:2 "python3 $TOKEN_MONITOR --watch 5" C-m
 elif command -v claude-monitor >/dev/null 2>&1; then
     tmux send-keys -t workspace:2 "claude-monitor" C-m
 elif command -v claude-usage-cli >/dev/null 2>&1; then
