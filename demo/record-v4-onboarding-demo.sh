@@ -22,8 +22,7 @@ case "$AUTH_LC" in
     echo "recorder: claude confirmed logged out — genuine first-run screen incoming" ;;
   *)
     echo "recorder: claude auth state unclear or authenticated — record from a credential-free Codespace" >&2
-    echo "auth status said: $AUTH_OUT" >&2
-    exit 1 ;;
+    exit 1 ;;   # full auth output NOT echoed: it can carry account/session identifiers
 esac
 
 t() { # type a command char-by-char, then run it

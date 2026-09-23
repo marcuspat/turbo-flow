@@ -6,7 +6,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 TW="$HERE/../tmux-workspace.sh"
 SHIM="$(mktemp -d)"
-trap 'rm -rf "$SHIM"' EXIT
+trap 'tmux kill-server 2>/dev/null || true; rm -rf "$SHIM"' EXIT
 command -v tmux >/dev/null 2>&1 || { echo "tmux not installed — tests skipped"; exit 0; }
 REAL_TMUX="$(command -v tmux)"
 printf '#!/usr/bin/env bash
@@ -39,8 +39,9 @@ kill -0 "$PANE_PID" 2>/dev/null && echo "✓ pane process survived the re-attach
 tmux kill-window -t workspace:2 2>/dev/null || true
 HEALOUT="$(bash "$TW" --no-attach 2>&1)"; sleep 1
 if command -v python3 >/dev/null 2>&1 && [ -f "$WORKSPACE_FOLDER/devpods/scripts/token-monitor.py" ]; then
-  tmux list-windows -t workspace -F '#{window_name}' | grep -q '^Claude-Monitor' \
-    && echo "✓ monitor window self-healed" || { echo "✗ monitor not healed"; FAIL=1; }
+  HEAL_PANE="$(tmux list-panes -t workspace:Claude-Monitor -F '#{pane_start_command}' 2>/dev/null | head -1)"
+  [[ "$HEAL_PANE" == *token-monitor.py* ]] \
+    && echo "✓ monitor window self-healed (pane runs the monitor)" || { echo "✗ healed window isn't the monitor: '$HEAL_PANE'"; FAIL=1; }
 else
   [[ "$HEALOUT" == *"no self-heal"* ]] && echo "✓ no-monitor warn path taken" \
     || { echo "✗ expected the no-self-heal warning"; FAIL=1; }
