@@ -30,7 +30,15 @@ cd "$WORKSPACE_FOLDER"
 # Re-attach safety: an existing session is KEPT unless --rebuild — postAttach
 # runs on every client attach, and nuking the session would kill running
 # Claude panes each reconnect
-if [ "${1:-}" = "--rebuild" ]; then
+REBUILD=0; NOATTACH=0
+for arg in "$@"; do
+    case "$arg" in
+        --rebuild)   REBUILD=1 ;;
+        --no-attach) NOATTACH=1 ;;
+        *) echo "unknown flag: $arg (use --rebuild, --no-attach)" >&2; exit 2 ;;
+    esac
+done
+if [ "$REBUILD" -eq 1 ]; then
     tmux kill-session -t workspace 2>/dev/null || true
 elif tmux has-session -t workspace 2>/dev/null; then
     echo "✅ workspace session already running — keeping it (tmux attach -t workspace to rejoin; --rebuild to recreate)"
@@ -98,7 +106,7 @@ echo "📝 Attaching to tmux session..."
 # --no-attach: explicit headless/postAttach mode. Without it, attach only
 # from an interactive terminal — CI/plain-ssh runs succeed with a pointer
 # instead of dying on "not a terminal".
-if [ "${1:-}" = "--no-attach" ] || { [ "${1:-}" != "--no-attach" ] && ! { [ -t 0 ] && [ -t 1 ]; }; }; then
+if [ "$NOATTACH" -eq 1 ] || ! { [ -t 0 ] && [ -t 1 ]; }; then
     echo "✅ Session 'workspace' ready — attach with: tmux attach -t workspace"
 else
     echo "📝 Attaching to tmux session..."

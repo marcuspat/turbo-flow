@@ -23,14 +23,24 @@ t 'bash devpods/post-setup.sh 2>&1 | grep -aE "PASS|✓|verif" | head -10'
 t 'bash devpods/tmux-workspace.sh --no-attach'
 t 'tmux list-windows -t workspace'
 
-# ── the finale: attach for real, tour every window ─────────────────────────
+# ── the finale: attach, tour every window, LAUNCH CLAUDE live ───────────────
 REC_TTY="$(tty 2>/dev/null || true)"   # our tty — the driver detaches exactly this client
-echo "📝 attaching — tour of all four windows…"
+echo "📝 attaching — tour of all four windows, then Claude live in window 1…"
 ( sleep 2.5
-  for w in 0 1 2 3 0; do tmux select-window -t workspace:$w 2>/dev/null; sleep 3.5; done
+  for w in 0 1 2 3; do tmux select-window -t workspace:$w 2>/dev/null; sleep 3.2; done
+  tmux select-window -t workspace:0
+  sleep 1
+  # run claude in the watched window — genuine first-run UI (no API key on the
+  # recording box), then exit it; that is exactly what a new user sees and does
+  tmux send-keys -t workspace:0 "claude" C-m
+  sleep 8
+  tmux send-keys -t workspace:0 C-c
+  sleep 1.5
+  tmux send-keys -t workspace:0 C-c
+  sleep 1
   # detach only OUR attached client (this recorder's tty) — humans stay attached
   [ -n "$REC_TTY" ] && tmux detach-client -t "$REC_TTY" 2>/dev/null ) &
-timeout 60 tmux attach-session -t workspace   # bounded: a dead driver can't hang the demo
+timeout 90 tmux attach-session -t workspace   # bounded: a dead driver can't hang the demo
 sleep 0.5
 
 t 'echo "✓ Claude-1 · Claude-2 · live token monitor · htop — agents build, humans merge"'
