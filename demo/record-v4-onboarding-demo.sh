@@ -24,11 +24,12 @@ t 'bash devpods/tmux-workspace.sh --no-attach'
 t 'tmux list-windows -t workspace'
 
 # ── the finale: attach for real, tour every window ─────────────────────────
+REC_TTY="$(tty 2>/dev/null || true)"   # our tty — the driver detaches exactly this client
 echo "📝 attaching — tour of all four windows…"
 ( sleep 2.5
   for w in 0 1 2 3 0; do tmux select-window -t workspace:$w 2>/dev/null; sleep 3.5; done
-  DETACH_TTY="$(tmux list-clients -t workspace -F '#{client_tty}' 2>/dev/null | head -1)"
-  [ -n "$DETACH_TTY" ] && tmux detach-client -t "$DETACH_TTY" 2>/dev/null ) &
+  # detach only OUR attached client (this recorder's tty) — humans stay attached
+  [ -n "$REC_TTY" ] && tmux detach-client -t "$REC_TTY" 2>/dev/null ) &
 tmux attach-session -t workspace
 sleep 0.5
 

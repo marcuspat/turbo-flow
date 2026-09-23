@@ -108,7 +108,7 @@ class Monitor:
                 u = msg.get("usage") or {}
                 try:
                     ts = iso_to_epoch(j["timestamp"])
-                except (KeyError, ValueError, TypeError):
+                except (KeyError, ValueError, TypeError, OverflowError, OSError):
                     continue
                 key = (j.get("requestId"), msg.get("id"))
                 row = {
@@ -252,6 +252,19 @@ def selftest():
     rows3 = mon3.collect(now)
     models3 = {r["model"] for r in rows3}
     assert "claude-haiku" in models3 and "claude-sonnet" not in models3, models3
+    # parse_args: every documented form
+    a = parse_args(["--watch", "5"])
+    assert a["watch"] and a["refresh"] == 5.0, a
+    a = parse_args(["--since=30m"])
+    assert a["win"] == "30m", a
+    a = parse_args(["--since", "1h", "--json"])
+    assert a["win"] == "1h" and a["json"], a
+    # eviction: rows older than 7d+1h evicted; boundary rows kept
+    mon4 = Monitor(root=tmp)
+    mon4.dedup[("old", "x")] = {"ts": now - RETENTION - 7200, "model": "m", "tin": 0, "cc": 0, "cr": 0, "tout": 0, "total": 0, "proj": "p"}
+    mon4.dedup[("edge", "y")] = {"ts": now - RETENTION, "model": "m", "tin": 0, "cc": 0, "cr": 0, "tout": 0, "total": 0, "proj": "p"}
+    mon4.collect(now)
+    assert ("old", "x") not in mon4.dedup and ("edge", "y") in mon4.dedup, mon4.dedup.keys()
     print("self-test: ALL PASS")
     return 0
 
