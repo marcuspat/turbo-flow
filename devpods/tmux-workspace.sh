@@ -53,14 +53,15 @@ elif tmux has-session -t workspace 2>/dev/null; then
     # self-heal: the monitor window closes when its process dies — recreate it
     if ! tmux list-windows -t workspace -F '#{window_name}' 2>/dev/null | grep -q '^Claude-Monitor'; then
         if command -v python3 >/dev/null 2>&1 && [ -f "$WORKSPACE_FOLDER/devpods/scripts/token-monitor.py" ]; then
-            # append instead of assuming index 2 — indices shift; never kill a
-            # live window. New window gets the next free index; the name carries it.
+            # append at the next free index — never kill a live window; the name carries it
             if tmux new-window -t workspace -n "Claude-Monitor" -c "$WORKSPACE_FOLDER" \
                 -d "python3 devpods/scripts/token-monitor.py --watch 5"; then
                 echo "🔁 monitor window was dead — recreated"
             else
-                echo "⚠ monitor self-heal failed — window 2 may need manual recreation" >&2
+                echo "⚠ monitor self-heal failed — recreate manually: tmux new-window -t workspace -n Claude-Monitor" >&2
             fi
+        else
+            echo "⚠ monitor window missing and python3/token-monitor unavailable — no self-heal" >&2
         fi
     fi
 fi
