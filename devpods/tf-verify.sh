@@ -1313,6 +1313,8 @@ if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspac
     tail -5 /tmp/tf-twtest.log
     echo "  ✗ tmux-workspace behavioral tests failed (full log: /tmp/tf-twtest.log)"
   fi
+else
+  echo "  ⚠ tmux-workspace behavioral tests SKIPPED (tmux or test file unavailable)"
 fi
 if [ "$FAIL" -eq 0 ]; then
   echo "    TurboFlow is ready."
