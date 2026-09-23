@@ -44,7 +44,9 @@ The full rig — integrated gate, constitution, git-versioned memory, automation
 
 ---
 
-# Turbo Flow v4.0
+## 📦 Turbo Flow v4.0 — the Ruflo era (legacy, kept working)
+
+*The previous release. It still installs and still powers the devcontainer seed this repo actively maintains — it's history you can run, not dead code.*
 
 <div align="center">
 
