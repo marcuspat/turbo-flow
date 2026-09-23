@@ -54,9 +54,10 @@ fi
 # Set up Claude Monitor window — live token dashboard (ported from the rig)
 # fallbacks kept for environments without python3
 TOKEN_MONITOR="$WORKSPACE_FOLDER/devpods/scripts/token-monitor.py"
+# guard and command are one contract: the pane cwd IS $WORKSPACE_FOLDER (set at
+# window creation with -c), so the constant relative command below resolves to
+# exactly the file this guard checks — and nothing interpolated gets typed
 if command -v python3 >/dev/null 2>&1 && [ -f "$TOKEN_MONITOR" ]; then
-    # constant relative command — the pane cwd IS the workspace (set at window
-    # creation), so nothing interpolated is ever typed into the pane shell
     tmux send-keys -t workspace:2 -l "python3 devpods/scripts/token-monitor.py --watch 5"
     tmux send-keys -t workspace:2 C-m
 elif command -v claude-monitor >/dev/null 2>&1; then

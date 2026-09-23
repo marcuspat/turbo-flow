@@ -271,7 +271,7 @@ def selftest():
 def parse_args(argv):
     """accepts --since X, --since=X, --watch, --watch N, --watch=N, --json, --color[=always], --selftest"""
     out = {"watch": False, "json": False, "selftest": False, "color": False,
-           "win": DEFAULT_WINDOW, "refresh": 5.0}
+           "errors": None, "win": DEFAULT_WINDOW, "refresh": 5.0}
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -298,13 +298,22 @@ def parse_args(argv):
             out["json"] = True
         elif a == "--color" or a == "--color=always":
             out["color"] = True
+        elif a.startswith("-"):
+            out["errors"] = a
         i += 1
     return out
 
 def main(argv):
     args = parse_args(argv)
     if args["selftest"]:
-        return selftest()
+        try:
+            return selftest()
+        except AssertionError as e:
+            print(f"self-test: FAILURES — {e}", file=sys.stderr)
+            return 3
+    if args["errors"]:
+        print(f"unknown flag: {args['errors']}", file=sys.stderr)
+        return 1
     win = args["win"]
     refresh = args["refresh"]
     if win not in dict(WINDOWS):
