@@ -174,9 +174,12 @@ fi
 
 # ── det_shellcheck: diff-scoped, deleted files ignored (needs shellcheck) ──
 if command -v shellcheck >/dev/null 2>&1; then
+  fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "reasons here\nVERDICT: APPROVED\n"'
   ensure_ahead_sh() {
     git checkout -q -B feat main
-    printf '#!/usr/bin/env bash\necho $UNQUOTED\n' > bad.sh
+    printf '#!/usr/bin/env bash\nUNUSED_VAR=hello\necho hi\n' > bad.sh   # SC2034 (warning) — survives -S warning
     printf '#!/usr/bin/env bash\necho ok\n' > good.sh
     git add -A && git commit -qm shfix
     git rm -q good.sh && git commit -qm "delete good.sh"
@@ -185,7 +188,7 @@ if command -v shellcheck >/dev/null 2>&1; then
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck flags bad .sh in diff → 1" 1 $RC
   printf '%s' "$OUT" | grep -q 'SC[0-9]' && echo "✓ shellcheck finding surfaced" || { echo "✗ expected shellcheck diagnostic"; FAIL=1; }
-  printf '#!/usr/bin/env bash\necho "$FIXED"\n' > bad.sh && git add -A && git commit -qm fixsh
+  printf '#!/usr/bin/env bash\necho "fixed"\n' > bad.sh && git add -A && git commit -qm fixsh
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck clean diff + deleted file ignored → 0" 0 $RC
 else
