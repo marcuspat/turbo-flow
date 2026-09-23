@@ -1305,8 +1305,8 @@ if [ "$DIFF_MODE" -eq 1 ] && [ -f "$prev_state" ]; then
 fi
 
 # ── tmux workspace policy (behavioral; isolated socket) ─────────────────────
-TWLOG="$(mktemp /tmp/tf-twtest.XXXXXXXX)"   # GNU mktemp: X's must terminate the template
 if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspace.sh" ]; then
+  TWLOG="$(mktemp /tmp/tf-twtest.XXXXXXXX)"   # GNU mktemp: X's terminate the template; removed below
   if bash "$DEVPOD_DIR/tests/test-tmux-workspace.sh" > "$TWLOG" 2>&1; then
     tail -3 "$TWLOG"
   else
@@ -1314,6 +1314,7 @@ if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspac
     tail -5 "$TWLOG"
     echo "  ✗ tmux-workspace behavioral tests failed (full log: $TWLOG)"
   fi
+  rm -f "$TWLOG"
 else
   echo "  ⚠ tmux-workspace behavioral tests SKIPPED (tmux or test file unavailable)"
 fi
