@@ -27,8 +27,15 @@ if ! command -v tmux >/dev/null 2>&1; then
 fi
 # Ensure we're in the workspace directory
 cd "$WORKSPACE_FOLDER"
-# Kill existing session if it exists
-tmux kill-session -t workspace 2>/dev/null || true
+# Re-attach safety: an existing session is KEPT unless --rebuild — postAttach
+# runs on every client attach, and nuking the session would kill running
+# Claude panes each reconnect
+if [ "${1:-}" = "--rebuild" ]; then
+    tmux kill-session -t workspace 2>/dev/null || true
+elif tmux has-session -t workspace 2>/dev/null; then
+    echo "✅ workspace session already running — keeping it (tmux attach -t workspace to rejoin; --rebuild to recreate)"
+    exit 0
+fi
 # Create new session with first window for Claude
 tmux new-session -d -s workspace -n "Claude-1" -c "$WORKSPACE_FOLDER"
 # --- TMUX QUALITY OF LIFE SETTINGS ---
