@@ -69,6 +69,24 @@ if command -v jq >/dev/null 2>&1; then
   [[ "$GUARD_OUT2" == "true" ]] && echo "✓ jq true-handling correct" || { echo "✗ jq true regression"; FAIL=1; }
 fi
 
+# 6a2 · the recorder's auth guard, against the REAL captured CLI output
+AG="$HERE/../../demo/auth-guard.sh"
+if [ -f "$AG" ]; then
+  AGDIR="$(mktemp -d)"
+  mk_fake_claude() { printf '#!/usr/bin/env bash\nprintf %s\n' "'$1'" > "$AGDIR/claude"; chmod +x "$AGDIR/claude"; }
+  REAL_JSON_FALSE='{"loggedIn": false, "authMethod": "none", "apiProvider": "firstParty"}'
+  REAL_JSON_TRUE='{"loggedIn": true, "authMethod": "oauth"}'
+  PATH="$AGDIR:$PATH" bash "$AG" >/dev/null 2>&1 && mk_fake_claude "$REAL_JSON_FALSE" && PATH="$AGDIR:$PATH" bash "$AG" >/dev/null 2>&1 \
+    && echo "✓ auth guard passes loggedIn:false" || { echo "✗ auth guard rejects a logged-out box"; FAIL=1; }
+  mk_fake_claude "$REAL_JSON_TRUE"
+  PATH="$AGDIR:$PATH" bash "$AG" >/dev/null 2>&1 && { echo "✗ auth guard passed an AUTHENTICATED box"; FAIL=1; } \
+    || echo "✓ auth guard aborts on authenticated"
+  mk_fake_claude 'not json at all'
+  PATH="$AGDIR:$PATH" bash "$AG" >/dev/null 2>&1 && { echo "✗ auth guard passed garbage"; FAIL=1; } \
+    || echo "✓ auth guard aborts on garbage"
+  rm -rf "$AGDIR"
+fi
+
 # 6 · devcontainer postCreate contract (JSON-level)
 if command -v python3 >/dev/null 2>&1 && [ -f "$HERE/../../.devcontainer/devcontainer.json" ]; then
   PC="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["postCreateCommand"])' "$HERE/../../.devcontainer/devcontainer.json")"

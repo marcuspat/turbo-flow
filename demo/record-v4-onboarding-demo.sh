@@ -9,24 +9,8 @@ export AGENTS_DIR=/workspaces/turbo-flow/agents DEVPOD_DIR=/workspaces/turbo-flo
 export PATH=$HOME/.npm-global/bin:$HOME/.local/bin:$PATH
 export TERM=xterm-256color   # tmux attach refuses dumb/absent TERM (recording pty)
 
-# credential-free enforcement (fail-closed): the claude segment must show the
-# GENUINE first-run screen. Abort unless claude exists AND explicitly reports
-# NOT logged in — unknown subcommand or missing CLI are also aborts, never passes.
-if ! command -v claude >/dev/null 2>&1; then
-  echo "recorder: claude CLI missing — the demo requires it" >&2; exit 1
-fi
-AUTH_JSON="$(claude auth status 2>&1 || true)"   # JSON ships on stderr when logged out (rc=1)
-LOGGED_IN="$(printf '%s' "$AUTH_JSON" | jq -r '.loggedIn|tostring' 2>/dev/null || true)"
-case "$LOGGED_IN" in
-  "false")
-    echo "recorder: claude reports loggedIn:false — genuine first-run screen incoming" ;;
-  "true")
-    echo "recorder: claude is AUTHENTICATED — record from a credential-free Codespace" >&2
-    exit 1 ;;
-  *)
-    echo "recorder: auth state unparseable (got: '$LOGGED_IN') — jq or claude output changed; fix the guard before recording" >&2
-    exit 1 ;;
-esac
+# credential-free enforcement (fail-closed, tested): demo/auth-guard.sh
+bash "$(dirname "$(readlink -f "$0")")/auth-guard.sh" || exit 1
 
 t() { # type a command char-by-char, then run it
   local cmd="$1"; local i=0
