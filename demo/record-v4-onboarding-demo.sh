@@ -41,7 +41,12 @@ echo "📝 attaching — tour of all four windows, then Claude live in window 1�
     tmux send-keys -t workspace:$w C-c
     sleep 1.5
     tmux send-keys -t workspace:$w C-c
-    sleep 1
+    # confirm the exit before typing into the next window: wait for the pane
+    # to return to a shell (or time out and proceed — the tour continues)
+    for _ in 1 2 3 4 5; do
+      sleep 1
+      [ "$(tmux list-panes -t workspace:$w -F '#{pane_current_command}' 2>/dev/null)" = "bash" ] && break
+    done
   done
   # detach only OUR attached client (this recorder's tty) — humans stay attached
   [ -n "$REC_TTY" ] && tmux detach-client -t "$REC_TTY" 2>/dev/null ) &

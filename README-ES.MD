@@ -9,8 +9,8 @@ Este repo contiene **dos productos distintos**. Combinan bien, pero funcionan po
 
 | Quieres… | Tu puerta | Qué es |
 |---|---|---|
-| un **entorno de desarrollo agéntico** — Claude en ventanas tmux, orquestación, memoria, monitor de tokens en vivo | **Turbo Flow v4** | Abre este repo en un Codespace — \`postCreate\` instala todo ([guía](github_codespaces_setup.md)). Documentación completa más abajo. |
-| **gobernanza para código escrito por IA** — una compuerta de revisión que sabe decir no | **[\`rig-lite/\`](rig-lite/)** | Un extracto independiente de Turbo Rig: \`gate.sh\` (revisión entre modelos), la plantilla de constitución, el patrón de memoria. Funciona en **cualquier** repo o entorno — incluida la instalación v4 de arriba. |
+| un **entorno de desarrollo agéntico** — Claude en ventanas tmux, orquestación, memoria, monitor de tokens en vivo | **Turbo Flow v4** | Abre este repo en un Codespace — `postCreate` instala todo ([guía](github_codespaces_setup.md)). Documentación completa más abajo. |
+| **gobernanza para código escrito por IA** — una compuerta de revisión que sabe decir no | **[`rig-lite/`](rig-lite/)** | Un extracto independiente de Turbo Rig: `gate.sh` (revisión entre modelos), la plantilla de constitución, el patrón de memoria. Funciona en **cualquier** repo o entorno — incluida la instalación v4 de arriba. |
 | el **rig integrado** del que ambos provienen | **[beta privada](https://turbo-rig-beta.vercel.app)** | Turbo Rig: compuerta + constitución + memoria + automatizaciones, corriendo como un sistema. |
 
 ¿Nuevo aquí? Versión de 60 segundos: **el v4 de abajo es el entorno que instalas; rig-lite son las reglas que le agregas (o agregas a cualquier lado); la beta es ambos, integrados y creciendo.**
