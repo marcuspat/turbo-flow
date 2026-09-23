@@ -15,10 +15,10 @@ export TERM=xterm-256color   # tmux attach refuses dumb/absent TERM (recording p
 if ! command -v claude >/dev/null 2>&1; then
   echo "recorder: claude CLI missing — the demo requires it" >&2; exit 1
 fi
-AUTH_JSON="$(claude auth status 2>/dev/null || true)"
-LOGGED_IN="$(printf '%s' "$AUTH_JSON" | jq -r '.loggedIn // "unparseable"' 2>/dev/null || echo unparseable)"
+AUTH_JSON="$(claude auth status 2>&1 || true)"   # JSON ships on stderr when logged out (rc=1)
+LOGGED_IN="$(printf '%s' "$AUTH_JSON" | jq -r '.loggedIn|tostring' 2>/dev/null || true)"
 case "$LOGGED_IN" in
-  false)
+  "false")
     echo "recorder: claude reports loggedIn:false — genuine first-run screen incoming" ;;
   true|*)
     echo "recorder: claude authenticated or auth state unparseable — record from a credential-free Codespace" >&2
