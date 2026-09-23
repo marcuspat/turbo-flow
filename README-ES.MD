@@ -46,7 +46,7 @@ El rig completo — compuerta integrada, constitución, memoria versionada en gi
 
 ## 📦 Turbo Flow v4.0 — la era Ruflo (legacy, sigue funcionando)
 
-*El release anterior. Sigue instalándose y sigue alimentando el devcontainer seed que este repo mantiene activamente — es historia ejecutable, no código muerto. — La Migración a Ruflo
+*El release anterior — la migración a Ruflo. Sigue instalándose y sigue alimentando el devcontainer seed que este repo mantiene activamente: es historia ejecutable, no código muerto.*
 
 <div align="center">
 
