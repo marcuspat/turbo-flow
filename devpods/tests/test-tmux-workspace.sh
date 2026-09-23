@@ -73,7 +73,7 @@ fi
 AG="$HERE/../../demo/auth-guard.sh"
 if [ -f "$AG" ]; then
   AGDIR="$(mktemp -d)"
-  mk_fake_claude() { printf '#!/usr/bin/env bash\nprintf %s\n' "'$1'" > "$AGDIR/claude"; chmod +x "$AGDIR/claude"; }
+  mk_fake_claude() { printf '%s\n' "$1" > "$AGDIR/response.json"; printf '#!/usr/bin/env bash\ncat "%s/response.json"\n' "$AGDIR" > "$AGDIR/claude"; chmod +x "$AGDIR/claude"; }
   REAL_JSON_FALSE='{"loggedIn": false, "authMethod": "none", "apiProvider": "firstParty"}'
   REAL_JSON_TRUE='{"loggedIn": true, "authMethod": "oauth"}'
   mk_fake_claude "$REAL_JSON_FALSE"
