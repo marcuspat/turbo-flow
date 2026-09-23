@@ -174,6 +174,8 @@ fi
 
 # ── det_shellcheck: diff-scoped, deleted files ignored (needs shellcheck) ──
 if command -v shellcheck >/dev/null 2>&1; then
+  # approver for the SECOND test below; the FIRST asserts the det stage fails
+  # BEFORE any reviewer runs — that ordering is the property under test
   fake_claude '#!/usr/bin/env bash
 cat >/dev/null
 printf "reasons here\nVERDICT: APPROVED\n"'
@@ -187,7 +189,7 @@ printf "reasons here\nVERDICT: APPROVED\n"'
   ensure_ahead_sh
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck flags bad .sh in diff → 1" 1 $RC
-  printf '%s' "$OUT" | grep -q 'SC[0-9]' && echo "✓ shellcheck finding surfaced" || { echo "✗ expected shellcheck diagnostic"; FAIL=1; }
+  printf '%s' "$OUT" | grep -q 'UNUSED_VAR' && echo "✓ shellcheck finding surfaced (by variable name — code-number agnostic)" || { echo "✗ expected shellcheck diagnostic"; FAIL=1; }
   printf '#!/usr/bin/env bash\nFIXED=done\necho "$FIXED"\n' > bad.sh && git add -A && git commit -qm fixsh
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck clean diff + deleted file ignored → 0" 0 $RC
