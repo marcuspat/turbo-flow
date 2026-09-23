@@ -42,9 +42,11 @@ kill -0 "$PANE_PID" 2>/dev/null && echo "✓ pane process survived the re-attach
 tmux kill-window -t workspace:2 2>/dev/null || true
 HEALOUT="$(bash "$TW" --no-attach 2>&1)"; sleep 1
 if command -v python3 >/dev/null 2>&1 && [ -f "$WORKSPACE_FOLDER/devpods/scripts/token-monitor.py" ]; then
-  HEAL_PANE="$(tmux list-panes -t workspace:Claude-Monitor -F '#{pane_start_command}' 2>/dev/null | head -1)"
-  [[ "$HEAL_PANE" == *token-monitor.py* ]] \
-    && echo "✓ monitor window self-healed (pane runs the monitor)" || { echo "✗ healed window isn't the monitor: '$HEAL_PANE'"; FAIL=1; }
+  # pane_current_command is portable (pane_start_command is not on older tmux);
+  # a healed monitor window runs python3 as its pane process
+  HEAL_CMD="$(tmux list-panes -t workspace:Claude-Monitor -F '#{pane_current_command}' 2>/dev/null | head -1)"
+  [[ "$HEAL_CMD" == python3* ]] \
+    && echo "✓ monitor window self-healed (pane runs python3)" || { echo "✗ healed window isn't the monitor: '$HEAL_CMD'"; FAIL=1; }
 else
   [[ "$HEALOUT" == *"no self-heal"* ]] && echo "✓ no-monitor warn path taken" \
     || { echo "✗ expected the no-self-heal warning"; FAIL=1; }
