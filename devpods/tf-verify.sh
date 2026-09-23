@@ -1272,6 +1272,23 @@ if [ "$FAIL" -gt 0 ]; then
   done
 fi
 
+# ── tmux workspace policy (behavioral; isolated socket) ─────────────────────
+if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspace.sh" ]; then
+  TWLOG="$(mktemp /tmp/tf-twtest.XXXXXXXX)"   # GNU mktemp: X's terminate the template; removed below
+  if bash "$DEVPOD_DIR/tests/test-tmux-workspace.sh" > "$TWLOG" 2>&1; then
+    tail -3 "$TWLOG"
+  else
+    FAIL=1
+    FAILED_GATES+=("tmux-workspace-behavioral")
+    tail -5 "$TWLOG"
+    echo "  ✗ tmux-workspace behavioral tests failed (full log kept at: $TWLOG)"
+    TWLOG=""   # keep the failure log for the operator — only clean on success
+  fi
+  [ -n "$TWLOG" ] && rm -f "$TWLOG" || true
+else
+  echo "  ⚠ tmux-workspace behavioral tests SKIPPED (tmux or test file unavailable)"
+fi
+
 # Persist last-run timestamp so turbo-status can show "ran Xh ago"
 date +%s > "$HOME/.turboflow-tf-verify-last" 2>/dev/null || true
 
@@ -1304,21 +1321,6 @@ if [ "$DIFF_MODE" -eq 1 ] && [ -f "$prev_state" ]; then
   [ -z "$new_fails" ] && [ -z "$fixed" ] && echo "  (no fail changes since last run)"
 fi
 
-# ── tmux workspace policy (behavioral; isolated socket) ─────────────────────
-if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspace.sh" ]; then
-  TWLOG="$(mktemp /tmp/tf-twtest.XXXXXXXX)"   # GNU mktemp: X's terminate the template; removed below
-  if bash "$DEVPOD_DIR/tests/test-tmux-workspace.sh" > "$TWLOG" 2>&1; then
-    tail -3 "$TWLOG"
-  else
-    FAIL=1
-    tail -5 "$TWLOG"
-    echo "  ✗ tmux-workspace behavioral tests failed (full log kept at: $TWLOG)"
-    TWLOG=""   # keep the failure log for the operator — only clean on success
-  fi
-  [ -n "$TWLOG" ] && rm -f "$TWLOG" || true
-else
-  echo "  ⚠ tmux-workspace behavioral tests SKIPPED (tmux or test file unavailable)"
-fi
 if [ "$FAIL" -eq 0 ]; then
   echo "    TurboFlow is ready."
 else
