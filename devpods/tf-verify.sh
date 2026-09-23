@@ -1304,11 +1304,6 @@ if [ "$DIFF_MODE" -eq 1 ] && [ -f "$prev_state" ]; then
   [ -z "$new_fails" ] && [ -z "$fixed" ] && echo "  (no fail changes since last run)"
 fi
 
-if [ "$FAIL" -eq 0 ]; then
-  echo "    TurboFlow is ready."
-else
-  echo "    Fix the failures above — don't add exceptions."
-fi
 # ── tmux workspace policy (behavioral; isolated socket) ─────────────────────
 if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspace.sh" ]; then
   if bash "$DEVPOD_DIR/tests/test-tmux-workspace.sh" > /tmp/tf-twtest.log 2>&1; then
@@ -1318,5 +1313,10 @@ if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspac
     tail -5 /tmp/tf-twtest.log
     echo "  ✗ tmux-workspace behavioral tests failed (full log: /tmp/tf-twtest.log)"
   fi
+fi
+if [ "$FAIL" -eq 0 ]; then
+  echo "    TurboFlow is ready."
+else
+  echo "    Fix the failures above — don't add exceptions."
 fi
 exit $FAIL
