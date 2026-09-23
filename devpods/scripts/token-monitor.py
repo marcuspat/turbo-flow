@@ -55,7 +55,7 @@ class Monitor:
 
     def __init__(self, root=None):
         self.root = root or os.environ.get("TOKENS_CLAUDE_ROOT") or os.path.expanduser("~/.claude")
-        self.offsets = {}   # path -> (mtime, size, byte offset)
+        self.offsets = {}   # path -> (inode, mtime, size, byte offset)
         self.dedup = {}     # (requestId, message.id) -> row (fullest usage wins)
 
     def collect(self, now):
@@ -72,9 +72,15 @@ class Monitor:
             if st.st_mtime < cutoff:
                 continue
             prev = self.offsets.get(path)
-            if prev and prev[0] == st.st_mtime and prev[1] == st.st_size:
+            if prev and prev[1] == st.st_mtime and prev[2] == st.st_size:
                 continue  # unchanged since last pass
-            offset = prev[2] if prev and prev[1] <= st.st_size else 0
+            # reset on inode change (rotation/rewrite) or shrink (truncate);
+            # same-inode regrow past the old offset is indistinguishable from
+            # append without reading — accept with this comment
+            if not prev or prev[0] != st.st_ino or st.st_size < prev[2]:
+                offset = 0
+            else:
+                offset = prev[3]
             try:
                 with open(path, "rb") as fh:
                     fh.seek(offset)
@@ -86,7 +92,7 @@ class Monitor:
             if last_nl == -1:
                 continue  # no complete line yet
             body, new_off = chunk[:last_nl], offset + last_nl + 1
-            self.offsets[path] = (st.st_mtime, st.st_size, new_off)
+            self.offsets[path] = (st.st_ino, st.st_mtime, st.st_size, new_off)
             for line in body.split(b"\n"):
                 if b'"assistant"' not in line:
                     continue
