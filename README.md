@@ -3,6 +3,18 @@
 
 ![v5](https://img.shields.io/badge/version-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/private_beta-OPEN-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![study](https://img.shields.io/badge/cross--family_review-71.6%25→89.7%25-c25550?style=flat-square)
 
+## Two things live here — pick your door
+
+This repo holds **two different products**. They pair well but stand alone:
+
+| You want… | Your door | What it is |
+|---|---|---|
+| an **agentic dev environment** — Claude in tmux windows, orchestration, memory, live token monitor | **Turbo Flow v4** | Open this repo in a Codespace — `postCreate` installs everything ([setup guide](github_codespaces_setup.md)). Full docs below the fold. |
+| **governance for AI-written code** — a review gate that says no | **[`rig-lite/`](rig-lite/)** | A standalone extract of Turbo Rig: `gate.sh` (cross-model review), the constitution template, the memory pattern. Works in **any** repo or environment — including the v4 install above. |
+| the **integrated rig** both of these come from | **[private beta](https://turbo-rig-beta.vercel.app)** | Turbo Rig: gate + constitution + memory + automations, running as one system. |
+
+New here? The 60-second version: **v4 below is the environment you install; rig-lite is the rules you drop into it (or anywhere); the beta is both, integrated and growing.**
+
 ## 🎬 The new demo — recorded in a fresh Codespace, nothing preinstalled
 
 ![rig-lite demo](demo/rig-lite-demo.gif)
@@ -24,7 +36,7 @@ Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig
 | [`memory.md`](rig-lite/memory.md) | git-versioned cross-session memory — one fact per file + an index, sync rules, lifecycle (diagrams included). |
 | [`self-test.sh`](rig-lite/self-test.sh) | proves the gate's fail-closed behavior — injected `VERDICT` strings, silent/crashed/absent reviewers, deterministic-stage ordering, cross-family exclusion. Run it before you trust it. |
 
-Drop them into any environment: turbo-flow v4, plain git, CI.
+**Standalone-first**: drop them into any environment — turbo-flow v4 (below), a plain git repo, or CI. No dependency on the v4 stack; the two products are complements, not prerequisites.
 
 ## Does builder ≠ reviewer actually matter?
 

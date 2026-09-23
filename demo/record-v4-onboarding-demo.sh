@@ -31,16 +31,18 @@ REC_TTY="$(tty 2>/dev/null || true)"   # our tty — the driver detaches exactly
 echo "📝 attaching — tour of all four windows, then Claude live in window 1…"
 ( sleep 2.5
   for w in 0 1 2 3; do tmux select-window -t workspace:$w 2>/dev/null; sleep 3.2; done
-  tmux select-window -t workspace:0
-  sleep 1
-  # run claude in the watched window — genuine first-run UI (no API key on the
-  # recording box), then exit it; that is exactly what a new user sees and does
-  tmux send-keys -t workspace:0 "claude" C-m
-  sleep 8
-  tmux send-keys -t workspace:0 C-c
-  sleep 1.5
-  tmux send-keys -t workspace:0 C-c
-  sleep 1
+  # run claude in BOTH Claude windows — genuine first-run UI each time (no API
+  # key on the recording box), then exit; exactly what a new user sees and does
+  for w in 0 1; do
+    tmux select-window -t workspace:$w 2>/dev/null
+    sleep 1
+    tmux send-keys -t workspace:$w "claude" C-m
+    sleep 8
+    tmux send-keys -t workspace:$w C-c
+    sleep 1.5
+    tmux send-keys -t workspace:$w C-c
+    sleep 1
+  done
   # detach only OUR attached client (this recorder's tty) — humans stay attached
   [ -n "$REC_TTY" ] && tmux detach-client -t "$REC_TTY" 2>/dev/null ) &
 timeout 90 tmux attach-session -t workspace   # bounded: a dead driver can't hang the demo
