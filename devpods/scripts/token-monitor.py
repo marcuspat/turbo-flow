@@ -243,6 +243,13 @@ def selftest():
     with open(torn, "w") as f:
         f.write(env(300, "claude-opus", 10, 5, "r9", "m9") + "\n")
     assert len(mon2.collect(now)) == 3
+    # truncate+rewrite: smaller file with a fresh envelope must reset offsets
+    with open(os.path.join(proj, "s.jsonl"), "w") as f:
+        f.write(env(120, "claude-haiku", 50, 20, "r8", "m8") + "\n")
+    mon3 = Monitor(root=tmp)
+    rows3 = mon3.collect(now)
+    models3 = {r["model"] for r in rows3}
+    assert "claude-haiku" in models3 and "claude-sonnet" not in models3, models3
     print("self-test: ALL PASS")
     return 0
 
