@@ -261,10 +261,6 @@ def selftest():
         f.write(envelope("rr", "mm", 100, 50) + "\n")
     with open(os.path.join(p2, "b.jsonl"), "w") as f:
         f.write(envelope("rr", "mm", 500, 250) + "\n")   # cumulative rewrite
-    mon5 = Monitor(root=tmp)
-    r5 = [r for r in mon5.collect(now) if r["proj"] == "projA" or r["tin"] in (500,)]
-    rows5 = mon5.collect.__self__ if False else None
-    all5 = Monitor(root=tmp); _ = None
     m5 = Monitor(root=tmp)
     got = [r for r in m5.collect(now) if (r["tin"], r["tout"]) in ((100, 50), (500, 250))]
     assert len(got) == 1 and got[0]["tin"] == 500, got  # merged, fullest won
@@ -278,6 +274,9 @@ def selftest():
     assert parse_args(["--since"])["errors"], "missing value must error"
     assert parse_args(["--bogus"])["errors"], "unknown flag must error"
     assert parse_args(["stray"])["errors"], "stray positional must error"
+    assert parse_args(["--watch=0"])["errors"], "zero refresh must error"
+    assert parse_args(["--watch=abc"])["errors"], "garbage refresh must error"
+    assert parse_args(["--watch", "0.5"])["refresh"] == 0.5, "sub-second refresh allowed"
     # eviction: rows older than 7d+1h evicted; boundary rows kept
     mon4 = Monitor(root=tmp)
     mon4.dedup[("old", "x")] = {"ts": now - RETENTION - 7200, "model": "m", "tin": 0, "cc": 0, "cr": 0, "tout": 0, "total": 0, "proj": "p"}
@@ -300,13 +299,20 @@ def parse_args(argv):
             out["watch"] = True
             if i + 1 < len(argv) and argv[i + 1].replace(".", "", 1).isdigit():
                 i += 1
-                out["refresh"] = float(argv[i])
+                r = float(argv[i])
+                if r <= 0:
+                    out["errors"] = f"--watch needs a positive number of seconds (got {argv[i]!r})"
+                else:
+                    out["refresh"] = r
         elif a.startswith("--watch="):
             out["watch"] = True
             try:
-                out["refresh"] = float(a.split("=", 1)[1])
+                r = float(a.split("=", 1)[1])
+                if r <= 0:
+                    raise ValueError
+                out["refresh"] = r
             except ValueError:
-                pass
+                out["errors"] = f"--watch needs a positive number of seconds (got {a.split('=', 1)[1]!r})"
         elif a == "--since":
             if i + 1 >= len(argv):
                 out["errors"] = "--since needs a value (30m|1h|2h|5h|today|7d)"
