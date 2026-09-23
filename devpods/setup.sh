@@ -1063,7 +1063,8 @@ fi
 if npx -y ruflo@latest daemon status 2>/dev/null | grep -q "running"; then
     ok "Ruflo daemon already running"
 else
-    if setsid npx -y ruflo@latest daemon start --timeout 30 >> "$LOG" 2>&1 < /dev/null; then
+    RUN_DETACHED="setsid"; command -v setsid >/dev/null 2>&1 || RUN_DETACHED=""
+    if $RUN_DETACHED npx -y ruflo@latest daemon start --timeout 30 >> "$LOG" 2>&1 < /dev/null; then
         sleep 2
         if npx -y ruflo@latest daemon status 2>/dev/null | grep -q "running"; then
             ok "Ruflo daemon started (background workers active)"
