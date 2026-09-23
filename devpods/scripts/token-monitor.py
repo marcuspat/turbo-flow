@@ -245,11 +245,10 @@ def selftest():
     with open(torn, "w") as f:
         f.write(env(300, "claude-opus", 10, 5, "r9", "m9") + "\n")
     assert len(mon2.collect(now)) == 3
-    # truncate+rewrite: smaller file with a fresh envelope must reset offsets
+    # truncate+rewrite through a WARM monitor (has offsets): shrink must reset
     with open(os.path.join(proj, "s.jsonl"), "w") as f:
         f.write(env(120, "claude-haiku", 50, 20, "r8", "m8") + "\n")
-    mon3 = Monitor(root=tmp)
-    rows3 = mon3.collect(now)
+    rows3 = mon2.collect(now)   # same monitor — exercises the reset branch
     models3 = {r["model"] for r in rows3}
     assert "claude-haiku" in models3 and "claude-sonnet" not in models3, models3
     # parse_args: every documented form
@@ -289,9 +288,13 @@ def parse_args(argv):
             except ValueError:
                 pass
         elif a == "--since":
-            if i + 1 < len(argv):
+            if i + 1 >= len(argv):
+                out["errors"] = "--since needs a value (30m|1h|2h|5h|today|7d)"
+            else:
                 i += 1
                 out["win"] = argv[i]
+        elif not a.startswith("-"):
+            out["errors"] = f"unexpected argument: {a}"
         elif a.startswith("--since="):
             out["win"] = a.split("=", 1)[1]
         elif a == "--json":

@@ -30,7 +30,7 @@ echo "📝 attaching — tour of all four windows…"
   for w in 0 1 2 3 0; do tmux select-window -t workspace:$w 2>/dev/null; sleep 3.5; done
   # detach only OUR attached client (this recorder's tty) — humans stay attached
   [ -n "$REC_TTY" ] && tmux detach-client -t "$REC_TTY" 2>/dev/null ) &
-tmux attach-session -t workspace
+timeout 60 tmux attach-session -t workspace   # bounded: a dead driver can't hang the demo
 sleep 0.5
 
 t 'echo "✓ Claude-1 · Claude-2 · live token monitor · htop — agents build, humans merge"'
