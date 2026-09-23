@@ -3,7 +3,7 @@
 # after the script fixes (npx -y unattended installs, setsid daemon,
 # --no-attach tmux). Recorded via asciinema in a Codespace; warm-run first.
 set -uo pipefail
-cd /workspaces/turbo-flow
+cd /workspaces/turbo-flow || { echo "recorder: workspace missing — run from the turbo-flow Codespace"; exit 1; }
 export WORKSPACE_FOLDER=/workspaces/turbo-flow DEVPOD_WORKSPACE_FOLDER=/workspaces/turbo-flow
 export AGENTS_DIR=/workspaces/turbo-flow/agents DEVPOD_DIR=/workspaces/turbo-flow/devpods
 export PATH=$HOME/.npm-global/bin:$HOME/.local/bin:$PATH
