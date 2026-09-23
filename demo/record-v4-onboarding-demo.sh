@@ -11,7 +11,7 @@ export PATH=$HOME/.npm-global/bin:$HOME/.local/bin:$PATH
 t() { # type a command char-by-char, then run it
   local cmd="$1"; local i=0
   while (( i < ${#cmd} )); do printf '%s' "${cmd:i:1}"; i=$((i+1)); sleep 0.012; done
-  sleep 0.35; printf '\n'; bash -c "$cmd"
+  sleep 0.35; printf '\n'; bash -c "$cmd" || echo "⚠ recorder: STEP FAILED: $cmd"
   sleep 0.55
 }
 

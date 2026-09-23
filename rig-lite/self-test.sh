@@ -204,10 +204,10 @@ t "entrypoint exits 42 → FAIL (1), not skip" 1 $RC
 printf '%s' "$OUT" | grep -q 'FAIL' && echo "✓ exit-42 reported as failure" || { echo "✗ expected FAIL report"; FAIL=1; }
 
 # ── --no-exec must NOT execute the branch entrypoint ───────────────────────
+fresh_ahead
 fake_claude '#!/usr/bin/env bash
 cat >/dev/null
 printf "reasons here\nVERDICT: APPROVED\n"'
-fresh_ahead
 printf '#!/usr/bin/env bash\ntouch /tmp/gate-lite-noexec-probe\n' > run_tests.sh; chmod +x run_tests.sh
 rm -f /tmp/gate-lite-noexec-probe
 git add -A && git commit -qm probe
