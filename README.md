@@ -170,8 +170,8 @@ genuine first-run auth screen. Recorded with
 |  SKILLS                                                           |
 |  UI UX Pro Max | OpenSpec | 36+ Ruflo Auto-activated Skills       |
 +------------------------------------------------------------------+
-|  INFRASTRUCTURE                                                   |
-|  Codespaces (primary, release-verified) | local Linux/macOS | legacy k8s planes |
+|  INFRASTRUCTURE                                                  |
+|  Codespaces (primary) · local Linux/macOS · legacy k8s           |
 +------------------------------------------------------------------+
 ```
 

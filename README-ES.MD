@@ -154,8 +154,8 @@ El rig completo — compuerta integrada, constitución, memoria versionada en gi
 |  HABILIDADES                                                      |
 |  UI UX Pro Max | OpenSpec | 36+ Habilidades auto-activadas Ruflo |
 +------------------------------------------------------------------+
-|  INFRAESTRUCTURA                                                  |
-|  Codespaces (primario, verificado en cada release) | Linux/macOS local | planes k8s legacy |
+|  INFRAESTRUCTURA                                                 |
+|  Codespaces (principal) · Linux/macOS local · k8s legacy         |
 +------------------------------------------------------------------+
 ```
 
