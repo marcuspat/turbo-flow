@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# record-v4-onboarding-demo.sh — the v4 onboarding chain, re-recorded on main
-# after the script fixes (npx -y unattended installs, setsid daemon,
-# --no-attach tmux). Recorded via asciinema in a Codespace; warm-run first.
+# record-v4-onboarding-demo.sh — the v4 onboarding chain, ending in a REAL tmux
+# attach with a scripted tour of all 4 windows (window 2 = live token monitor).
+# Recorded via asciinema in a Codespace; warm-run first.
 set -uo pipefail
 cd /workspaces/turbo-flow || { echo "recorder: workspace missing — run from the turbo-flow Codespace"; exit 1; }
 export WORKSPACE_FOLDER=/workspaces/turbo-flow DEVPOD_WORKSPACE_FOLDER=/workspaces/turbo-flow
 export AGENTS_DIR=/workspaces/turbo-flow/agents DEVPOD_DIR=/workspaces/turbo-flow/devpods
 export PATH=$HOME/.npm-global/bin:$HOME/.local/bin:$PATH
+export TERM=xterm-256color   # tmux attach refuses dumb/absent TERM (recording pty)
 
 t() { # type a command char-by-char, then run it
   local cmd="$1"; local i=0
@@ -16,12 +17,20 @@ t() { # type a command char-by-char, then run it
 }
 
 clear
-t 'echo "TURBO FLOW v4 — onboarding chain, re-verified 2026-09: setup → post-setup → tmux workspace"'
-t 'bash devpods/setup.sh 2>&1 | tail -22'          # idempotent rerun: fast, real output
-t 'bash devpods/post-setup.sh 2>&1 | grep -aE "PASS|✓|Check|verif" | head -14'
+t 'echo "TURBO FLOW v4 — onboarding chain: setup → post-setup → tmux workspace (4 live windows)"'
+t 'bash devpods/setup.sh 2>&1 | tail -18'
+t 'bash devpods/post-setup.sh 2>&1 | grep -aE "PASS|✓|verif" | head -10'
 t 'bash devpods/tmux-workspace.sh --no-attach'
 t 'tmux list-windows -t workspace'
-t 'for w in 0 1 2 3; do echo "── window $w ──"; tmux capture-pane -p -t workspace:$w | grep -v "^$" | head -3; done'
-t 'echo "✓ 4-window workspace up headless — agents build, humans merge"'
+
+# ── the finale: attach for real, tour every window ─────────────────────────
+echo "📝 attaching — tour of all four windows…"
+( sleep 2.5
+  for w in 0 1 2 3 0; do tmux select-window -t workspace:$w 2>/dev/null; sleep 3.5; done
+  tmux detach-client -s workspace 2>/dev/null ) &
+tmux attach-session -t workspace
+sleep 0.5
+
+t 'echo "✓ Claude-1 · Claude-2 · live token monitor · htop — agents build, humans merge"'
 t 'echo "v5 preview + private beta → turbo-rig-beta.vercel.app"'
 sleep 1.2

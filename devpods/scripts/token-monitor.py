@@ -79,11 +79,15 @@ class Monitor:
                 with open(path, "rb") as fh:
                     fh.seek(offset)
                     chunk = fh.read()
-                    new_off = fh.tell()
             except OSError:
                 continue
+            # only consume complete lines — a torn tail stays for the next pass
+            last_nl = chunk.rfind(b"\n")
+            if last_nl == -1:
+                continue  # no complete line yet
+            body, new_off = chunk[:last_nl], offset + last_nl + 1
             self.offsets[path] = (st.st_mtime, st.st_size, new_off)
-            for line in chunk.split(b"\n"):
+            for line in body.split(b"\n"):
                 if b'"assistant"' not in line:
                     continue
                 try:
@@ -110,6 +114,8 @@ class Monitor:
                     "proj": repo_label(j.get("cwd"), j.get("gitBranch")),
                 }
                 row["total"] = row["tin"] + row["cc"] + row["cr"] + row["tout"]
+                # fullest usage wins; on a tie keep the EARLIEST ts (original request
+                # time) so replays don't re-attribute old burn to a new window
                 prevrow = self.dedup.get(key)
                 if (prevrow is None or row["total"] > prevrow["total"]
                         or (row["total"] == prevrow["total"] and row["ts"] < prevrow["ts"])):
@@ -175,7 +181,11 @@ def render(mon, win, now, ansi=True):
 def watch(mon, win, refresh):
     import termios, tty
     fd = sys.stdin.fileno()
-    old = termios.tcgetattr(fd)
+    try:
+        old = termios.tcgetattr(fd)
+    except termios.error:
+        print(render(mon, win, time.time()) + "\n(non-tty: one-shot render — --watch needs a terminal)")
+        return
     try:
         tty.setcbreak(fd)
         while True:
@@ -218,34 +228,62 @@ def selftest():
     assert pm["claude-opus"]["req"] == 1, pm  # deduped
     txt = render(mon, "7d", now, ansi=False)
     assert "claude-sonnet" in txt and "TOTAL" in txt
+    # torn tail: ignored while incomplete, counted once completed (own monitor)
+    torn = os.path.join(proj, "torn.jsonl")
+    with open(torn, "w") as f:
+        f.write(env(300, "claude-opus", 10, 5, "r9", "m9")[:40])
+    mon2 = Monitor(root=tmp)
+    assert len(mon2.collect(now)) == 2
+    with open(torn, "w") as f:
+        f.write(env(300, "claude-opus", 10, 5, "r9", "m9") + "\n")
+    assert len(mon2.collect(now)) == 3
     print("self-test: ALL PASS")
     return 0
 
-def main(argv):
-    args = set(a.split("=")[0] for a in argv)
-    if "--selftest" in args:
-        return selftest()
-    win = DEFAULT_WINDOW
-    refresh = 5.0
-    for a in argv:
-        if a.startswith("--since="):
-            win = a.split("=", 1)[1]
+def parse_args(argv):
+    """accepts --since X, --since=X, --watch, --watch N, --watch=N, --json, --color[=always], --selftest"""
+    out = {"watch": False, "json": False, "selftest": False, "color": False,
+           "win": DEFAULT_WINDOW, "refresh": 5.0}
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--selftest":
+            out["selftest"] = True
         elif a == "--watch":
-            continue
+            out["watch"] = True
+            if i + 1 < len(argv) and argv[i + 1].replace(".", "", 1).isdigit():
+                i += 1
+                out["refresh"] = float(argv[i])
         elif a.startswith("--watch="):
+            out["watch"] = True
             try:
-                refresh = float(a.split("=", 1)[1])
+                out["refresh"] = float(a.split("=", 1)[1])
             except ValueError:
                 pass
-    if "--since" in args:
-        i = argv.index("--since")
-        if i + 1 < len(argv):
-            win = argv[i + 1]
+        elif a == "--since":
+            if i + 1 < len(argv):
+                i += 1
+                out["win"] = argv[i]
+        elif a.startswith("--since="):
+            out["win"] = a.split("=", 1)[1]
+        elif a == "--json":
+            out["json"] = True
+        elif a == "--color" or a == "--color=always":
+            out["color"] = True
+        i += 1
+    return out
+
+def main(argv):
+    args = parse_args(argv)
+    if args["selftest"]:
+        return selftest()
+    win = args["win"]
+    refresh = args["refresh"]
     if win not in dict(WINDOWS):
         print(f"unknown window '{win}' — use one of: " + ", ".join(w for w, _ in WINDOWS), file=sys.stderr)
         return 1
     mon = Monitor()
-    if "--watch" in args:
+    if args["watch"]:
         try:
             watch(mon, win, refresh)
             return 0
@@ -254,14 +292,14 @@ def main(argv):
         except ImportError:
             print("--watch needs a tty with termios (run inside tmux/terminal)", file=sys.stderr)
             return 1
-    if "--json" in args:
+    if args["json"]:
         now = time.time()
         start, end = window_bounds(win, now)
         per_model, per_proj = aggregate(mon.collect(now), start, end)
         print(json.dumps({"window": win, "models": per_model, "projects": per_proj,
                           "generated": datetime.fromtimestamp(now).isoformat()}, indent=2))
         return 0
-    print(render(mon, win, time.time(), ansi=("--color" not in args and sys.stdout.isatty()) or "--color=always" in argv or "--color" in argv))
+    print(render(mon, win, time.time(), ansi=args["color"] or sys.stdout.isatty()))
     return 0
 
 if __name__ == "__main__":
