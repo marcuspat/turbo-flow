@@ -50,6 +50,14 @@ if [ "$REBUILD" -eq 1 ]; then
 elif tmux has-session -t workspace 2>/dev/null; then
     echo "✅ workspace session already running — keeping it (--rebuild to recreate)"
     SKIP_BUILD=1
+    # self-heal: the monitor window closes when its process dies — recreate it
+    if ! tmux list-windows -t workspace -F '#{window_name}' 2>/dev/null | grep -q '^Claude-Monitor'; then
+        if command -v python3 >/dev/null 2>&1 && [ -f "$WORKSPACE_FOLDER/devpods/scripts/token-monitor.py" ]; then
+            tmux new-window -t workspace:2 -n "Claude-Monitor" -c "$WORKSPACE_FOLDER" \
+                -d "python3 devpods/scripts/token-monitor.py --watch 5"
+            echo "🔁 monitor window was dead — recreated"
+        fi
+    fi
 fi
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
