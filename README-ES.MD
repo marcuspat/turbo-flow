@@ -3,6 +3,18 @@
 
 ![v5](https://img.shields.io/badge/versión-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/beta_privada-ABIERTA-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![estudio](https://img.shields.io/badge/revisión_entre_familias-71.6%25→89.7%25-c25550?style=flat-square)
 
+## Dos cosas viven aquí — elige tu puerta
+
+Este repo contiene **dos productos distintos**. Combinan bien, pero funcionan por separado:
+
+| Quieres… | Tu puerta | Qué es |
+|---|---|---|
+| un **entorno de desarrollo agéntico** — Claude en ventanas tmux, orquestación, memoria, monitor de tokens en vivo | **Turbo Flow v4** | Abre este repo en un Codespace — `postCreate` instala todo ([guía](github_codespaces_setup.md)). Documentación completa más abajo. |
+| **gobernanza para código escrito por IA** — una compuerta de revisión que sabe decir no | **[`rig-lite/`](rig-lite/)** | Un extracto independiente de Turbo Rig: `gate.sh` (revisión entre modelos), la plantilla de constitución, el patrón de memoria. Funciona en **cualquier** repo o entorno — incluida la instalación v4 de arriba. |
+| el **rig integrado** del que ambos provienen | **[beta privada](https://turbo-rig-beta.vercel.app)** | Turbo Rig: compuerta + constitución + memoria + automatizaciones, corriendo como un sistema. |
+
+¿Nuevo aquí? Versión de 60 segundos: **el v4 de abajo es el entorno que instalas; rig-lite son las reglas que le agregas (o agregas a cualquier lado); la beta es ambos, integrados y creciendo.**
+
 ## 🎬 El demo nuevo — grabado en un Codespace limpio, nada preinstalado
 
 ![demo de rig-lite](demo/rig-lite-demo.gif)
@@ -24,7 +36,7 @@ Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **n
 | [`memory.md`](rig-lite/memory.md) | memoria entre sesiones versionada en git — un hecho por archivo + un índice, reglas de sincronización, ciclo de vida (con diagramas). |
 | [`self-test.sh`](rig-lite/self-test.sh) | demuestra el comportamiento fail-closed de la compuerta — strings `VERDICT` inyectados, revisores silenciosos/caídos/ausentes, orden de la etapa determinista, exclusión entre familias. Ejecútalo antes de confiar. |
 
-Funciona en cualquier entorno: turbo-flow v4, git plano, CI.
+**Independiente por diseño**: funciona en cualquier entorno — turbo-flow v4 (abajo), un repo git plano, o CI. Sin dependencia del stack v4; los dos productos son complementos, no prerrequisitos.
 
 ## ¿De verdad importa que constructor ≠ revisor?
 
