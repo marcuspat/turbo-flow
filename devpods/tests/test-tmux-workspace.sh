@@ -45,6 +45,14 @@ NEW_PID="$(tmux list-panes -t workspace:0 -F '#{pane_pid}' | head -1)"
 [[ -n "$OLD_PID" && "$NEW_PID" != "$OLD_PID" ]] && echo "✓ rebuild recreated the session (pane PID changed)" \
   || { echo "✗ rebuild did not recreate (same pane PID)"; FAIL=1; }
 
+# 6 · devcontainer postCreate contract (JSON-level)
+if command -v python3 >/dev/null 2>&1 && [ -f "$HERE/../../.devcontainer/devcontainer.json" ]; then
+  PC="$(python3 -c "import json;print(json.load(open('$HERE/../../.devcontainer/devcontainer.json'))['postCreateCommand'])")"
+  [[ "$PC" == *"exit 1"* ]] && echo "✓ postCreate fails loudly on apt failure" || { echo "✗ postCreate missing exit 1"; FAIL=1; }
+  [[ "$PC" == *"chmod +x"*"|| true"* ]] && echo "✓ chmod is failure-tolerant" || { echo "✗ chmod intolerance"; FAIL=1; }
+  [[ "$PC" != *"}} || true && if"* ]] && echo "✓ setup gated on apt success" || { echo "✓ apt gate regressed"; FAIL=1; }
+fi
+
 # teardown: the isolated socket dies with this test
 tmux kill-server 2>/dev/null || true
 echo
