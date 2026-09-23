@@ -1174,12 +1174,6 @@ else
 fi
 
 echo
-echo "==> $PASS pass / $FAIL fail"
-
-# Fix hints for known-recoverable fails (read-only, copy-paste actionable).
-# Curated case-by-case; gates without a hint print "(investigate manually)".
-# Reads FAILED_GATES populated by the `check` function. Designed so a next
-# Claude session can grep these and act.
 # ── tmux workspace policy (behavioral; isolated socket) ─────────────────────
 if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspace.sh" ]; then
   TWLOG="$(mktemp /tmp/tf-twtest.XXXXXXXX)"   # GNU mktemp: X's terminate the template; removed below
@@ -1197,6 +1191,12 @@ else
   echo "  ⚠ tmux-workspace behavioral tests SKIPPED (tmux or test file unavailable)"
 fi
 
+echo "==> $PASS pass / $FAIL fail"
+
+# Fix hints for known-recoverable fails (read-only, copy-paste actionable).
+# Curated case-by-case; gates without a hint print "(investigate manually)".
+# Reads FAILED_GATES populated by the `check` function. Designed so a next
+# Claude session can grep these and act.
 if [ "$FAIL" -gt 0 ]; then
   echo
   echo "==> FIX HINTS (copy-paste for next-claude or you):"
