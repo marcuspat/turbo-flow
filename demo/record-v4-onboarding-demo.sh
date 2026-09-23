@@ -35,8 +35,15 @@ echo "📝 attaching — tour of all four windows, then Claude live in window 1�
   # key on the recording box), then exit; exactly what a new user sees and does
   for w in 0 1; do
     tmux select-window -t workspace:$w 2>/dev/null
+    sleep 1.5
+    # TYPE it visibly — one character at a time so the recording shows the
+    # command being entered, then a beat on the complete line before Enter
+    for ch in c l a u d e; do
+      tmux send-keys -t workspace:$w "$ch"
+      sleep 0.45
+    done
     sleep 1
-    tmux send-keys -t workspace:$w "claude" C-m
+    tmux send-keys -t workspace:$w C-m
     sleep 8
     tmux send-keys -t workspace:$w C-c
     sleep 1.5
