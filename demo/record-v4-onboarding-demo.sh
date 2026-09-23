@@ -36,7 +36,7 @@ clear
 t 'echo "TURBO FLOW v4 — onboarding chain: setup → post-setup → tmux workspace (4 live windows)"'
 t 'bash devpods/setup.sh 2>&1 | tail -18'
 t 'bash devpods/post-setup.sh 2>&1 | grep -aE "PASS|✓|verif" | head -10'
-t 'bash devpods/tmux-workspace.sh --no-attach'
+t 'bash devpods/tmux-workspace.sh --rebuild --no-attach'
 t 'tmux list-windows -t workspace'
 
 # ── the finale: attach, tour every window, LAUNCH CLAUDE live ───────────────

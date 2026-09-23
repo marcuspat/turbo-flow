@@ -6,6 +6,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 TW="$HERE/../tmux-workspace.sh"
 SHIM="$(mktemp -d)"
+trap 'rm -rf "$SHIM"' EXIT   # baseline cleanup; upgraded post-shim below
 command -v tmux >/dev/null 2>&1 || { echo "tmux not installed — tests skipped"; exit 0; }
 REAL_TMUX="$(command -v tmux)"
 printf '#!/usr/bin/env bash
@@ -62,7 +63,8 @@ NEW_PID="$(tmux list-panes -t workspace:0 -F '#{pane_pid}' | head -1)"
 if command -v python3 >/dev/null 2>&1 && [ -f "$HERE/../../.devcontainer/devcontainer.json" ]; then
   PC="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["postCreateCommand"])' "$HERE/../../.devcontainer/devcontainer.json")"
   [[ "$PC" == *"exit 1"* ]] && echo "✓ postCreate fails loudly on apt failure" || { echo "✗ postCreate missing exit 1"; FAIL=1; }
-  [[ "$PC" == *"chmod +x"*"|| true"* ]] && echo "✓ chmod is failure-tolerant" || { echo "✗ chmod intolerance"; FAIL=1; }
+  [[ "$PC" == *"chmod +x \${containerWorkspaceFolder}/devpods/*.sh 2>/dev/null || true"* ]] \
+  && echo "✓ chmod is failure-tolerant" || { echo "✗ chmod intolerance"; FAIL=1; }
   [[ "$PC" == *"if sudo apt-get update && sudo apt-get install"* ]] && echo "✓ setup gated on apt success" || { echo "✗ apt gate regressed"; FAIL=1; }
 else
   echo "⚠ devcontainer contract check SKIPPED (python3 or devcontainer.json unavailable)"
