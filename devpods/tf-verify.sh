@@ -1278,7 +1278,7 @@ if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspac
   if bash "$DEVPOD_DIR/tests/test-tmux-workspace.sh" > "$TWLOG" 2>&1; then
     tail -3 "$TWLOG"
   else
-    FAIL=1
+    FAIL=$((FAIL+1))
     FAILED_GATES+=("tmux-workspace-behavioral")
     tail -5 "$TWLOG"
     echo "  ✗ tmux-workspace behavioral tests failed (full log kept at: $TWLOG)"
