@@ -61,6 +61,14 @@ NEW_PID="$(tmux list-panes -t workspace:0 -F '#{pane_pid}' | head -1)"
 [[ -n "$OLD_PID" && "$NEW_PID" != "$OLD_PID" ]] && echo "✓ rebuild recreated the session (pane PID changed)" \
   || { echo "✗ rebuild did not recreate (same pane PID)"; FAIL=1; }
 
+# 6a · recorder auth guard handles jq's false (regression: // treated false as falsy)
+if command -v jq >/dev/null 2>&1; then
+  GUARD_OUT="$(printf '{"loggedIn": false}' | jq -r '.loggedIn|tostring' 2>/dev/null || true)"
+  [[ "$GUARD_OUT" == "false" ]] && echo "✓ jq false-handling correct" || { echo "✗ jq false regression: '$GUARD_OUT'"; FAIL=1; }
+  GUARD_OUT2="$(printf '{"loggedIn": true}' | jq -r '.loggedIn|tostring' 2>/dev/null || true)"
+  [[ "$GUARD_OUT2" == "true" ]] && echo "✓ jq true-handling correct" || { echo "✗ jq true regression"; FAIL=1; }
+fi
+
 # 6 · devcontainer postCreate contract (JSON-level)
 if command -v python3 >/dev/null 2>&1 && [ -f "$HERE/../../.devcontainer/devcontainer.json" ]; then
   PC="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["postCreateCommand"])' "$HERE/../../.devcontainer/devcontainer.json")"

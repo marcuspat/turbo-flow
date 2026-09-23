@@ -1315,7 +1315,7 @@ if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspac
     echo "  ✗ tmux-workspace behavioral tests failed (full log kept at: $TWLOG)"
     TWLOG=""   # keep the failure log for the operator — only clean on success
   fi
-  [ -n "$TWLOG" ] && rm -f "$TWLOG"
+  [ -n "$TWLOG" ] && rm -f "$TWLOG" || true
 else
   echo "  ⚠ tmux-workspace behavioral tests SKIPPED (tmux or test file unavailable)"
 fi
