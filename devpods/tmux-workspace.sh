@@ -67,7 +67,7 @@ elif tmux has-session -t workspace 2>/dev/null; then
                 -d "python3 devpods/scripts/token-monitor.py --watch 5"; then
                 # restore the canonical position (index 2 is free — that's why
                 # we healed); a no-op if occupancy shifted
-                tmux move-window -s Claude-Monitor -t workspace:2 2>/dev/null || true
+                tmux move-window -s workspace:Claude-Monitor -t workspace:2 2>/dev/null || true
                 echo "🔁 monitor window was dead — recreated"
             else
                 echo "⚠ monitor self-heal failed — recreate manually: tmux new-window -t workspace -n Claude-Monitor" >&2

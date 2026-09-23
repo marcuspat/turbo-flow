@@ -50,7 +50,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$HERE/../../.devcontainer/devcont
   PC="$(python3 -c "import json;print(json.load(open('$HERE/../../.devcontainer/devcontainer.json'))['postCreateCommand'])")"
   [[ "$PC" == *"exit 1"* ]] && echo "✓ postCreate fails loudly on apt failure" || { echo "✗ postCreate missing exit 1"; FAIL=1; }
   [[ "$PC" == *"chmod +x"*"|| true"* ]] && echo "✓ chmod is failure-tolerant" || { echo "✗ chmod intolerance"; FAIL=1; }
-  [[ "$PC" != *"}} || true && if"* ]] && echo "✓ setup gated on apt success" || { echo "✓ apt gate regressed"; FAIL=1; }
+  [[ "$PC" == *"if sudo apt-get update && sudo apt-get install"* ]] && echo "✓ setup gated on apt success" || { echo "✗ apt gate regressed"; FAIL=1; }
 fi
 
 # teardown: the isolated socket dies with this test
