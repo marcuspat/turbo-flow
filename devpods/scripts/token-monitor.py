@@ -74,10 +74,10 @@ class Monitor:
             prev = self.offsets.get(path)
             if prev and prev[1] == st.st_mtime and prev[2] == st.st_size:
                 continue  # unchanged since last pass
-            # reset on inode change (rotation/rewrite) or shrink (truncate);
-            # same-inode regrow past the old offset is indistinguishable from
-            # append without reading — accept with this comment
-            if not prev or prev[0] != st.st_ino or st.st_size < prev[2]:
+            # reuse the offset ONLY on pure growth; anything else (inode change,
+            # shrink, same-size rewrite) resets — a re-scan is cheap and a
+            # same-size rewrite with new content would otherwise be missed
+            if not prev or prev[0] != st.st_ino or st.st_size <= prev[2]:
                 offset = 0
             else:
                 offset = prev[3]
@@ -264,6 +264,17 @@ def selftest():
     m5 = Monitor(root=tmp)
     got = [r for r in m5.collect(now) if (r["tin"], r["tout"]) in ((100, 50), (500, 250))]
     assert len(got) == 1 and got[0]["tin"] == 500, got  # merged, fullest won
+    # same-size rewrite: warm monitor resets and re-scans (content changed)
+    same = os.path.join(tmp, "projects", "p3"); os.makedirs(same)
+    sp = os.path.join(same, "s.jsonl")
+    with open(sp, "w") as f:
+        f.write(env(200, "claude-3-5", 111, 11, "ra", "ma") + "\n")
+    mon6 = Monitor(root=tmp)
+    _ = mon6.collect(now)
+    with open(sp, "w") as f:
+        f.write(env(200, "claude-3-5", 222, 22, "rb", "mb") + "\n")  # same size, new content
+    got6 = [r for r in mon6.collect(now) if r["tin"] in (111, 222)]
+    assert any(r["tin"] == 222 for r in got6), got6  # rewrite seen
     # parse_args: every documented form + every rejection path
     a = parse_args(["--watch", "5"])
     assert a["watch"] and a["refresh"] == 5.0 and not a["errors"], a
@@ -319,15 +330,15 @@ def parse_args(argv):
             else:
                 i += 1
                 out["win"] = argv[i]
-        elif not a.startswith("-"):
-            out["errors"] = f"unexpected argument: {a}"
         elif a.startswith("--since="):
             out["win"] = a.split("=", 1)[1]
         elif a == "--json":
             out["json"] = True
         elif a == "--color" or a == "--color=always":
             out["color"] = True
-        elif a.startswith("-"):
+        elif not a.startswith("-"):
+            out["errors"] = f"unexpected argument: {a}"
+        else:
             out["errors"] = f"unknown flag: {a}"
         i += 1
     return out
