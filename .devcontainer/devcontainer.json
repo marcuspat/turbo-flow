@@ -11,6 +11,9 @@
         },
         "ghcr.io/devcontainers/features/node:1": {
             "version": "26"
+        },
+        "ghcr.io/devcontainers/features/sshd:1": {
+            "version": "latest"
         }
     },
     "containerEnv": {
