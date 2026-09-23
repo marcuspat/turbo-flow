@@ -9,6 +9,9 @@ export AGENTS_DIR=/workspaces/turbo-flow/agents DEVPOD_DIR=/workspaces/turbo-flo
 export PATH=$HOME/.npm-global/bin:$HOME/.local/bin:$PATH
 export TERM=xterm-256color   # tmux attach refuses dumb/absent TERM (recording pty)
 
+# credential-free enforcement (fail-closed, tested): demo/auth-guard.sh
+bash "$(dirname "$(readlink -f "$0")")/auth-guard.sh" || exit 1
+
 t() { # type a command char-by-char, then run it
   local cmd="$1"; local i=0
   while (( i < ${#cmd} )); do printf '%s' "${cmd:i:1}"; i=$((i+1)); sleep 0.012; done
@@ -20,17 +23,27 @@ clear
 t 'echo "TURBO FLOW v4 — onboarding chain: setup → post-setup → tmux workspace (4 live windows)"'
 t 'bash devpods/setup.sh 2>&1 | tail -18'
 t 'bash devpods/post-setup.sh 2>&1 | grep -aE "PASS|✓|verif" | head -10'
-t 'bash devpods/tmux-workspace.sh --no-attach'
+t 'bash devpods/tmux-workspace.sh --rebuild --no-attach'
 t 'tmux list-windows -t workspace'
 
-# ── the finale: attach for real, tour every window ─────────────────────────
+# ── the finale: attach, tour every window, LAUNCH CLAUDE live ───────────────
 REC_TTY="$(tty 2>/dev/null || true)"   # our tty — the driver detaches exactly this client
-echo "📝 attaching — tour of all four windows…"
+echo "📝 attaching — tour of all four windows, then Claude live in window 1…"
 ( sleep 2.5
-  for w in 0 1 2 3 0; do tmux select-window -t workspace:$w 2>/dev/null; sleep 3.5; done
+  for w in 0 1 2 3; do tmux select-window -t workspace:$w 2>/dev/null; sleep 3.2; done
+  tmux select-window -t workspace:0
+  sleep 1
+  # run claude in the watched window — genuine first-run UI (no API key on the
+  # recording box), then exit it; that is exactly what a new user sees and does
+  tmux send-keys -t workspace:0 "claude" C-m
+  sleep 8
+  tmux send-keys -t workspace:0 C-c
+  sleep 1.5
+  tmux send-keys -t workspace:0 C-c
+  sleep 1
   # detach only OUR attached client (this recorder's tty) — humans stay attached
   [ -n "$REC_TTY" ] && tmux detach-client -t "$REC_TTY" 2>/dev/null ) &
-timeout 60 tmux attach-session -t workspace   # bounded: a dead driver can't hang the demo
+timeout 90 tmux attach-session -t workspace   # bounded: a dead driver can't hang the demo
 sleep 0.5
 
 t 'echo "✓ Claude-1 · Claude-2 · live token monitor · htop — agents build, humans merge"'

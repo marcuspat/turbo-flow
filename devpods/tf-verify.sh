@@ -1174,6 +1174,23 @@ else
 fi
 
 echo
+# ── tmux workspace policy (behavioral; isolated socket) ─────────────────────
+if command -v tmux >/dev/null 2>&1 && [ -f "$DEVPOD_DIR/tests/test-tmux-workspace.sh" ]; then
+  TWLOG="$(mktemp /tmp/tf-twtest.XXXXXXXX)"   # GNU mktemp: X's terminate the template; removed below
+  if bash "$DEVPOD_DIR/tests/test-tmux-workspace.sh" > "$TWLOG" 2>&1; then
+    tail -3 "$TWLOG"
+  else
+    FAIL=$((FAIL+1))
+    FAILED_GATES+=("tmux-workspace-behavioral")
+    tail -5 "$TWLOG"
+    echo "  ✗ tmux-workspace behavioral tests failed (full log kept at: $TWLOG)"
+    TWLOG=""   # keep the failure log for the operator — only clean on success
+  fi
+  [ -n "$TWLOG" ] && rm -f "$TWLOG" || true
+else
+  echo "  ⚠ tmux-workspace behavioral tests SKIPPED (tmux or test file unavailable)"
+fi
+
 echo "==> $PASS pass / $FAIL fail"
 
 # Fix hints for known-recoverable fails (read-only, copy-paste actionable).
