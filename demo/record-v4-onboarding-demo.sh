@@ -20,8 +20,11 @@ LOGGED_IN="$(printf '%s' "$AUTH_JSON" | jq -r '.loggedIn|tostring' 2>/dev/null |
 case "$LOGGED_IN" in
   "false")
     echo "recorder: claude reports loggedIn:false — genuine first-run screen incoming" ;;
-  true|*)
-    echo "recorder: claude authenticated or auth state unparseable — record from a credential-free Codespace" >&2
+  "true")
+    echo "recorder: claude is AUTHENTICATED — record from a credential-free Codespace" >&2
+    exit 1 ;;
+  *)
+    echo "recorder: auth state unparseable (got: '$LOGGED_IN') — jq or claude output changed; fix the guard before recording" >&2
     exit 1 ;;
 esac
 
