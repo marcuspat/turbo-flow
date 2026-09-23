@@ -83,16 +83,7 @@ The full rig — integrated gate, constitution, git-versioned memory, automation
 
 ![Turbo Flow v4 onboarding demo](demo/v4-onboarding-demo.gif)
 
-Re-recorded 2026-09 on `main` after the script fixes (unattended `npx -y` installs, detached daemon, `--no-attach` headless tmux): a real, unedited run of the onboarding chain — `codespace_setup.sh` →
-`setup.sh` → `post-setup.sh` → `tmux-workspace.sh` (11 install steps, 6-plugin
-verify: Claude Code, Ruflo v3.5, Dolt + Beads, GitNexus, OpenSpec) — sped up,
-then a real reattach to the live tmux session it creates: a tour through all
-four workspace windows (`Claude-2`, `Claude-Monitor`, a live `htop`), then the
-real `claude` CLI launched through to its actual login screen. Not a mockup,
-not a scripted animation — no API key on the recording box, so that's the
-genuine first-run auth screen. Recorded with
-[VHS](https://github.com/charmbracelet/vhs) from `demo/demo-a-setup.tape` +
-`demo/demo-b-tmux-claude.tape` (`demo/build-demo.sh` reproduces it end to end).
+Recorded **in a fresh Codespace on `main`, nothing preinstalled** — the install chain runs for real, then a real tmux attach tours all four workspace windows (two Claude panes, the live **token monitor**, `htop`), and the `claude` CLI is launched in **both** Claude windows through to its genuine first-run screen. No API key on the recording box — `demo/auth-guard.sh` refuses to record an authenticated session — so that's the real first-run experience, not a mockup. Reproducible via [`demo/record-v4-onboarding-demo.sh`](demo/record-v4-onboarding-demo.sh) (asciinema + agg).
 
 ---
 
@@ -191,50 +182,28 @@ genuine first-run auth screen. Recorded with
 
 ## Quick Start
 
-### DevPod Installation
+### Codespaces (primary — nothing to install locally)
 
-<details>
-<summary><b>macOS</b></summary>
+1. Click the green **Code** button on this repo → **Create codespace** (or `gh codespace create -R marcuspat/turbo-flow`).
+2. Wait for `postCreate` — it installs the full stack automatically (Claude Code, Ruflo, Dolt + Beads, GitNexus, OpenSpec, the token monitor). ~15 minutes on the free 2-core tier.
+3. On first attach, the four-window tmux workspace builds itself: two Claude panes, the live **token monitor**, and `htop`. The default terminal profile attaches straight into it.
+4. Verify: `turbo-status` · `turbo-help` · `bash devpods/tf-verify.sh`
 
-```bash
-brew install loft-sh/devpod/devpod
-```
-</details>
+That's it — the demo GIF above is exactly this path, recorded unedited.
 
-<details>
-<summary><b>Windows</b></summary>
+### Local (Linux / macOS)
 
 ```bash
-choco install devpod
-```
-</details>
-
-<details>
-<summary><b>Linux</b></summary>
-
-```bash
-curl -L -o devpod "https://github.com/loft-sh/devpod/releases/latest/download/devpod-linux-amd64"
-sudo install devpod /usr/local/bin
-```
-</details>
-
-### Launch
-
-```bash
-# DevPod (recommended)
-devpod up https://github.com/marcuspat/turbo-flow --ide vscode
-
-# Codespaces
-# Push to GitHub → Open in Codespace → runs automatically
-
-# Manual
 git clone https://github.com/marcuspat/turbo-flow -b main
 cd turbo-flow
-chmod +x devpods/setup.sh
-./devpods/setup.sh
-source ~/.bashrc
+bash devpods/setup.sh && source ~/.bashrc
+bash devpods/tmux-workspace.sh        # builds the same 4-window workspace
 turbo-status
 ```
+
+### DevPod & Kubernetes
+
+DevPod still works (`devpod up https://github.com/marcuspat/turbo-flow --ide vscode`) against this repo's devcontainer, but the k8s/Rackspace plane guides and boot scripts are **legacy** — see [`legacy/k8s-planes/`](legacy/k8s-planes/) (community-maintained, unverified since v4).
 
 ---
 
@@ -461,11 +430,16 @@ gnx-wiki             # Generate repo wiki from graph
 
 ```
 turbo-flow/
-├── V2/                          ← current versioned release
+├── rig-lite/                    ← governance kit (gate.sh, constitution, memory pattern)
 ├── devpods/
-│   ├── setup.sh                 ← main setup script
+│   ├── setup.sh                 ← main setup script (runs itself via Codespaces postCreate)
 │   ├── post-setup.sh            ← post-setup verification
-│   └── devcontainer_files/      ← devcontainer context files
+│   ├── tmux-workspace.sh        ← the 4-window workspace (token monitor self-heals)
+│   ├── scripts/token-monitor.py ← live Claude token dashboard
+│   ├── tests/                   ← behavioral tests (tmux policy)
+│   └── tf-verify.sh             ← the verifier
+├── demo/                        ← demo GIF + reproducible recorder + auth guard
+├── legacy/k8s-planes/           ← Rackspace/Kubernetes era (unverified since v4)
 ├── CLAUDE.md                    ← workspace context (active)
 └── README.md
 ```
