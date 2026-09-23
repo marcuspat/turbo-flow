@@ -76,7 +76,8 @@ if [ -f "$AG" ]; then
   mk_fake_claude() { printf '#!/usr/bin/env bash\nprintf %s\n' "'$1'" > "$AGDIR/claude"; chmod +x "$AGDIR/claude"; }
   REAL_JSON_FALSE='{"loggedIn": false, "authMethod": "none", "apiProvider": "firstParty"}'
   REAL_JSON_TRUE='{"loggedIn": true, "authMethod": "oauth"}'
-  PATH="$AGDIR:$PATH" bash "$AG" >/dev/null 2>&1 && mk_fake_claude "$REAL_JSON_FALSE" && PATH="$AGDIR:$PATH" bash "$AG" >/dev/null 2>&1 \
+  mk_fake_claude "$REAL_JSON_FALSE"
+  PATH="$AGDIR:$PATH" bash "$AG" >/dev/null 2>&1 \
     && echo "✓ auth guard passes loggedIn:false" || { echo "✗ auth guard rejects a logged-out box"; FAIL=1; }
   mk_fake_claude "$REAL_JSON_TRUE"
   PATH="$AGDIR:$PATH" bash "$AG" >/dev/null 2>&1 && { echo "✗ auth guard passed an AUTHENTICATED box"; FAIL=1; } \
