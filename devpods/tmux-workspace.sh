@@ -66,14 +66,15 @@ elif tmux has-session -t workspace 2>/dev/null; then
     fi
 fi
 
+# quality-of-life options are idempotent globals — applied on every run,
+# including kept sessions (they may have been created by an older script)
+tmux set-option -g history-limit 50000
+tmux set-option -g mouse on
+tmux set-window-option -g mode-keys vi
+
 if [ "$SKIP_BUILD" -eq 0 ]; then
     # Create new session with first window for Claude
     tmux new-session -d -s workspace -n "Claude-1" -c "$WORKSPACE_FOLDER"
-    # --- TMUX QUALITY OF LIFE SETTINGS ---
-    tmux set-option -g history-limit 50000
-    tmux set-option -g mouse on
-    tmux set-window-option -g mode-keys vi
-    # -------------------------------------
     # Create second window for Claude
     tmux new-window -t workspace:1 -n "Claude-2" -c "$WORKSPACE_FOLDER"
     # Create third window for Claude monitor
