@@ -57,3 +57,8 @@ temp/
 .claude-flow
 __pycache__/
 *.pyc
+
+# ===============================
+#  rig-lite worktrees (wt.sh)
+# ===============================
+.worktrees/

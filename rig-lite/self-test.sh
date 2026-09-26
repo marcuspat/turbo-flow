@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# self-test.sh — proves gate.sh's fail-closed behavior.
+# self-test.sh — proves the kit's fail-closed behavior: gate.sh verdicts,
+# wt.sh worktree lifecycle, init-repo.sh onboarding.
 # Every reviewer-behavior test drives a FAKE reviewer CLI through the real
 # invoke path (no test hooks in gate.sh itself). Run from anywhere.
 set -uo pipefail
-GATE="$(cd "$(dirname "$0")" && pwd)/gate.sh"
+KIT="$(cd "$(dirname "$0")" && pwd)"
+GATE="$KIT/gate.sh"
+WT="$KIT/wt.sh"
+INIT="$KIT/init-repo.sh"
 FAIL=0
 t() { # name expected actual
   if [[ "$2" == "$3" ]]; then echo "✓ $1"; else echo "✗ $1 — expected exit $2, got $3"; FAIL=1; fi
@@ -11,7 +15,12 @@ t() { # name expected actual
 
 FIXTURE="$(mktemp -d)"      # the git fixture — fake CLI dirs live OUTSIDE it
 BINS="$(mktemp -d)"
-trap 'rm -rf "$FIXTURE" "$BINS"' EXIT
+WFIX="$(mktemp -d)"         # wt.sh + init-repo.sh fixtures (real git, no PATH tricks)
+WFIX="$(cd "$WFIX" && pwd -P)"   # physical path: git resolves /var → /private/var on macOS
+IFIX="$(mktemp -d)"
+HFIX=""                     # hostile-name fixture, created in the init-repo section
+MFIX=""                     # master-fallback fixture, created in the wt section
+trap 'rm -rf "$FIXTURE" "$BINS" "$WFIX" "$IFIX" "${HFIX:-/nonexistent}" "${MFIX:-/nonexistent}"' EXIT
 git -C "$FIXTURE" init -q -b main
 git -C "$FIXTURE" config user.email t@t.t && git -C "$FIXTURE" config user.name t
 git -C "$FIXTURE" commit -q --allow-empty -m base
@@ -26,6 +35,9 @@ mkdir -p "$TBIN" "$BIN"
 ln -s "$(command -v git)" "$TBIN/git"
 ln -s "$(command -v bash)" "$TBIN/bash"
 for b in env grep sed tail head tr od cat mktemp; do ln -s "$(command -v "$b")" "$TBIN/$b"; done
+# shellcheck into the hermetic PATH too — macOS brew/static locations aren't
+# under /usr/bin:/bin, and the shellcheck-gated section must reach it (skip stays honest)
+command -v shellcheck >/dev/null 2>&1 && ln -s "$(command -v shellcheck)" "$TBIN/shellcheck"
 printf '#!/usr/bin/env bash\nexit 9\n' > "$BIN/codex"; chmod +x "$BIN/codex"   # shadow any real codex
 TPATH="$BIN:$TBIN:/usr/bin:/bin"
 
@@ -190,7 +202,10 @@ printf "reasons here\nVERDICT: APPROVED\n"'
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck flags bad .sh in diff → 1" 1 $RC
   printf '%s' "$OUT" | grep -q 'UNUSED_VAR' && echo "✓ shellcheck finding surfaced (by variable name — code-number agnostic)" || { echo "✗ expected shellcheck diagnostic"; FAIL=1; }
-  printf '#!/usr/bin/env bash\nFIXED=done\necho "$FIXED"\n' > bad.sh && git add -A && git commit -qm fixsh
+  # FIXED=ok, not FIXED=done: shellcheck -S warning flags VAR=done (SC1010,
+  # reserved word as the tail of an assignment) — the "fixed" fixture must be
+  # clean under the same severity the gate enforces
+  printf '#!/usr/bin/env bash\nFIXED=ok\necho "$FIXED"\n' > bad.sh && git add -A && git commit -qm fixsh
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck clean diff + deleted file ignored → 0" 0 $RC
 else
@@ -229,6 +244,143 @@ if [[ -n "$NONCE_SEEN" && "$NONCE_SEEN" == "${END_SEEN/END/BEGIN}" ]]; then
 else
   echo "✗ diff fence missing or nonce mismatch (begin='$NONCE_SEEN' end='$END_SEEN')"; FAIL=1
 fi
+
+# ── wt.sh: worktree lifecycle (Law 3 made executable) ───────────────────────
+git -C "$WFIX" init -q -b main
+git -C "$WFIX" config user.email t@t.t && git -C "$WFIX" config user.name t
+git -C "$WFIX" commit -q --allow-empty -m base
+
+"$WT" >/dev/null 2>&1;                                            t "wt: no args → 1"        1 $?
+"$WT" --help >/dev/null 2>&1;                                     t "wt: --help → 0"         0 $?
+(cd "$(mktemp -d)" && "$WT" lane) >/dev/null 2>&1;                t "wt: outside a git repo → 2" 2 $?
+OUT="$(cd "$WFIX" && "$WT" ../evil 2>&1)"; RC=$?
+t "wt: traversal name in create → 2" 2 $RC
+printf '%s' "$OUT" | grep -q "invalid name" && echo "✓ wt: traversal refusal says why" || { echo "✗ wt: traversal refusal silent: $OUT"; FAIL=1; }
+[[ ! -e "$WFIX/.worktrees/../evil" ]] && echo "✓ wt: traversal created nothing" || { echo "✗ wt: traversal side effect"; FAIL=1; }
+OUT="$(cd "$WFIX" && "$WT" --clean ../../x 2>&1)"; RC=$?
+t "wt: traversal name in --clean → 2" 2 $RC
+printf '%s' "$OUT" | grep -q "invalid name" && echo "✓ wt: --clean traversal refusal says why" || { echo "✗ wt: --clean traversal silent: $OUT"; FAIL=1; }
+(cd "$WFIX" && "$WT" -rf) >/dev/null 2>&1;                        t "wt: flag-shaped name → 2"  2 $?
+EFIX="$(mktemp -d)" && git -C "$EFIX" init -q -b main
+OUT="$(cd "$EFIX" && "$WT" x 2>&1)"; RC=$?
+t "wt: empty repo (no main/master) → 2" 2 $RC
+printf '%s' "$OUT" | grep -q "neither main nor master" && echo "✓ wt: empty-repo refusal says why" || { echo "✗ wt: empty-repo refusal silent: $OUT"; FAIL=1; }
+rm -rf "$EFIX"
+
+OUT="$(cd "$WFIX" && "$WT" lane1)"; RC=$?
+t "wt: create → 0" 0 $RC
+[[ -d "$WFIX/.worktrees/lane1" ]] && echo "✓ wt: worktree dir created" || { echo "✗ wt: no worktree dir"; FAIL=1; }
+if [[ "$OUT" == "$WFIX/.worktrees/lane1" ]]; then echo "✓ wt: prints the worktree path"; else echo "✗ wt: wrong path on stdout: $OUT"; FAIL=1; fi
+git -C "$WFIX" show-ref --verify --quiet refs/heads/lane1 && echo "✓ wt: branch lane1 created" || { echo "✗ wt: branch lane1 missing"; FAIL=1; }
+
+(cd "$WFIX" && "$WT" lane1) >/dev/null 2>&1;                      t "wt: duplicate name → 1" 1 $?
+(cd "$WFIX/.worktrees/lane1" && echo wip > f.txt && git add f.txt && git commit -qm wip) >/dev/null 2>&1
+t "wt: commit inside the worktree lands on its branch → 0" 0 $?
+# f.txt must exist on lane1 and NOT on main (isolation is the whole point)
+if git -C "$WFIX" cat-file -e lane1:f.txt 2>/dev/null && ! git -C "$WFIX" cat-file -e main:f.txt 2>/dev/null; then
+  echo "✓ wt: lane1 commit isolated from main"
+else
+  echo "✗ wt: lane1/main isolation broken"; FAIL=1
+fi
+
+(cd "$WFIX" && "$WT" lane2 lane1) >/dev/null 2>&1;                t "wt: create from explicit base branch → 0" 0 $?
+# lane1 carries the wip commit that main lacks — only a real [base] arg makes
+# lane1 an ancestor of lane2; a silently-ignored base would branch off main
+git -C "$WFIX" merge-base --is-ancestor lane1 lane2 && echo "✓ wt: lane2 actually cut from lane1, not main" || { echo "✗ wt: explicit base ignored"; FAIL=1; }
+(cd "$WFIX" && "$WT" laneX nosuchbase) >/dev/null 2>&1;           t "wt: explicit missing base → 2" 2 $?
+(cd "$WFIX" && "$WT" laneX "") >/dev/null 2>&1;                  t "wt: explicit empty base → 2"  2 $?
+(cd "$WFIX" && "$WT" --list) 2>/dev/null | grep -q ".worktrees/lane1" && echo "✓ wt: --list shows the worktree" || { echo "✗ wt: --list missing worktree"; FAIL=1; }
+
+(cd "$WFIX" && "$WT" --clean lane1) >/dev/null 2>&1;              t "wt: --clean → 0"         0 $?
+[[ ! -e "$WFIX/.worktrees/lane1" ]] && echo "✓ wt: worktree dir removed" || { echo "✗ wt: dir survived --clean"; FAIL=1; }
+git -C "$WFIX" show-ref --verify --quiet refs/heads/lane1 2>/dev/null && { echo "✗ wt: branch survived --clean"; FAIL=1; } || echo "✓ wt: branch removed"
+(cd "$WFIX" && "$WT" --clean lane1) >/dev/null 2>&1;              t "wt: --clean again (nothing to clean) → 0" 0 $?
+# honest refusal: a branch checked out in the main worktree can't be -D'd,
+# and --clean must say so instead of printing a fake success
+(cd "$WFIX" && git branch stucklane && git checkout -q stucklane)
+OUT="$(cd "$WFIX" && "$WT" --clean stucklane 2>&1)"; RC=$?
+t "wt: --clean with branch checked out elsewhere → 1 (no fake success)" 1 $RC
+printf '%s' "$OUT" | grep -q "failed to delete branch" && echo "✓ wt: refusal says why" || { echo "✗ wt: refusal reason missing: $OUT"; FAIL=1; }
+if printf '%s' "$OUT" | grep -q "cleaned:"; then echo "✗ wt: fake success line printed on failure"; FAIL=1; else echo "✓ wt: no success line on failure"; fi
+(cd "$WFIX" && git checkout -q main && git branch -qD stucklane)
+# branch exists without a worktree (partial --clean leftover) → clear refusal, not a raw git error
+(cd "$WFIX" && git branch ghost) >/dev/null 2>&1
+OUT="$(cd "$WFIX" && "$WT" ghost 2>&1)"; RC=$?
+t "wt: create over leftover branch → 1" 1 $RC
+printf '%s' "$OUT" | grep -q "already exists" && echo "✓ wt: leftover-branch refusal says why" || { echo "✗ wt: leftover-branch message missing"; FAIL=1; }
+(cd "$WFIX" && git branch -qD ghost) >/dev/null 2>&1
+
+# master fallback: repo with no main
+MFIX="$(mktemp -d)"
+git -C "$MFIX" init -q -b master
+git -C "$MFIX" config user.email t@t.t && git -C "$MFIX" config user.name t
+git -C "$MFIX" commit -q --allow-empty -m base
+(cd "$MFIX" && "$WT" mk) >/dev/null 2>&1;                         t "wt: main absent → falls back to master → 0" 0 $?
+[[ -d "$MFIX/.worktrees/mk" ]] && git -C "$MFIX" show-ref --verify --quiet refs/heads/mk && echo "✓ wt: master-fallback worktree + branch actually created" || { echo "✗ wt: master-fallback had no effect"; FAIL=1; }
+
+# ── init-repo.sh: one-command onboarding ────────────────────────────────────
+"$INIT" --help >/dev/null 2>&1;                                   t "init-repo: --help → 0"  0 $?
+(cd "$(mktemp -d)" && "$INIT") >/dev/null 2>&1;                   t "init-repo: outside a git repo → 2" 2 $?
+
+git -C "$IFIX" init -q -b main
+git -C "$IFIX" config user.email t@t.t && git -C "$IFIX" config user.name t
+git -C "$IFIX" commit -q --allow-empty -m base
+(cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: first run → 0" 0 $?
+[[ -f "$IFIX/AGENTS.md" ]] && echo "✓ init-repo: AGENTS.md written" || { echo "✗ init-repo: AGENTS.md missing"; FAIL=1; }
+# kit lives outside $IFIX → the constitution must have been COPIED in and the
+# pointer must be repo-relative (an absolute path dies in every other clone)
+[[ -f "$IFIX/rig-constitution.md" ]] && echo "✓ init-repo: constitution copied into the repo" || { echo "✗ init-repo: no copied constitution"; FAIL=1; }
+grep -Eq "constitution: rig-constitution\.md" "$IFIX/AGENTS.md" && echo "✓ init-repo: relative constitution pointer" || { echo "✗ init-repo: pointer not relative"; FAIL=1; }
+if grep -q "$KIT" "$IFIX/AGENTS.md"; then echo "✗ init-repo: absolute kit path committed into AGENTS.md"; FAIL=1; else echo "✓ init-repo: no absolute paths in AGENTS.md"; fi
+[[ -L "$IFIX/CLAUDE.md" ]] && echo "✓ init-repo: CLAUDE.md symlinked to AGENTS.md" || { echo "✗ init-repo: CLAUDE.md not a symlink"; FAIL=1; }
+
+cp "$IFIX/AGENTS.md" "$IFIX/.agents-before.md"
+(cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: rerun → 0 (idempotent)" 0 $?
+cmp -s "$IFIX/AGENTS.md" "$IFIX/.agents-before.md" && echo "✓ init-repo: existing AGENTS.md never clobbered" || { echo "✗ init-repo: AGENTS.md changed on rerun"; FAIL=1; }
+rm -f "$IFIX/.agents-before.md"
+# the copied constitution is a template the user may adapt — reruns must not overwrite it
+echo "# local amendment" >> "$IFIX/rig-constitution.md"
+(cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: rerun with edited constitution → 0" 0 $?
+grep -q "# local amendment" "$IFIX/rig-constitution.md" && echo "✓ init-repo: edited rig-constitution.md never clobbered" || { echo "✗ init-repo: constitution edits lost on rerun"; FAIL=1; }
+
+# ── init-repo.sh: the kit's own workflow — inside a wt.sh worktree, and from a subdir ──
+# a worktree's .git is a FILE; [[ -d .git ]] would wrongly reject it
+(cd "$WFIX" && "$WT" ob1) >/dev/null 2>&1
+(cd "$WFIX/.worktrees/ob1" && "$INIT" WtProj) >/dev/null 2>&1;     t "init-repo: inside a wt.sh worktree → 0" 0 $?
+[[ -f "$WFIX/.worktrees/ob1/AGENTS.md" ]] && echo "✓ init-repo: AGENTS.md written inside the worktree" || { echo "✗ init-repo: worktree onboarding failed"; FAIL=1; }
+mkdir -p "$WFIX/src"
+(cd "$WFIX/src" && "$INIT" SubProj) >/dev/null 2>&1;               t "init-repo: from a subdirectory → 0" 0 $?
+if [[ -f "$WFIX/AGENTS.md" && ! -f "$WFIX/src/AGENTS.md" ]]; then echo "✓ init-repo: subdirectory run writes at the repo root, not $PWD"; else echo "✗ init-repo: subdir run scattered files"; FAIL=1; fi
+
+# a project name is argv: command substitution inside it must land as TEXT,
+# never execute (the AGENTS.md write goes through printf %s + quoted heredoc)
+HFIX="$(mktemp -d)"
+git -C "$HFIX" init -q -b main && git -C "$HFIX" commit -q --allow-empty -m base
+HOSTILE="\$(touch $HFIX/pwn)"
+HO="$(cd "$HFIX" && "$INIT" "$HOSTILE" 2>&1)"; RC=$?
+t "init-repo: hostile project name → 0 (accepted as text)" 0 $RC
+if [[ ! -e "$HFIX/pwn" ]] && grep -qF "$HOSTILE" "$HFIX/AGENTS.md"; then
+  echo "✓ init-repo: hostile project name lands as literal text, not executed"
+else
+  echo "✗ init-repo: project-name command substitution executed or was mangled"; FAIL=1
+fi
+if printf '%s' "$HO" | grep -q "git add" && printf '%s' "$HO" | grep -q "AGENTS.md" && printf '%s' "$HO" | grep -q "CLAUDE.md" && printf '%s' "$HO" | grep -q "rig-constitution.md"; then
+  echo "✓ init-repo: tells the operator exactly what to commit"
+else
+  echo "✗ init-repo: git-add guidance missing: $HO"; FAIL=1
+fi
+
+# ── wt.sh: nested invocation from inside a worktree is allowed (documented) ──
+(cd "$WFIX/.worktrees/ob1" && "$WT" ob2) >/dev/null 2>&1;         t "wt: from inside another worktree → 0 (nested .worktrees/)" 0 $?
+[[ -d "$WFIX/.worktrees/ob1/.worktrees/ob2" ]] && echo "✓ wt: nested worktree created under the caller's root" || { echo "✗ wt: nested worktree missing"; FAIL=1; }
+
+# ── help output must actually carry the usage, not just exit 0 ──────────────
+"$WT" --help 2>&1 | grep -q "wt.sh <name>" && echo "✓ wt: --help shows usage" || { echo "✗ wt: --help lost the usage line"; FAIL=1; }
+"$INIT" --help 2>&1 | grep -q 'Project name' && echo "✓ init-repo: --help shows usage" || { echo "✗ init-repo: --help lost the usage line"; FAIL=1; }
+
+rm "$IFIX/CLAUDE.md" && echo "hand-written" > "$IFIX/CLAUDE.md"
+(cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: real CLAUDE.md present → 0" 0 $?
+[[ -f "$IFIX/CLAUDE.md" && ! -L "$IFIX/CLAUDE.md" ]] && echo "✓ init-repo: real CLAUDE.md left untouched" || { echo "✗ init-repo: clobbered a real CLAUDE.md"; FAIL=1; }
 
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
