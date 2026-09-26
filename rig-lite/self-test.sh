@@ -253,6 +253,12 @@ git -C "$WFIX" commit -q --allow-empty -m base
 "$WT" >/dev/null 2>&1;                                            t "wt: no args → 1"        1 $?
 "$WT" --help >/dev/null 2>&1;                                     t "wt: --help → 0"         0 $?
 (cd "$(mktemp -d)" && "$WT" lane) >/dev/null 2>&1;                t "wt: outside a git repo → 2" 2 $?
+(cd "$WFIX" && "$WT" ../evil) >/dev/null 2>&1;                    t "wt: traversal name in create → 2" 2 $?
+(cd "$WFIX" && "$WT" --clean ../../x) >/dev/null 2>&1;            t "wt: traversal name in --clean → 2" 2 $?
+(cd "$WFIX" && "$WT" -rf) >/dev/null 2>&1;                        t "wt: flag-shaped name → 2"  2 $?
+EFIX="$(mktemp -d)" && git -C "$EFIX" init -q -b main
+(cd "$EFIX" && "$WT" x) >/dev/null 2>&1;                          t "wt: empty repo (no main/master) → 2" 2 $?
+rm -rf "$EFIX"
 
 OUT="$(cd "$WFIX" && "$WT" lane1)"; RC=$?
 t "wt: create → 0" 0 $RC
@@ -342,14 +348,19 @@ if [[ -f "$WFIX/AGENTS.md" && ! -f "$WFIX/src/AGENTS.md" ]]; then echo "✓ init
 # never execute (the AGENTS.md write goes through printf %s + quoted heredoc)
 HFIX="$(mktemp -d)"
 git -C "$HFIX" init -q -b main && git -C "$HFIX" commit -q --allow-empty -m base
-rm -f /tmp/riglite-pwn-probe
-(cd "$HFIX" && "$INIT" '$(touch /tmp/riglite-pwn-probe)') >/dev/null 2>&1
-if [[ ! -e /tmp/riglite-pwn-probe ]] && grep -qF '$(touch /tmp/riglite-pwn-probe)' "$HFIX/AGENTS.md"; then
+HOSTILE="\$(touch $HFIX/pwn)"
+HO="$(cd "$HFIX" && "$INIT" "$HOSTILE" 2>&1)"; RC=$?
+t "init-repo: hostile project name → 0 (accepted as text)" 0 $RC
+if [[ ! -e "$HFIX/pwn" ]] && grep -qF "$HOSTILE" "$HFIX/AGENTS.md"; then
   echo "✓ init-repo: hostile project name lands as literal text, not executed"
 else
   echo "✗ init-repo: project-name command substitution executed or was mangled"; FAIL=1
 fi
-rm -f /tmp/riglite-pwn-probe
+if printf '%s' "$HO" | grep -q "git add" && printf '%s' "$HO" | grep -q "AGENTS.md" && printf '%s' "$HO" | grep -q "CLAUDE.md" && printf '%s' "$HO" | grep -q "rig-constitution.md"; then
+  echo "✓ init-repo: tells the operator exactly what to commit"
+else
+  echo "✗ init-repo: git-add guidance missing: $HO"; FAIL=1
+fi
 
 # ── wt.sh: nested invocation from inside a worktree is allowed (documented) ──
 (cd "$WFIX/.worktrees/ob1" && "$WT" ob2) >/dev/null 2>&1;         t "wt: from inside another worktree → 0 (nested .worktrees/)" 0 $?
