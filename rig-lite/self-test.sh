@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# self-test.sh — proves gate.sh's fail-closed behavior.
+# self-test.sh — proves the kit's fail-closed behavior: gate.sh verdicts,
+# wt.sh worktree lifecycle, init-repo.sh onboarding.
 # Every reviewer-behavior test drives a FAKE reviewer CLI through the real
 # invoke path (no test hooks in gate.sh itself). Run from anywhere.
 set -uo pipefail
-GATE="$(cd "$(dirname "$0")" && pwd)/gate.sh"
+KIT="$(cd "$(dirname "$0")" && pwd)"
+GATE="$KIT/gate.sh"
+WT="$KIT/wt.sh"
+INIT="$KIT/init-repo.sh"
 FAIL=0
 t() { # name expected actual
   if [[ "$2" == "$3" ]]; then echo "✓ $1"; else echo "✗ $1 — expected exit $2, got $3"; FAIL=1; fi
@@ -11,7 +15,10 @@ t() { # name expected actual
 
 FIXTURE="$(mktemp -d)"      # the git fixture — fake CLI dirs live OUTSIDE it
 BINS="$(mktemp -d)"
-trap 'rm -rf "$FIXTURE" "$BINS"' EXIT
+WFIX="$(mktemp -d)"         # wt.sh + init-repo.sh fixtures (real git, no PATH tricks)
+WFIX="$(cd "$WFIX" && pwd -P)"   # physical path: git resolves /var → /private/var on macOS
+IFIX="$(mktemp -d)"
+trap 'rm -rf "$FIXTURE" "$BINS" "$WFIX" "$IFIX"' EXIT
 git -C "$FIXTURE" init -q -b main
 git -C "$FIXTURE" config user.email t@t.t && git -C "$FIXTURE" config user.name t
 git -C "$FIXTURE" commit -q --allow-empty -m base
@@ -26,6 +33,9 @@ mkdir -p "$TBIN" "$BIN"
 ln -s "$(command -v git)" "$TBIN/git"
 ln -s "$(command -v bash)" "$TBIN/bash"
 for b in env grep sed tail head tr od cat mktemp; do ln -s "$(command -v "$b")" "$TBIN/$b"; done
+# shellcheck into the hermetic PATH too — macOS brew/static locations aren't
+# under /usr/bin:/bin, and the shellcheck-gated section must reach it (skip stays honest)
+command -v shellcheck >/dev/null 2>&1 && ln -s "$(command -v shellcheck)" "$TBIN/shellcheck"
 printf '#!/usr/bin/env bash\nexit 9\n' > "$BIN/codex"; chmod +x "$BIN/codex"   # shadow any real codex
 TPATH="$BIN:$TBIN:/usr/bin:/bin"
 
@@ -190,7 +200,7 @@ printf "reasons here\nVERDICT: APPROVED\n"'
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck flags bad .sh in diff → 1" 1 $RC
   printf '%s' "$OUT" | grep -q 'UNUSED_VAR' && echo "✓ shellcheck finding surfaced (by variable name — code-number agnostic)" || { echo "✗ expected shellcheck diagnostic"; FAIL=1; }
-  printf '#!/usr/bin/env bash\nFIXED=done\necho "$FIXED"\n' > bad.sh && git add -A && git commit -qm fixsh
+  printf '#!/usr/bin/env bash\nFIXED=ok\necho "$FIXED"\n' > bad.sh && git add -A && git commit -qm fixsh
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck clean diff + deleted file ignored → 0" 0 $RC
 else
@@ -229,6 +239,67 @@ if [[ -n "$NONCE_SEEN" && "$NONCE_SEEN" == "${END_SEEN/END/BEGIN}" ]]; then
 else
   echo "✗ diff fence missing or nonce mismatch (begin='$NONCE_SEEN' end='$END_SEEN')"; FAIL=1
 fi
+
+# ── wt.sh: worktree lifecycle (Law 3 made executable) ───────────────────────
+git -C "$WFIX" init -q -b main
+git -C "$WFIX" config user.email t@t.t && git -C "$WFIX" config user.name t
+git -C "$WFIX" commit -q --allow-empty -m base
+
+"$WT" >/dev/null 2>&1;                                            t "wt: no args → 1"        1 $?
+"$WT" --help >/dev/null 2>&1;                                     t "wt: --help → 0"         0 $?
+(cd "$(mktemp -d)" && "$WT" lane) >/dev/null 2>&1;                t "wt: outside a git repo → 2" 2 $?
+
+OUT="$(cd "$WFIX" && "$WT" lane1)"; RC=$?
+t "wt: create → 0" 0 $RC
+[[ -d "$WFIX/.worktrees/lane1" ]] && echo "✓ wt: worktree dir created" || { echo "✗ wt: no worktree dir"; FAIL=1; }
+if [[ "$OUT" == "$WFIX/.worktrees/lane1" ]]; then echo "✓ wt: prints the worktree path"; else echo "✗ wt: wrong path on stdout: $OUT"; FAIL=1; fi
+git -C "$WFIX" show-ref --verify --quiet refs/heads/lane1 && echo "✓ wt: branch lane1 created" || { echo "✗ wt: branch lane1 missing"; FAIL=1; }
+
+(cd "$WFIX" && "$WT" lane1) >/dev/null 2>&1;                      t "wt: duplicate name → 1" 1 $?
+(cd "$WFIX/.worktrees/lane1" && echo wip > f.txt && git add f.txt && git commit -qm wip) >/dev/null 2>&1
+t "wt: commit inside the worktree lands on its branch → 0" 0 $?
+# f.txt must exist on lane1 and NOT on main (isolation is the whole point)
+if git -C "$WFIX" cat-file -e lane1:f.txt 2>/dev/null && ! git -C "$WFIX" cat-file -e main:f.txt 2>/dev/null; then
+  echo "✓ wt: lane1 commit isolated from main"
+else
+  echo "✗ wt: lane1/main isolation broken"; FAIL=1
+fi
+
+(cd "$WFIX" && "$WT" lane2 lane1) >/dev/null 2>&1;                t "wt: create from explicit base branch → 0" 0 $?
+git -C "$WFIX" merge-base --is-ancestor main lane2 && echo "✓ wt: lane2 rooted at requested base lineage" || { echo "✗ wt: lane2 base wrong"; FAIL=1; }
+(cd "$WFIX" && "$WT" --list) 2>/dev/null | grep -q ".worktrees/lane1" && echo "✓ wt: --list shows the worktree" || { echo "✗ wt: --list missing worktree"; FAIL=1; }
+
+(cd "$WFIX" && "$WT" --clean lane1) >/dev/null 2>&1;              t "wt: --clean → 0"         0 $?
+[[ ! -e "$WFIX/.worktrees/lane1" ]] && echo "✓ wt: worktree dir removed" || { echo "✗ wt: dir survived --clean"; FAIL=1; }
+git -C "$WFIX" show-ref --verify --quiet refs/heads/lane1 2>/dev/null && { echo "✗ wt: branch survived --clean"; FAIL=1; } || echo "✓ wt: branch removed"
+
+# master fallback: repo with no main
+MFIX="$(mktemp -d)"
+git -C "$MFIX" init -q -b master
+git -C "$MFIX" config user.email t@t.t && git -C "$MFIX" config user.name t
+git -C "$MFIX" commit -q --allow-empty -m base
+(cd "$MFIX" && "$WT" mk) >/dev/null 2>&1;                         t "wt: main absent → falls back to master → 0" 0 $?
+rm -rf "$MFIX"
+
+# ── init-repo.sh: one-command onboarding ────────────────────────────────────
+"$INIT" --help >/dev/null 2>&1;                                   t "init-repo: --help → 0"  0 $?
+(cd "$(mktemp -d)" && "$INIT") >/dev/null 2>&1;                   t "init-repo: outside a git repo → 2" 2 $?
+
+git -C "$IFIX" init -q -b main
+git -C "$IFIX" config user.email t@t.t && git -C "$IFIX" config user.name t
+git -C "$IFIX" commit -q --allow-empty -m base
+(cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: first run → 0" 0 $?
+[[ -f "$IFIX/AGENTS.md" ]] && echo "✓ init-repo: AGENTS.md written" || { echo "✗ init-repo: AGENTS.md missing"; FAIL=1; }
+grep -q "constitution.md" "$IFIX/AGENTS.md" && echo "✓ init-repo: AGENTS.md points at the constitution" || { echo "✗ init-repo: no constitution pointer"; FAIL=1; }
+[[ -L "$IFIX/CLAUDE.md" ]] && echo "✓ init-repo: CLAUDE.md symlinked to AGENTS.md" || { echo "✗ init-repo: CLAUDE.md not a symlink"; FAIL=1; }
+
+cp "$IFIX/AGENTS.md" "$BINS/agents-before.md"
+(cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: rerun → 0 (idempotent)" 0 $?
+cmp -s "$IFIX/AGENTS.md" "$BINS/agents-before.md" && echo "✓ init-repo: existing AGENTS.md never clobbered" || { echo "✗ init-repo: AGENTS.md changed on rerun"; FAIL=1; }
+
+rm "$IFIX/CLAUDE.md" && echo "hand-written" > "$IFIX/CLAUDE.md"
+(cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: real CLAUDE.md present → 0" 0 $?
+[[ -f "$IFIX/CLAUDE.md" && ! -L "$IFIX/CLAUDE.md" ]] && echo "✓ init-repo: real CLAUDE.md left untouched" || { echo "✗ init-repo: clobbered a real CLAUDE.md"; FAIL=1; }
 
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
