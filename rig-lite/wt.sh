@@ -42,13 +42,19 @@ case "$MODE" in
   create)
     NAME=${1:?usage: wt.sh <name> [base]}
     BASE=${2:-main}
-    if [[ -z "${2:-}" ]]; then
+    if [[ $# -ge 2 ]]; then
+      # an explicit base must exist as-is — no silent retargeting (and no
+      # empty-string base silently becoming main)
+      [[ -n "$2" ]] || { echo "wt.sh: base branch name is empty" >&2; exit 2; }
+      git show-ref --verify --quiet "refs/heads/$BASE" || { echo "wt.sh: base branch '$BASE' not found" >&2; exit 2; }
+    else
       # default base only: main, falling back to master on old repos
       git show-ref --verify --quiet "refs/heads/main" || BASE=master
-    elif ! git show-ref --verify --quiet "refs/heads/$BASE"; then
-      echo "wt.sh: base branch '$BASE' not found" >&2; exit 2
     fi
     if [[ -e "$WTROOT/$NAME" ]]; then echo "wt.sh: worktree exists: $WTROOT/$NAME" >&2; exit 1; fi
+    if git show-ref --verify --quiet "refs/heads/$NAME"; then
+      echo "wt.sh: branch '$NAME' already exists (partial --clean?) — delete it or pick another name" >&2; exit 1
+    fi
     git worktree add -b "$NAME" "$WTROOT/$NAME" "$BASE" >/dev/null
     echo "$WTROOT/$NAME"
     cat >&2 <<WTEOF

@@ -23,9 +23,13 @@ ROOT=$(git rev-parse --show-toplevel)
 if [[ "$KIT" == "$ROOT"/* ]]; then
   POINTER="${KIT#"$ROOT"/}/constitution.md"
 else
-  cp "$KIT/constitution.md" "$ROOT/rig-constitution.md"
   POINTER="rig-constitution.md"
-  echo "init-repo: kit lives outside this repo — copied the constitution to $POINTER"
+  if [[ ! -f "$ROOT/$POINTER" ]]; then
+    cp "$KIT/constitution.md" "$ROOT/$POINTER"
+    echo "init-repo: kit lives outside this repo — copied the constitution to $POINTER"
+  else
+    echo "init-repo: $POINTER already present — left untouched (it's a template; your edits are yours)"
+  fi
 fi
 
 # 1. thin AGENTS.md — only if absent (never clobber an existing one)

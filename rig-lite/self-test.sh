@@ -271,6 +271,7 @@ fi
 # lane1 an ancestor of lane2; a silently-ignored base would branch off main
 git -C "$WFIX" merge-base --is-ancestor lane1 lane2 && echo "✓ wt: lane2 actually cut from lane1, not main" || { echo "✗ wt: explicit base ignored"; FAIL=1; }
 (cd "$WFIX" && "$WT" laneX nosuchbase) >/dev/null 2>&1;           t "wt: explicit missing base → 2" 2 $?
+(cd "$WFIX" && "$WT" laneX "") >/dev/null 2>&1;                  t "wt: explicit empty base → 2"  2 $?
 (cd "$WFIX" && "$WT" --list) 2>/dev/null | grep -q ".worktrees/lane1" && echo "✓ wt: --list shows the worktree" || { echo "✗ wt: --list missing worktree"; FAIL=1; }
 
 (cd "$WFIX" && "$WT" --clean lane1) >/dev/null 2>&1;              t "wt: --clean → 0"         0 $?
@@ -285,6 +286,12 @@ t "wt: --clean with branch checked out elsewhere → 1 (no fake success)" 1 $RC
 printf '%s' "$OUT" | grep -q "failed to delete branch" && echo "✓ wt: refusal says why" || { echo "✗ wt: refusal reason missing: $OUT"; FAIL=1; }
 if printf '%s' "$OUT" | grep -q "cleaned:"; then echo "✗ wt: fake success line printed on failure"; FAIL=1; else echo "✓ wt: no success line on failure"; fi
 (cd "$WFIX" && git checkout -q main && git branch -qD stucklane)
+# branch exists without a worktree (partial --clean leftover) → clear refusal, not a raw git error
+(cd "$WFIX" && git branch ghost) >/dev/null 2>&1
+OUT="$(cd "$WFIX" && "$WT" ghost 2>&1)"; RC=$?
+t "wt: create over leftover branch → 1" 1 $RC
+printf '%s' "$OUT" | grep -q "already exists" && echo "✓ wt: leftover-branch refusal says why" || { echo "✗ wt: leftover-branch message missing"; FAIL=1; }
+(cd "$WFIX" && git branch -qD ghost) >/dev/null 2>&1
 
 # master fallback: repo with no main
 MFIX="$(mktemp -d)"
@@ -313,6 +320,10 @@ cp "$IFIX/AGENTS.md" "$IFIX/.agents-before.md"
 (cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: rerun → 0 (idempotent)" 0 $?
 cmp -s "$IFIX/AGENTS.md" "$IFIX/.agents-before.md" && echo "✓ init-repo: existing AGENTS.md never clobbered" || { echo "✗ init-repo: AGENTS.md changed on rerun"; FAIL=1; }
 rm -f "$IFIX/.agents-before.md"
+# the copied constitution is a template the user may adapt — reruns must not overwrite it
+echo "# local amendment" >> "$IFIX/rig-constitution.md"
+(cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: rerun with edited constitution → 0" 0 $?
+grep -q "# local amendment" "$IFIX/rig-constitution.md" && echo "✓ init-repo: edited rig-constitution.md never clobbered" || { echo "✗ init-repo: constitution edits lost on rerun"; FAIL=1; }
 
 rm "$IFIX/CLAUDE.md" && echo "hand-written" > "$IFIX/CLAUDE.md"
 (cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: real CLAUDE.md present → 0" 0 $?
