@@ -18,7 +18,8 @@ BINS="$(mktemp -d)"
 WFIX="$(mktemp -d)"         # wt.sh + init-repo.sh fixtures (real git, no PATH tricks)
 WFIX="$(cd "$WFIX" && pwd -P)"   # physical path: git resolves /var → /private/var on macOS
 IFIX="$(mktemp -d)"
-trap 'rm -rf "$FIXTURE" "$BINS" "$WFIX" "$IFIX"' EXIT
+MFIX=""                     # master-fallback fixture, created in the wt section
+trap 'rm -rf "$FIXTURE" "$BINS" "$WFIX" "$IFIX" "$MFIX"' EXIT
 git -C "$FIXTURE" init -q -b main
 git -C "$FIXTURE" config user.email t@t.t && git -C "$FIXTURE" config user.name t
 git -C "$FIXTURE" commit -q --allow-empty -m base
@@ -266,12 +267,24 @@ else
 fi
 
 (cd "$WFIX" && "$WT" lane2 lane1) >/dev/null 2>&1;                t "wt: create from explicit base branch → 0" 0 $?
-git -C "$WFIX" merge-base --is-ancestor main lane2 && echo "✓ wt: lane2 rooted at requested base lineage" || { echo "✗ wt: lane2 base wrong"; FAIL=1; }
+# lane1 carries the wip commit that main lacks — only a real [base] arg makes
+# lane1 an ancestor of lane2; a silently-ignored base would branch off main
+git -C "$WFIX" merge-base --is-ancestor lane1 lane2 && echo "✓ wt: lane2 actually cut from lane1, not main" || { echo "✗ wt: explicit base ignored"; FAIL=1; }
+(cd "$WFIX" && "$WT" laneX nosuchbase) >/dev/null 2>&1;           t "wt: explicit missing base → 2" 2 $?
 (cd "$WFIX" && "$WT" --list) 2>/dev/null | grep -q ".worktrees/lane1" && echo "✓ wt: --list shows the worktree" || { echo "✗ wt: --list missing worktree"; FAIL=1; }
 
 (cd "$WFIX" && "$WT" --clean lane1) >/dev/null 2>&1;              t "wt: --clean → 0"         0 $?
 [[ ! -e "$WFIX/.worktrees/lane1" ]] && echo "✓ wt: worktree dir removed" || { echo "✗ wt: dir survived --clean"; FAIL=1; }
 git -C "$WFIX" show-ref --verify --quiet refs/heads/lane1 2>/dev/null && { echo "✗ wt: branch survived --clean"; FAIL=1; } || echo "✓ wt: branch removed"
+(cd "$WFIX" && "$WT" --clean lane1) >/dev/null 2>&1;              t "wt: --clean again (nothing to clean) → 0" 0 $?
+# honest refusal: a branch checked out in the main worktree can't be -D'd,
+# and --clean must say so instead of printing a fake success
+(cd "$WFIX" && git branch stucklane && git checkout -q stucklane)
+OUT="$(cd "$WFIX" && "$WT" --clean stucklane 2>&1)"; RC=$?
+t "wt: --clean with branch checked out elsewhere → 1 (no fake success)" 1 $RC
+printf '%s' "$OUT" | grep -q "failed to delete branch" && echo "✓ wt: refusal says why" || { echo "✗ wt: refusal reason missing: $OUT"; FAIL=1; }
+if printf '%s' "$OUT" | grep -q "cleaned:"; then echo "✗ wt: fake success line printed on failure"; FAIL=1; else echo "✓ wt: no success line on failure"; fi
+(cd "$WFIX" && git checkout -q main && git branch -qD stucklane)
 
 # master fallback: repo with no main
 MFIX="$(mktemp -d)"
@@ -279,7 +292,6 @@ git -C "$MFIX" init -q -b master
 git -C "$MFIX" config user.email t@t.t && git -C "$MFIX" config user.name t
 git -C "$MFIX" commit -q --allow-empty -m base
 (cd "$MFIX" && "$WT" mk) >/dev/null 2>&1;                         t "wt: main absent → falls back to master → 0" 0 $?
-rm -rf "$MFIX"
 
 # ── init-repo.sh: one-command onboarding ────────────────────────────────────
 "$INIT" --help >/dev/null 2>&1;                                   t "init-repo: --help → 0"  0 $?
@@ -290,12 +302,17 @@ git -C "$IFIX" config user.email t@t.t && git -C "$IFIX" config user.name t
 git -C "$IFIX" commit -q --allow-empty -m base
 (cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: first run → 0" 0 $?
 [[ -f "$IFIX/AGENTS.md" ]] && echo "✓ init-repo: AGENTS.md written" || { echo "✗ init-repo: AGENTS.md missing"; FAIL=1; }
-grep -q "constitution.md" "$IFIX/AGENTS.md" && echo "✓ init-repo: AGENTS.md points at the constitution" || { echo "✗ init-repo: no constitution pointer"; FAIL=1; }
+# kit lives outside $IFIX → the constitution must have been COPIED in and the
+# pointer must be repo-relative (an absolute path dies in every other clone)
+[[ -f "$IFIX/rig-constitution.md" ]] && echo "✓ init-repo: constitution copied into the repo" || { echo "✗ init-repo: no copied constitution"; FAIL=1; }
+grep -Eq "constitution: rig-constitution\.md" "$IFIX/AGENTS.md" && echo "✓ init-repo: relative constitution pointer" || { echo "✗ init-repo: pointer not relative"; FAIL=1; }
+if grep -q "$KIT" "$IFIX/AGENTS.md"; then echo "✗ init-repo: absolute kit path committed into AGENTS.md"; FAIL=1; else echo "✓ init-repo: no absolute paths in AGENTS.md"; fi
 [[ -L "$IFIX/CLAUDE.md" ]] && echo "✓ init-repo: CLAUDE.md symlinked to AGENTS.md" || { echo "✗ init-repo: CLAUDE.md not a symlink"; FAIL=1; }
 
-cp "$IFIX/AGENTS.md" "$BINS/agents-before.md"
+cp "$IFIX/AGENTS.md" "$IFIX/.agents-before.md"
 (cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: rerun → 0 (idempotent)" 0 $?
-cmp -s "$IFIX/AGENTS.md" "$BINS/agents-before.md" && echo "✓ init-repo: existing AGENTS.md never clobbered" || { echo "✗ init-repo: AGENTS.md changed on rerun"; FAIL=1; }
+cmp -s "$IFIX/AGENTS.md" "$IFIX/.agents-before.md" && echo "✓ init-repo: existing AGENTS.md never clobbered" || { echo "✗ init-repo: AGENTS.md changed on rerun"; FAIL=1; }
+rm -f "$IFIX/.agents-before.md"
 
 rm "$IFIX/CLAUDE.md" && echo "hand-written" > "$IFIX/CLAUDE.md"
 (cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: real CLAUDE.md present → 0" 0 $?

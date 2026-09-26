@@ -6,14 +6,15 @@
 #
 # Usage:
 #   wt.sh <name> [base]        create .worktrees/<name> + branch <name>, prints path
-#   wt.sh --clean <name>       remove worktree + branch
+#   wt.sh --clean <name>       remove worktree + branch (fails loudly on refusal;
+#                              "nothing to clean" is exit 0)
 #   wt.sh --list               list this repo's worktrees
 set -euo pipefail
 
 MODE=create
 if [[ "${1:-}" == "--clean" ]]; then MODE=clean; shift; fi
 if [[ "${1:-}" == "--list" ]]; then MODE=list; shift; fi
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then sed -n '2,10p' "$0"; exit 0; fi
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then sed -n '2,11p' "$0"; exit 0; fi
 
 KIT="$(cd "$(dirname "$0")" && pwd)"   # the rig-lite dir, wherever the kit lives
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "wt.sh: not inside a git repo" >&2; exit 2; }
@@ -23,13 +24,30 @@ case "$MODE" in
   list) git worktree list; exit 0;;
   clean)
     NAME=${1:?usage: wt.sh --clean <name>}
-    git worktree remove --force "$WTROOT/$NAME" 2>/dev/null || true
-    git branch -D "$NAME" 2>/dev/null || true
-    echo "removed: $WTROOT/$NAME (branch $NAME)";;
+    git worktree prune
+    RC=0; FOUND=0
+    if [[ -e "$WTROOT/$NAME" ]] || git worktree list --porcelain | grep -q "^worktree $WTROOT/$NAME$"; then
+      FOUND=1
+      git worktree remove --force "$WTROOT/$NAME" || { echo "wt.sh: failed to remove worktree $NAME" >&2; RC=1; }
+    fi
+    if git show-ref --verify --quiet "refs/heads/$NAME"; then
+      FOUND=1
+      git branch -D "$NAME" || { echo "wt.sh: failed to delete branch $NAME (checked out elsewhere?)" >&2; RC=1; }
+    fi
+    if [[ $RC -eq 0 ]]; then
+      if [[ $FOUND -eq 1 ]]; then echo "cleaned: $WTROOT/$NAME (branch $NAME)"
+      else echo "wt.sh: nothing to clean for $NAME"; fi
+    fi
+    exit $RC;;
   create)
     NAME=${1:?usage: wt.sh <name> [base]}
     BASE=${2:-main}
-    git show-ref --verify --quiet "refs/heads/$BASE" || BASE=master
+    if [[ -z "${2:-}" ]]; then
+      # default base only: main, falling back to master on old repos
+      git show-ref --verify --quiet "refs/heads/main" || BASE=master
+    elif ! git show-ref --verify --quiet "refs/heads/$BASE"; then
+      echo "wt.sh: base branch '$BASE' not found" >&2; exit 2
+    fi
     if [[ -e "$WTROOT/$NAME" ]]; then echo "wt.sh: worktree exists: $WTROOT/$NAME" >&2; exit 1; fi
     git worktree add -b "$NAME" "$WTROOT/$NAME" "$BASE" >/dev/null
     echo "$WTROOT/$NAME"
