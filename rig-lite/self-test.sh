@@ -18,8 +18,9 @@ BINS="$(mktemp -d)"
 WFIX="$(mktemp -d)"         # wt.sh + init-repo.sh fixtures (real git, no PATH tricks)
 WFIX="$(cd "$WFIX" && pwd -P)"   # physical path: git resolves /var → /private/var on macOS
 IFIX="$(mktemp -d)"
+HFIX=""                     # hostile-name fixture, created in the init-repo section
 MFIX=""                     # master-fallback fixture, created in the wt section
-trap 'rm -rf "$FIXTURE" "$BINS" "$WFIX" "$IFIX" "$MFIX"' EXIT
+trap 'rm -rf "$FIXTURE" "$BINS" "$WFIX" "$IFIX" "${HFIX:-/nonexistent}" "${MFIX:-/nonexistent}"' EXIT
 git -C "$FIXTURE" init -q -b main
 git -C "$FIXTURE" config user.email t@t.t && git -C "$FIXTURE" config user.name t
 git -C "$FIXTURE" commit -q --allow-empty -m base
@@ -336,6 +337,27 @@ grep -q "# local amendment" "$IFIX/rig-constitution.md" && echo "✓ init-repo: 
 mkdir -p "$WFIX/src"
 (cd "$WFIX/src" && "$INIT" SubProj) >/dev/null 2>&1;               t "init-repo: from a subdirectory → 0" 0 $?
 if [[ -f "$WFIX/AGENTS.md" && ! -f "$WFIX/src/AGENTS.md" ]]; then echo "✓ init-repo: subdirectory run writes at the repo root, not $PWD"; else echo "✗ init-repo: subdir run scattered files"; FAIL=1; fi
+
+# a project name is argv: command substitution inside it must land as TEXT,
+# never execute (the AGENTS.md write goes through printf %s + quoted heredoc)
+HFIX="$(mktemp -d)"
+git -C "$HFIX" init -q -b main && git -C "$HFIX" commit -q --allow-empty -m base
+rm -f /tmp/riglite-pwn-probe
+(cd "$HFIX" && "$INIT" '$(touch /tmp/riglite-pwn-probe)') >/dev/null 2>&1
+if [[ ! -e /tmp/riglite-pwn-probe ]] && grep -qF '$(touch /tmp/riglite-pwn-probe)' "$HFIX/AGENTS.md"; then
+  echo "✓ init-repo: hostile project name lands as literal text, not executed"
+else
+  echo "✗ init-repo: project-name command substitution executed or was mangled"; FAIL=1
+fi
+rm -f /tmp/riglite-pwn-probe
+
+# ── wt.sh: nested invocation from inside a worktree is allowed (documented) ──
+(cd "$WFIX/.worktrees/ob1" && "$WT" ob2) >/dev/null 2>&1;         t "wt: from inside another worktree → 0 (nested .worktrees/)" 0 $?
+[[ -d "$WFIX/.worktrees/ob1/.worktrees/ob2" ]] && echo "✓ wt: nested worktree created under the caller's root" || { echo "✗ wt: nested worktree missing"; FAIL=1; }
+
+# ── help output must actually carry the usage, not just exit 0 ──────────────
+"$WT" --help 2>&1 | grep -q "wt.sh <name>" && echo "✓ wt: --help shows usage" || { echo "✗ wt: --help lost the usage line"; FAIL=1; }
+"$INIT" --help 2>&1 | grep -q 'Project name' && echo "✓ init-repo: --help shows usage" || { echo "✗ init-repo: --help lost the usage line"; FAIL=1; }
 
 rm "$IFIX/CLAUDE.md" && echo "hand-written" > "$IFIX/CLAUDE.md"
 (cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: real CLAUDE.md present → 0" 0 $?

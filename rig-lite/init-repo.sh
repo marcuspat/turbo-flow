@@ -35,13 +35,14 @@ else
   fi
 fi
 
-# 1. thin AGENTS.md — only if absent (never clobber an existing one)
+# 1. thin AGENTS.md — only if absent (never clobber an existing one).
+#    printf %s + a QUOTED heredoc: the project name is argv, and an unquoted
+#    heredoc would run command substitution inside it ($(rm -rf ~) etc.)
 if [[ ! -f AGENTS.md ]]; then
-  cat > AGENTS.md <<EOF
-# $NAME — agent instructions
-
-Read and follow the constitution: $POINTER (gate every PR, agents never merge, state on disk).
-
+  {
+    printf '# %s — agent instructions\n\n' "$NAME"
+    printf 'Read and follow the constitution: %s (gate every PR, agents never merge, state on disk).\n\n' "$POINTER"
+    cat <<'EOF'
 ## Project cheat-sheet (fill in, one line each — agents read this every session)
 - Stack:
 - Run tests:
@@ -49,6 +50,7 @@ Read and follow the constitution: $POINTER (gate every PR, agents never merge, s
 - Deploy:
 - Gotchas:
 EOF
+  } > AGENTS.md
   echo "init-repo: wrote AGENTS.md"
 else
   echo "init-repo: AGENTS.md already present — left untouched"
