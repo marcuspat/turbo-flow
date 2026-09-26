@@ -26,14 +26,14 @@ cd "$ROOT"   # anchor every write + relative pointer at the repo root, not $PWD
 # Whatever gets created is collected so the closing message can tell the
 # operator exactly what to git add — an uncommitted copy would dead-point
 # every clone but this one.
-CREATED=()
+CREATED=""
 if [[ "$KIT" == "$ROOT"/* ]]; then
   POINTER="${KIT#"$ROOT"/}/constitution.md"
 else
   POINTER="rig-constitution.md"
   if [[ ! -f "$ROOT/$POINTER" ]]; then
     cp "$KIT/constitution.md" "$ROOT/$POINTER"
-    CREATED+=("$POINTER")
+    CREATED+=" $POINTER"
     echo "init-repo: kit lives outside this repo — copied the constitution to $POINTER"
   else
     echo "init-repo: $POINTER already present — left untouched (it's a template; your edits are yours)"
@@ -56,7 +56,7 @@ if [[ ! -f AGENTS.md ]]; then
 - Gotchas:
 EOF
   } > AGENTS.md
-  CREATED+=("AGENTS.md")
+  CREATED+=" AGENTS.md"
   echo "init-repo: wrote AGENTS.md"
 else
   echo "init-repo: AGENTS.md already present — left untouched"
@@ -65,7 +65,7 @@ fi
 # 2. CLAUDE.md symlink (Claude reads it; never overwrite a real file)
 if [[ ! -e CLAUDE.md ]]; then
   ln -s AGENTS.md CLAUDE.md
-  CREATED+=("CLAUDE.md")
+  CREATED+=" CLAUDE.md"
   echo "init-repo: CLAUDE.md → AGENTS.md"
 elif [[ -L CLAUDE.md ]]; then
   echo "init-repo: CLAUDE.md symlink already present"
@@ -76,8 +76,8 @@ fi
 echo
 echo "Done. From now on: build on branches, gate with:"
 echo "  $KIT/gate.sh --builder <cli> --base main   # reviewer ≠ builder's family"
-if [[ ${#CREATED[@]} -gt 0 ]]; then
+if [[ -n "$CREATED" ]]; then
   echo "Commit the onboarding files (uncommitted, the constitution pointer dead-ends in every other clone):"
-  echo "  git add ${CREATED[*]}"
+  echo "  git add$CREATED"
 fi
 echo "Fill the cheat-sheet lines in AGENTS.md whenever convenient — better cheat-sheet, better agents."

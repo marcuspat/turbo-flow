@@ -253,11 +253,18 @@ git -C "$WFIX" commit -q --allow-empty -m base
 "$WT" >/dev/null 2>&1;                                            t "wt: no args → 1"        1 $?
 "$WT" --help >/dev/null 2>&1;                                     t "wt: --help → 0"         0 $?
 (cd "$(mktemp -d)" && "$WT" lane) >/dev/null 2>&1;                t "wt: outside a git repo → 2" 2 $?
-(cd "$WFIX" && "$WT" ../evil) >/dev/null 2>&1;                    t "wt: traversal name in create → 2" 2 $?
-(cd "$WFIX" && "$WT" --clean ../../x) >/dev/null 2>&1;            t "wt: traversal name in --clean → 2" 2 $?
+OUT="$(cd "$WFIX" && "$WT" ../evil 2>&1)"; RC=$?
+t "wt: traversal name in create → 2" 2 $RC
+printf '%s' "$OUT" | grep -q "invalid name" && echo "✓ wt: traversal refusal says why" || { echo "✗ wt: traversal refusal silent: $OUT"; FAIL=1; }
+[[ ! -e "$WFIX/.worktrees/../evil" ]] && echo "✓ wt: traversal created nothing" || { echo "✗ wt: traversal side effect"; FAIL=1; }
+OUT="$(cd "$WFIX" && "$WT" --clean ../../x 2>&1)"; RC=$?
+t "wt: traversal name in --clean → 2" 2 $RC
+printf '%s' "$OUT" | grep -q "invalid name" && echo "✓ wt: --clean traversal refusal says why" || { echo "✗ wt: --clean traversal silent: $OUT"; FAIL=1; }
 (cd "$WFIX" && "$WT" -rf) >/dev/null 2>&1;                        t "wt: flag-shaped name → 2"  2 $?
 EFIX="$(mktemp -d)" && git -C "$EFIX" init -q -b main
-(cd "$EFIX" && "$WT" x) >/dev/null 2>&1;                          t "wt: empty repo (no main/master) → 2" 2 $?
+OUT="$(cd "$EFIX" && "$WT" x 2>&1)"; RC=$?
+t "wt: empty repo (no main/master) → 2" 2 $RC
+printf '%s' "$OUT" | grep -q "neither main nor master" && echo "✓ wt: empty-repo refusal says why" || { echo "✗ wt: empty-repo refusal silent: $OUT"; FAIL=1; }
 rm -rf "$EFIX"
 
 OUT="$(cd "$WFIX" && "$WT" lane1)"; RC=$?
@@ -309,6 +316,7 @@ git -C "$MFIX" init -q -b master
 git -C "$MFIX" config user.email t@t.t && git -C "$MFIX" config user.name t
 git -C "$MFIX" commit -q --allow-empty -m base
 (cd "$MFIX" && "$WT" mk) >/dev/null 2>&1;                         t "wt: main absent → falls back to master → 0" 0 $?
+[[ -d "$MFIX/.worktrees/mk" ]] && git -C "$MFIX" show-ref --verify --quiet refs/heads/mk && echo "✓ wt: master-fallback worktree + branch actually created" || { echo "✗ wt: master-fallback had no effect"; FAIL=1; }
 
 # ── init-repo.sh: one-command onboarding ────────────────────────────────────
 "$INIT" --help >/dev/null 2>&1;                                   t "init-repo: --help → 0"  0 $?
