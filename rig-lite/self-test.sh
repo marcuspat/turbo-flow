@@ -201,6 +201,9 @@ printf "reasons here\nVERDICT: APPROVED\n"'
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck flags bad .sh in diff → 1" 1 $RC
   printf '%s' "$OUT" | grep -q 'UNUSED_VAR' && echo "✓ shellcheck finding surfaced (by variable name — code-number agnostic)" || { echo "✗ expected shellcheck diagnostic"; FAIL=1; }
+  # FIXED=ok, not FIXED=done: shellcheck -S warning flags VAR=done (SC1010,
+  # reserved word as the tail of an assignment) — the "fixed" fixture must be
+  # clean under the same severity the gate enforces
   printf '#!/usr/bin/env bash\nFIXED=ok\necho "$FIXED"\n' > bad.sh && git add -A && git commit -qm fixsh
   OUT="$(env PATH="$BIN:$TBIN:/usr/bin:/bin" "$GATE" --builder codex --no-exec 2>/dev/null)"; RC=$?
   t "shellcheck clean diff + deleted file ignored → 0" 0 $RC
@@ -324,6 +327,15 @@ rm -f "$IFIX/.agents-before.md"
 echo "# local amendment" >> "$IFIX/rig-constitution.md"
 (cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: rerun with edited constitution → 0" 0 $?
 grep -q "# local amendment" "$IFIX/rig-constitution.md" && echo "✓ init-repo: edited rig-constitution.md never clobbered" || { echo "✗ init-repo: constitution edits lost on rerun"; FAIL=1; }
+
+# ── init-repo.sh: the kit's own workflow — inside a wt.sh worktree, and from a subdir ──
+# a worktree's .git is a FILE; [[ -d .git ]] would wrongly reject it
+(cd "$WFIX" && "$WT" ob1) >/dev/null 2>&1
+(cd "$WFIX/.worktrees/ob1" && "$INIT" WtProj) >/dev/null 2>&1;     t "init-repo: inside a wt.sh worktree → 0" 0 $?
+[[ -f "$WFIX/.worktrees/ob1/AGENTS.md" ]] && echo "✓ init-repo: AGENTS.md written inside the worktree" || { echo "✗ init-repo: worktree onboarding failed"; FAIL=1; }
+mkdir -p "$WFIX/src"
+(cd "$WFIX/src" && "$INIT" SubProj) >/dev/null 2>&1;               t "init-repo: from a subdirectory → 0" 0 $?
+if [[ -f "$WFIX/AGENTS.md" && ! -f "$WFIX/src/AGENTS.md" ]]; then echo "✓ init-repo: subdirectory run writes at the repo root, not $PWD"; else echo "✗ init-repo: subdir run scattered files"; FAIL=1; fi
 
 rm "$IFIX/CLAUDE.md" && echo "hand-written" > "$IFIX/CLAUDE.md"
 (cd "$IFIX" && "$INIT" TestProj) >/dev/null 2>&1;                 t "init-repo: real CLAUDE.md present → 0" 0 $?

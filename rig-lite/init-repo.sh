@@ -6,16 +6,19 @@
 #      kit outside this repo → the constitution is copied in, so every clone resolves it)
 #   2. symlinks CLAUDE.md → AGENTS.md (one source, no drift; Codex reads AGENTS.md natively)
 #
-# Usage:  cd <repo>  &&  path/to/rig-lite/init-repo.sh ["Project name"]
+# Usage:  from anywhere inside the repo (root, subdir, or a wt.sh worktree):
+#         path/to/rig-lite/init-repo.sh ["Project name"]
 set -euo pipefail
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then sed -n '2,9p' "$0"; exit 0; fi
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then sed -n '2,10p' "$0"; exit 0; fi
 
-[[ -d .git ]] || { echo "init-repo: run me from inside a git repo" >&2; exit 2; }
-NAME=${1:-$(basename "$PWD")}
+# rev-parse, not [[ -d .git ]]: in a worktree .git is a FILE, and onboarding
+# from inside a wt.sh worktree is this kit's own workflow
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "init-repo: run me from inside a git repo (or worktree)" >&2; exit 2; }
+NAME=${1:-$(basename "$ROOT")}
 KIT="$(cd "$(dirname "$0")" && pwd)"   # the rig-lite dir, wherever the kit lives
 [[ -f "$KIT/constitution.md" ]] || { echo "init-repo: kit not found at $KIT (constitution.md missing)" >&2; exit 2; }
-ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"   # anchor every write + relative pointer at the repo root, not $PWD
 
 # Constitution pointer must survive the commit and resolve in EVERY clone:
 # kit inside this repo → repo-relative path; kit outside → copy the
