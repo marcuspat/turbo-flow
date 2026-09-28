@@ -31,7 +31,7 @@ Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig
 
 | file | what it gives you |
 |---|---|
-| [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. |
+| [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. `--pr <n>` gates a GitHub PR and posts the verdict as a comment (GitHub becomes the state machine); `--sweep` gates every open PR that has no verdict yet; `-C <repo>` gates another checkout. |
 | [`wt.sh`](rig-lite/wt.sh) | an isolated worktree per parallel writer (Law 3 made executable): `wt <name>` creates `.worktrees/<name>` + branch, `--clean` tidies up after merge. |
 | [`init-repo.sh`](rig-lite/init-repo.sh) | one-command onboarding for any repo: a thin `AGENTS.md` (constitution pointer + project cheat-sheet) and the `CLAUDE.md → AGENTS.md` symlink. Never clobbers existing files. |
 | [`specs/`](rig-lite/specs/) | the spec + UAT contract templates the constitution's "state on disk" points at: plan before build, verify behavior against the deployed app. |

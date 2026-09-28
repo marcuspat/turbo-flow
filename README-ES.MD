@@ -37,7 +37,7 @@ Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **n
 
 | archivo | qué te da |
 |---|---|
-| [`gate.sh`](rig-lite/gate.sh) | una compuerta de revisión entre modelos — primero los checks deterministas (gratuitos), luego un revisor de una **familia de modelo distinta** debe devolver un veredicto interpretable `APPROVED` / `REVISE`. Falla cerrado; nunca fusiona. |
+| [`gate.sh`](rig-lite/gate.sh) | una compuerta de revisión entre modelos — primero los checks deterministas (gratuitos), luego un revisor de una **familia de modelo distinta** debe devolver un veredicto interpretable `APPROVED` / `REVISE`. Falla cerrado; nunca fusiona. `--pr <n>` revisa un PR de GitHub y publica el veredicto como comentario (GitHub se vuelve la máquina de estados); `--sweep` revisa todo PR abierto sin veredicto; `-C <repo>` revisa otro checkout. |
 | [`wt.sh`](rig-lite/wt.sh) | un worktree aislado por escritor en paralelo (la Ley 3 ejecutable): `wt <name>` crea `.worktrees/<name>` + rama, `--clean` limpia tras el merge. |
 | [`init-repo.sh`](rig-lite/init-repo.sh) | onboarding de cualquier repo con un comando: un `AGENTS.md` delgado (puntero a la constitución + cheat-sheet del proyecto) y el symlink `CLAUDE.md → AGENTS.md`. Nunca pisa archivos existentes. |
 | [`specs/`](rig-lite/specs/) | las plantillas de spec y contrato UAT a las que apunta el "estado en disco" de la constitución: planificar antes de construir, verificar el comportamiento contra la app desplegada. |
