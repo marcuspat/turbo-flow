@@ -491,17 +491,18 @@ case "$1" in
   api) case "$2" in *pulls/*) exit 0;; *issues/*) printf "[]"; exit 0;; *) exit 1;; esac;;
   *) exit 1;;
 esac'
-printf '#!/usr/bin/env bash\ntouch /tmp/gate-lite-pr-noexec-probe\n' > run_tests.sh; chmod +x run_tests.sh
-rm -f /tmp/gate-lite-pr-noexec-probe
+PRPROBE="$BINS/gate-lite-pr-noexec-probe"
+printf '#!/usr/bin/env bash\ntouch "%s"\n' "$PRPROBE" > run_tests.sh; chmod +x run_tests.sh
+rm -f "$PRPROBE"
 env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --pr 7 >/dev/null 2>&1
-if [[ -e /tmp/gate-lite-pr-noexec-probe ]]; then echo "✗ pr: run_tests.sh executed in PR mode"; FAIL=1; rm -f /tmp/gate-lite-pr-noexec-probe
+if [[ -e "$PRPROBE" ]]; then echo "✗ pr: run_tests.sh executed in PR mode"; FAIL=1; rm -f "$PRPROBE"
 else echo "✓ pr: PR mode never executes the working tree's entrypoints"; fi
 OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --pr 7 2>/dev/null)"
 printf '%s' "$OUT" | grep -q 'PR mode: deterministic checks skipped' && echo "✓ pr: skip note printed" || { echo "✗ pr: skip note missing"; FAIL=1; }
 rm -f run_tests.sh
 
 # sweep: skips already-gated PRs, gates the rest, aggregates the exit code
-mk_sweep_gh() { # $1=prs-list — PR 7 always carries an old gate-verdict comment
+mk_sweep_gh() { # $1=prs-list — PR 7 always carries the GATE'S OWN old verdict comment
   local list="$1"
   {
     printf '#!/usr/bin/env bash\n'
@@ -513,6 +514,7 @@ mk_sweep_gh() { # $1=prs-list — PR 7 always carries an old gate-verdict commen
     printf '        comment) printf "COMMENT-PR=%%s\\n" "$3" >> "$log"; shift 2; printf "ARG:%%s\\n" "$*" >> "$log"; exit 0;;\n'
     printf '        *) exit 1;; esac;;\n'
     printf '  api) case "$2" in\n'
+    printf '        user) printf "gate-bot\\n"; exit 0;;\n'
     printf '        *pulls/*) exit 0;;\n'
     printf '        *issues/7/comments) printf "## Gate review — reviewer: claude\\nold verdict body"; exit 0;;\n'
     printf '        *issues/*) printf "[]"; exit 0;;\n'
@@ -533,7 +535,7 @@ if grep -q 'COMMENT-PR=8' "$GHLOG" && ! grep -q 'COMMENT-PR=7' "$GHLOG"; then
 else
   echo "✗ sweep: commented the wrong PRs"; FAIL=1
 fi
-printf '%s' "$OUT" | grep -q '1 gated · 1 already gated' && echo "✓ sweep: summary line faithful" || { echo "✗ sweep: summary wrong: $OUT"; FAIL=1; }
+printf '%s' "$OUT" | grep -q '1 approved · 0 revise/failed · 1 already gated' && echo "✓ sweep: summary line faithful" || { echo "✗ sweep: summary wrong: $OUT"; FAIL=1; }
 fake_claude '#!/usr/bin/env bash
 cat >/dev/null
 printf "finding\nVERDICT: REVISE\n"'
@@ -541,9 +543,63 @@ printf "finding\nVERDICT: REVISE\n"'
 mk_sweep_gh "8"
 OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --sweep 2>/dev/null)"; RC=$?
 t "sweep: one REVISE → aggregate exit 1" 1 $RC
+printf '%s' "$OUT" | grep -q '1 revise/failed' && echo "✓ sweep: REVISE counted in summary" || { echo "✗ sweep: REVISE not counted"; FAIL=1; }
+
+# sweep fail-closed aggregation: a child that ERRROS (reviewer crash) must not vanish
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+exit 3'
+: > "$GHLOG"
+mk_sweep_gh "8"
+OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --sweep 2>/dev/null)"; RC=$?
+t "sweep: child errors → aggregate exit 1 (never a silent 0)" 1 $RC
+printf '%s' "$OUT" | grep -q '1 revise/failed' && echo "✓ sweep: errored child counted as failed" || { echo "✗ sweep: errored child vanished"; FAIL=1; }
+
+# a marker typed by ANYONE ELSE is not a gate verdict: the comments query must
+# be author-filtered (select on the gh user). This fake returns a marker body
+# ONLY for unfiltered queries — if the gate ever drops the filter, the PR
+# would be skipped; with it, the PR gets gated.
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "reasons here\nVERDICT: APPROVED\n"'
+: > "$GHLOG"
+fake_gh '#!/usr/bin/env bash
+log="${GHLOG:-/dev/null}"
+case "$1" in
+  pr) case "$2" in
+        list) printf "7\n"; exit 0;;
+        diff) printf "diff --git a/f.sh b/f.sh\n--- a/f.sh\n+++ b/f.sh\n@@ -1 +1 @@\n-a\n+b\n"; exit 0;;
+        comment) printf "COMMENT-PR=%s\n" "$3" >> "$log"; shift 2; printf "ARG:%s\n" "$*" >> "$log"; exit 0;;
+        *) exit 1;; esac;;
+  api) case "$2" in
+        user) printf "gate-bot\n"; exit 0;;
+        *issues/*) case "$*" in
+                     *select*) printf "[]"; exit 0;;   # own comments: none — the gate must NOT skip
+                     *) printf "## Gate review — reviewer: claude\nspoofed by a stranger"; exit 0;;
+                   esac;;
+        *pulls/*) exit 0;;
+        *) exit 1;; esac;;
+  *) exit 1;;
+esac'
+OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --sweep 2>/dev/null)"; RC=$?
+t "sweep: spoofed marker from a foreign author → PR still gated → 0" 0 $RC
+grep -q 'COMMENT-PR=7' "$GHLOG" && echo "✓ sweep: spoof did not skip the PR" || { echo "✗ sweep: spoof silenced the gate"; FAIL=1; }
+
+# sweep resolves -C BEFORE listing: gate repo A, not whatever cwd is
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "reasons here\nVERDICT: APPROVED\n"'
+: > "$GHLOG"
+mk_sweep_gh "8"
+OUT="$(cd "$(mktemp -d)" && env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" -C "$WFIX" --sweep 2>/dev/null)"; RC=$?
+t "sweep: -C <repo> gates that repo from anywhere → 0" 0 $RC
+grep -q 'COMMENT-PR=8' "$GHLOG" && echo "✓ sweep: -C honored (comment posted)" || { echo "✗ sweep: -C ignored"; FAIL=1; }
+env PATH="$TPATH" "$GATE" -C /nonexistent-repo --sweep >/dev/null 2>&1;   t "sweep: -C nonexistent → 2" 2 $?
+"$GATE" --sweep --base develop >/dev/null 2>&1;                          t "sweep: --base is refused → 2" 2 $?
 fake_gh '#!/usr/bin/env bash
 case "$1" in
   pr) case "$2" in list) exit 0;; *) exit 1;; esac;;
+  api) case "$2" in user) printf "gate-bot\n"; exit 0;; *) exit 0;; esac;;
   *) exit 1;;
 esac'
 OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --sweep 2>/dev/null)"; RC=$?
@@ -557,6 +613,70 @@ printf "reasons here\nVERDICT: APPROVED\n"'
 OUT="$(cd "$(mktemp -d)" && env PATH="$TPATH" "$GATE" -C "$FIXTURE" --builder codex --no-exec 2>/dev/null)"; RC=$?
 t "-C: gates another repo from outside → 0" 0 $RC
 env PATH="$TPATH" "$GATE" -C /nonexistent-repo --builder codex >/dev/null 2>&1;  t "-C: nonexistent path → 2" 2 $?
+
+# -C with --pr: same repo resolution applies
+: > "$GHLOG"
+mk_gh "7" 0
+OUT="$(cd "$(mktemp -d)" && env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" -C "$WFIX" --pr 7 2>/dev/null)"; RC=$?
+t "-C + --pr: gates that repo's PR → 0" 0 $RC
+grep -q 'COMMENT-PR=7' "$GHLOG" && echo "✓ -C + --pr: comment posted" || { echo "✗ -C + --pr: no comment"; FAIL=1; }
+
+# gh pr diff returning NON-diff garbage on exit 0 must be refused, not reviewed
+fake_gh '#!/usr/bin/env bash
+case "$1" in
+  pr) case "$2" in
+        list) printf "7\n"; exit 0;;
+        diff) printf "API rate limit exceeded, see docs\n"; exit 0;;
+        comment) exit 0;;
+        *) exit 1;; esac;;
+  api) case "$2" in *pulls/*) exit 0;; *issues/*) printf "[]"; exit 0;; *) exit 1;; esac;;
+  *) exit 1;;
+esac'
+OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --pr 7 2>&1)"; RC=$?
+t "pr: garbage-on-exit-0 diff → 2 (not reviewed)" 2 $RC
+printf '%s' "$OUT" | grep -q 'not a diff' && echo "✓ pr: garbage diff refused with reason" || { echo "✗ pr: garbage-diff refusal silent"; FAIL=1; }
+
+# reviewer-crash in PR mode: fail-closed AND the thread learns about it
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+exit 3'
+mk_gh "7" 0
+: > "$GHLOG"
+OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --pr 7 2>/dev/null)"; RC=$?
+t "pr: crashed reviewer → 1" 1 $RC
+grep -q 'reviewer CLI failed' "$GHLOG" && echo "✓ pr: crash comment posted" || { echo "✗ pr: crash not communicated"; FAIL=1; }
+
+# silent reviewer in PR mode: same
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+exit 0'
+: > "$GHLOG"
+OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --pr 7 2>/dev/null)"; RC=$?
+t "pr: silent reviewer → 1" 1 $RC
+grep -q 'returned no output' "$GHLOG" && echo "✓ pr: silent-reviewer comment posted" || { echo "✗ pr: silence not communicated"; FAIL=1; }
+
+# the APPROVED body is redacted before it enters the PR thread
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "found a token in the diff: sk-live-abcdef123456\nVERDICT: APPROVED\n"'
+: > "$GHLOG"
+OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --pr 7 2>/dev/null)"; RC=$?
+t "pr: APPROVED with a secret in the review text → 0" 0 $RC
+if grep -q 'REDACTED' "$GHLOG" && ! grep -q 'sk-live-abcdef' "$GHLOG"; then
+  echo "✓ pr: posted body redacts echoed secrets"
+else
+  echo "✗ pr: secret leaked into the PR comment"; FAIL=1
+fi
+
+# --builder given in PR mode: real family line, no not-enforceable note
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "reasons here\nVERDICT: APPROVED\n"'
+: > "$GHLOG"
+OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --pr 7 --builder glm 2>/dev/null)"; RC=$?
+t "pr: --builder given → 0" 0 $RC
+grep -q 'builder family: zai' "$GHLOG" && echo "✓ pr: real builder family recorded" || { echo "✗ pr: family line missing"; FAIL=1; }
+if grep -q 'not enforceable' "$GHLOG"; then echo "✗ pr: not-enforceable note shown despite --builder"; FAIL=1; else echo "✓ pr: no not-enforceable note when builder known"; fi
 
 # empty PR diff → 0, nothing to gate
 fake_gh '#!/usr/bin/env bash
