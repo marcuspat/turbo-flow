@@ -10,7 +10,7 @@ This repo holds **two different products**. They pair well but stand alone:
 | You want… | Your door | What it is |
 |---|---|---|
 | an **agentic dev environment** — Claude in tmux windows, orchestration, memory, live token monitor | **Turbo Flow v4** | Open this repo in a Codespace — `postCreate` installs everything ([setup guide](github_codespaces_setup.md)). Full docs below the fold. |
-| **governance for AI-written code** — a review gate that says no | **[`rig-lite/`](rig-lite/)** | A standalone extract of Turbo Rig: `gate.sh` (cross-model review), the constitution template, the memory pattern. Works in **any** repo or environment — including the v4 install above. |
+| **governance for AI-written code** — a review gate that says no | **[`rig-lite/`](rig-lite/)** | A standalone extract of Turbo Rig: `gate.sh` (cross-model review), `wt.sh` (isolated worktrees), the constitution, spec templates, the memory pattern. Works in **any** repo or environment — including the v4 install above. |
 | the **integrated rig** both of these come from | **[private beta](https://turbo-rig-beta.vercel.app)** | Turbo Rig: gate + constitution + memory + automations, running as one system. |
 
 New here? The 60-second version: **v4 below is the environment you install; rig-lite is the rules you drop into it (or anywhere); the beta is both, integrated and growing.**
@@ -27,14 +27,17 @@ A clean Codespace boots this repo's devcontainer and the install chain runs end-
 
 ## rig-lite — the missing half of your v4 install
 
-Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig-lite/`](rig-lite/) is a portable governance layer — four files, ten minutes, no new dependencies:
+Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig-lite/`](rig-lite/) is a portable governance layer — seven files, ten minutes, no new dependencies:
 
 | file | what it gives you |
 |---|---|
 | [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. |
+| [`wt.sh`](rig-lite/wt.sh) | an isolated worktree per parallel writer (Law 3 made executable): `wt <name>` creates `.worktrees/<name>` + branch, `--clean` tidies up after merge. |
+| [`init-repo.sh`](rig-lite/init-repo.sh) | one-command onboarding for any repo: a thin `AGENTS.md` (constitution pointer + project cheat-sheet) and the `CLAUDE.md → AGENTS.md` symlink. Never clobbers existing files. |
+| [`specs/`](rig-lite/specs/) | the spec + UAT contract templates the constitution's "state on disk" points at: plan before build, verify behavior against the deployed app. |
 | [`constitution.md`](rig-lite/constitution.md) | the four laws your agents can read: builder ≠ reviewer · agents never merge · parallel writers get isolated worktrees · secrets never in git. |
 | [`memory.md`](rig-lite/memory.md) | git-versioned cross-session memory — one fact per file + an index, sync rules, lifecycle (diagrams included). |
-| [`self-test.sh`](rig-lite/self-test.sh) | proves the gate's fail-closed behavior — injected `VERDICT` strings, silent/crashed/absent reviewers, deterministic-stage ordering, cross-family exclusion. Run it before you trust it. |
+| [`self-test.sh`](rig-lite/self-test.sh) | proves the kit's fail-closed behavior — injected `VERDICT` strings, silent/crashed/absent reviewers, deterministic-stage ordering, cross-family exclusion, plus `wt.sh` and `init-repo.sh` lifecycle checks. Run it before you trust it. |
 
 **Standalone-first**: drop them into any environment — turbo-flow v4 (below), a plain git repo, or CI. No dependency on the v4 stack; the two products are complements, not prerequisites.
 
@@ -430,7 +433,7 @@ gnx-wiki             # Generate repo wiki from graph
 
 ```
 turbo-flow/
-├── rig-lite/                    ← governance kit (gate.sh, constitution, memory pattern)
+├── rig-lite/                    ← governance kit (gate.sh, wt.sh, init-repo.sh, specs, constitution, memory pattern)
 ├── devpods/
 │   ├── setup.sh                 ← main setup script (runs itself via Codespaces postCreate)
 │   ├── post-setup.sh            ← post-setup verification

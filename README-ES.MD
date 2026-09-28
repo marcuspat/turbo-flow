@@ -10,7 +10,7 @@ Este repo contiene **dos productos distintos**. Combinan bien, pero funcionan po
 | Quieres… | Tu puerta | Qué es |
 |---|---|---|
 | un **entorno de desarrollo agéntico** — Claude en ventanas tmux, orquestación, memoria, monitor de tokens en vivo | **Turbo Flow v4** | Abre este repo en un Codespace — `postCreate` instala todo ([guía](github_codespaces_setup.md)). Documentación completa más abajo. |
-| **gobernanza para código escrito por IA** — una compuerta de revisión que sabe decir no | **[`rig-lite/`](rig-lite/)** | Un extracto independiente de Turbo Rig: `gate.sh` (revisión entre modelos), la plantilla de constitución, el patrón de memoria. Funciona en **cualquier** repo o entorno — incluida la instalación v4 de arriba. |
+| **gobernanza para código escrito por IA** — una compuerta de revisión que sabe decir no | **[`rig-lite/`](rig-lite/)** | Un extracto independiente de Turbo Rig: `gate.sh` (revisión entre modelos), `wt.sh` (worktrees aislados), la constitución, las plantillas de spec, el patrón de memoria. Funciona en **cualquier** repo o entorno — incluida la instalación v4 de arriba. |
 | el **rig integrado** del que ambos provienen | **[beta privada](https://turbo-rig-beta.vercel.app)** | Turbo Rig: compuerta + constitución + memoria + automatizaciones, corriendo como un sistema. |
 
 ¿Nuevo aquí? Versión de 60 segundos: **el v4 de abajo es el entorno que instalas; rig-lite son las reglas que le agregas (o agregas a cualquier lado); la beta es ambos, integrados y creciendo.**
@@ -33,14 +33,17 @@ A `rig-lite/gate.sh` lo revisó una familia de modelo que no lo escribió — y 
 
 ## rig-lite — la mitad que le falta a tu instalación v4
 
-Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **no**. [`rig-lite/`](rig-lite/) es una capa de gobernanza portable — cuatro archivos, diez minutos, sin dependencias nuevas:
+Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **no**. [`rig-lite/`](rig-lite/) es una capa de gobernanza portable — siete archivos, diez minutos, sin dependencias nuevas:
 
 | archivo | qué te da |
 |---|---|
 | [`gate.sh`](rig-lite/gate.sh) | una compuerta de revisión entre modelos — primero los checks deterministas (gratuitos), luego un revisor de una **familia de modelo distinta** debe devolver un veredicto interpretable `APPROVED` / `REVISE`. Falla cerrado; nunca fusiona. |
+| [`wt.sh`](rig-lite/wt.sh) | un worktree aislado por escritor en paralelo (la Ley 3 ejecutable): `wt <name>` crea `.worktrees/<name>` + rama, `--clean` limpia tras el merge. |
+| [`init-repo.sh`](rig-lite/init-repo.sh) | onboarding de cualquier repo con un comando: un `AGENTS.md` delgado (puntero a la constitución + cheat-sheet del proyecto) y el symlink `CLAUDE.md → AGENTS.md`. Nunca pisa archivos existentes. |
+| [`specs/`](rig-lite/specs/) | las plantillas de spec y contrato UAT a las que apunta el "estado en disco" de la constitución: planificar antes de construir, verificar el comportamiento contra la app desplegada. |
 | [`constitution.md`](rig-lite/constitution.md) | las cuatro leyes que tus agentes pueden leer: constructor ≠ revisor · los agentes nunca fusionan · escritores en paralelo obtienen worktrees aislados · los secretos nunca van a git. |
 | [`memory.md`](rig-lite/memory.md) | memoria entre sesiones versionada en git — un hecho por archivo + un índice, reglas de sincronización, ciclo de vida (con diagramas). |
-| [`self-test.sh`](rig-lite/self-test.sh) | demuestra el comportamiento fail-closed de la compuerta — strings `VERDICT` inyectados, revisores silenciosos/caídos/ausentes, orden de la etapa determinista, exclusión entre familias. Ejecútalo antes de confiar. |
+| [`self-test.sh`](rig-lite/self-test.sh) | demuestra el comportamiento fail-closed del kit — strings `VERDICT` inyectados, revisores silenciosos/caídos/ausentes, orden de la etapa determinista, exclusión entre familias, más el ciclo de vida de `wt.sh` e `init-repo.sh`. Ejecútalo antes de confiar. |
 
 **Independiente por diseño**: funciona en cualquier entorno — turbo-flow v4 (abajo), un repo git plano, o CI. Sin dependencia del stack v4; los dos productos son complementos, no prerrequisitos.
 
@@ -429,7 +432,7 @@ gnx-wiki             # Generar wiki del repositorio desde el grafo
 
 ```
 turbo-flow/
-├── rig-lite/                    ← kit de gobernanza (gate.sh, constitución, patrón de memoria)
+├── rig-lite/                    ← kit de gobernanza (gate.sh, wt.sh, init-repo.sh, specs, constitución, patrón de memoria)
 ├── devpods/
 │   ├── setup.sh                 ← instalación principal (corre solo vía postCreate de Codespaces)
 │   ├── post-setup.sh            ← verificación post-instalación
