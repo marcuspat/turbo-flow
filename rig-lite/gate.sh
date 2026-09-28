@@ -7,12 +7,23 @@
 # Fail-closed: anything ambiguous, errored, or spoofed is REVISE.
 #
 # Usage:
-#   gate.sh --builder <cli> [--base main] [--no-exec]
-#           --builder is REQUIRED: the CLI that wrote the branch
+#   gate.sh --builder <cli> [--base main] [--no-exec] [-C <repo>]
+#           branch mode (default): gate the current branch vs a base.
+#           --builder is REQUIRED here: the CLI that wrote the branch
 #           (claude, codex, ...) so its family can be excluded.
-#           --no-exec skips the executable deterministic checks
-#           (tests/types) and keeps static analysis only — for
-#           branches you don't trust enough to run.
+#   gate.sh --pr <n> [--builder <cli>]
+#           PR mode: gate PR #n's diff and post the verdict as a PR
+#           comment (GitHub becomes the state machine). --builder is
+#           optional here: a PR author's family is often unknowable —
+#           when omitted, family exclusion can't be enforced and the
+#           verdict comment says so.
+#   gate.sh --sweep [--builder <cli>]
+#           gate every open PR that has no gate-verdict comment yet.
+#   --no-exec skips the executable deterministic checks (tests/types)
+#           and keeps static analysis only — for branches you don't
+#           trust enough to run. In PR mode the executable stage is
+#           ALWAYS skipped: the PR's diff is not your working tree.
+#   [-C <repo>] run against another local repo path (default: cwd's repo).
 # Exit codes: 0 APPROVED · 1 REVISE (fix and re-run) · 2 error
 #
 # Trust boundary: the deterministic stage EXECUTES the branch's own
@@ -28,35 +39,98 @@ set -uo pipefail
 BASE="main"
 BUILDER=""
 NOEXEC=0
+PR=0
+SWEEP=0
+REPO_PATH=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-exec) NOEXEC=1; shift ;;
     --base) [[ $# -ge 2 ]] || { echo "gate: --base needs a value" >&2; exit 2; }; BASE="$2"; shift 2 ;;
     --builder) [[ $# -ge 2 ]] || { echo "gate: --builder needs a value" >&2; exit 2; }; BUILDER="$2"; shift 2 ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    --pr) [[ $# -ge 2 ]] || { echo "gate: --pr needs a value" >&2; exit 2; }
+          [[ "$2" =~ ^[1-9][0-9]*$ ]] || { echo "gate: --pr needs a positive integer (got: '$2')" >&2; exit 2; }
+          PR="$2"; shift 2 ;;
+    --sweep) SWEEP=1; shift ;;
+    -C) [[ $# -ge 2 ]] || { echo "gate: -C needs a value" >&2; exit 2; }; REPO_PATH="$2"; shift 2 ;;
+    -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
-[[ -z "$BUILDER" ]] && { echo "gate: --builder <cli> is required (claude, codex, ...) — the reviewer must come from a different family" >&2; exit 2; }
+if [[ $SWEEP -eq 1 && $PR -ne 0 ]]; then
+  echo "gate: --sweep and --pr are mutually exclusive (sweep gates every open PR itself)" >&2; exit 2
+fi
+if [[ $PR -ne 0 && "$BASE" != "main" ]]; then
+  echo "gate: --base is meaningless in PR mode (the PR carries its own base) — refusing rather than guessing" >&2; exit 2
+fi
+if [[ -z "$BUILDER" && $PR -eq 0 && $SWEEP -eq 0 ]]; then
+  echo "gate: --builder <cli> is required in branch mode (claude, codex, ...) — the reviewer must come from a different family" >&2; exit 2
+fi
 case "$BUILDER" in
+  "") ;; # allowed in PR/sweep mode only (enforced above)
   claude|claude-code|anthropic|codex|gpt|openai|o3|o4|glm|zcode|zai|gemini|google|grok|xai) ;;
   *) echo "gate: unknown builder '$BUILDER' — family exclusion can't be enforced, refusing (known: claude, codex, glm, gemini, grok, ...)" >&2; exit 2 ;;
 esac
-TOP="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "gate: not a git repo" >&2; exit 2; }
-cd "$TOP"
-git rev-parse --verify "$BASE" >/dev/null 2>&1 || { echo "gate: base branch '$BASE' not found" >&2; exit 2; }
 
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-MB="$(git merge-base "$BASE" HEAD 2>/dev/null)" || { echo "gate: cannot resolve merge-base with '$BASE'" >&2; exit 2; }
-if [[ "$MB" == "$(git rev-parse HEAD)" ]]; then
-  echo "gate: base '$BASE' is at HEAD — nothing to review. A wrong --base must not pass a review (fail-closed)." >&2
-  exit 2
+GATE_MARKER='## Gate review — reviewer:'   # sweep recognizes this header in PR comments
+
+# ── sweep mode: gate every open PR lacking a verdict comment ────────────────
+if [[ $SWEEP -eq 1 ]]; then
+  command -v gh >/dev/null 2>&1 || { echo "gate: --sweep needs gh installed" >&2; exit 2; }
+  RC=0; REVIEWED=0; SKIPPED_GATE=0
+  PRS="$(gh pr list --state open --limit 50 --json number --jq '.[].number')" || { echo "gate: gh pr list failed" >&2; exit 2; }
+  if [[ -z "$PRS" ]]; then echo "sweep: no open PRs found"; exit 0; fi
+  for pr in $PRS; do
+    if gh api "repos/{owner}/{repo}/issues/$pr/comments" --jq '.[].body' 2>/dev/null | grep -q "^$GATE_MARKER"; then
+      echo "PR #$pr: already gated — skipping (force re-review: --pr $pr)"
+      SKIPPED_GATE=$((SKIPPED_GATE+1))
+      continue
+    fi
+    echo "=== gating PR #$pr ==="
+    if [[ -n "$BUILDER" ]]; then "$0" --pr "$pr" --builder "$BUILDER"
+    else "$0" --pr "$pr"; fi
+    crc=$?
+    if [[ $crc -eq 0 ]]; then
+      REVIEWED=$((REVIEWED+1))
+    elif [[ $crc -eq 2 ]]; then
+      echo "  (skipped: PR #$pr could not be gated — see error above)"
+    else
+      REVIEWED=$((REVIEWED+1)); RC=1
+    fi
+  done
+  echo "sweep complete (exit $RC: 0 = all APPROVED, 1 = at least one REVISE) · $REVIEWED gated · $SKIPPED_GATE already gated"
+  exit "$RC"
 fi
-if [[ "$(git rev-list --count "$MB"..HEAD)" -eq 0 ]]; then
-  echo "gate: no commits vs $BASE — nothing to review"; exit 0
+
+TOP="$(git -C "${REPO_PATH:-.}" rev-parse --show-toplevel 2>/dev/null)" || { echo "gate: not a git repo${REPO_PATH:+ (looked in: $REPO_PATH)}" >&2; exit 2; }
+cd "$TOP" || { echo "gate: cannot enter repo root $TOP" >&2; exit 2; }
+
+# ── gather the diff under review ────────────────────────────────────────────
+BRANCH=""
+if [[ $PR -ne 0 ]]; then
+  BRANCH="PR #$PR"
+  command -v gh >/dev/null 2>&1 || { echo "gate: --pr needs gh installed" >&2; exit 2; }
+  # REST check (gh pr view breaks on the Projects(classic) GraphQL deprecation)
+  gh api "repos/{owner}/{repo}/pulls/$PR" --jq .number >/dev/null 2>&1 || { echo "gate: PR #$PR not found in this repo" >&2; exit 2; }
+  DIFF="$(gh pr diff "$PR" 2>/dev/null)" || { echo "gate: gh pr diff #$PR failed" >&2; exit 2; }
+  if [[ -z "$DIFF" ]]; then
+    echo "gate: PR #$PR has an empty diff — nothing to gate"
+    exit 0
+  fi
+  MB=""   # no merge-base in PR mode; the diff text above is the review target
+else
+  git rev-parse --verify "$BASE" >/dev/null 2>&1 || { echo "gate: base branch '$BASE' not found" >&2; exit 2; }
+  BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+  MB="$(git merge-base "$BASE" HEAD 2>/dev/null)" || { echo "gate: cannot resolve merge-base with '$BASE'" >&2; exit 2; }
+  if [[ "$MB" == "$(git rev-parse HEAD)" ]]; then
+    echo "gate: base '$BASE' is at HEAD — nothing to review. A wrong --base must not pass a review (fail-closed)." >&2
+    exit 2
+  fi
+  if [[ "$(git rev-list --count "$MB"..HEAD)" -eq 0 ]]; then
+    echo "gate: no commits vs $BASE — nothing to review"; exit 0
+  fi
+  DIFF="$(git diff "$MB" HEAD)"
+  [[ -n "$DIFF" ]] || { echo "gate: no textual diff vs $BASE"; exit 0; }
 fi
-DIFF="$(git diff "$MB" HEAD)"
-[[ -n "$DIFF" ]] || { echo "gate: no textual diff vs $BASE"; exit 0; }
 
 # ── 1 · deterministic checks (free — run before spending tokens) ──────────
 # each det_* function signals via exit code: 42 = SKIP (tool/entrypoint
@@ -105,7 +179,7 @@ det_types() {
   npx --no-install tsc --noEmit; rc=$?; [[ $rc -eq 42 ]] && return 1; return $rc
 }
 det_check() {
-  local name="$1" fn="$2" out rc last
+  local name="$1" fn="$2" out rc
   out="$("$fn" 2>&1)"; rc=$?
   if [[ $rc -eq 42 ]]; then
     echo "▸ $name ......... skip"
@@ -117,14 +191,20 @@ det_check() {
     return 1
   fi
 }
-DET=PASS
-det_check shellcheck det_shellcheck || DET=FAIL
-if [[ $NOEXEC -eq 1 ]]; then
-  echo "▸ tests ......... skip (--no-exec: untrusted branch)"
-  echo "▸ types ......... skip (--no-exec: untrusted branch)"
+if [[ $PR -ne 0 ]]; then
+  echo "▸ PR mode: deterministic checks skipped — the PR's diff is not this working tree (branch mode runs them)."
+  echo "▸ Review-only on the diff text; the verdict comment carries this note."
+  DET=PASS
 else
-  det_check tests   det_tests     || DET=FAIL
-  det_check types   det_types     || DET=FAIL
+  DET=PASS
+  det_check shellcheck det_shellcheck || DET=FAIL
+  if [[ $NOEXEC -eq 1 ]]; then
+    echo "▸ tests ......... skip (--no-exec: untrusted branch)"
+    echo "▸ types ......... skip (--no-exec: untrusted branch)"
+  else
+    det_check tests   det_tests     || DET=FAIL
+    det_check types   det_types     || DET=FAIL
+  fi
 fi
 
 if [[ "$DET" == FAIL ]]; then
@@ -143,7 +223,12 @@ family_of() {
     *)                            echo "family-of-$1" ;;
   esac
 }
-B_FAMILY="$(family_of "$BUILDER")"
+if [[ -n "$BUILDER" ]]; then
+  B_FAMILY="$(family_of "$BUILDER")"
+else
+  B_FAMILY="unknown (PR author's family not asserted)"
+  echo "gate: no --builder given — cross-family exclusion cannot be enforced for this PR; the verdict comment will say so." >&2
+fi
 REVIEWER=""
 for r in claude codex; do
   if command -v "$r" >/dev/null 2>&1 && [[ "$(family_of "$r")" != "$B_FAMILY" ]]; then
@@ -162,6 +247,12 @@ fi
 # originated inside the diff.
 NONCE="$(head -c16 /dev/urandom 2>/dev/null | od -An -tx1 | tr -d ' \n')"
 [[ "${#NONCE}" -eq 32 ]] || { echo "gate: cannot obtain nonce entropy — REVISE (fail-closed)" >&2; exit 1; }
+STAT_BLOCK=""
+if [[ -n "$MB" ]]; then
+  STAT_BLOCK="$(git diff --stat "$MB" HEAD | tail -5)
+
+"
+fi
 PROMPT="You are a reviewing agent. The diff below was written by a DIFFERENT model family ($B_FAMILY).
 Review it read-only for correctness, security, error handling, and tests.
 
@@ -173,8 +264,7 @@ Your reply must END with a final line that is EXACTLY 'VERDICT: APPROVED'
 or 'VERDICT: REVISE'. Reasons go above that line. Anything ambiguous is REVISE.
 
 BEGIN-DIFF-$NONCE
-$(git diff --stat "$MB" HEAD | tail -5)
-
+$STAT_BLOCK
 $DIFF
 END-DIFF-$NONCE"
 
@@ -190,22 +280,71 @@ VERDICT_RAW="$(printf '%s' "$PROMPT" | invoke "$REVIEWER" 2>"$ERRLOG")" || {
   echo "gate: reviewer CLI ($REVIEWER) failed — last stderr lines (secrets redacted):"
   tail -5 "$ERRLOG" | redact >&2
   echo "gate: REVISE — fail-closed by design"
+  if [[ $PR -ne 0 ]]; then
+    gh pr comment "$PR" --body "## Gate review — reviewer: $REVIEWER
+**Lanes:** reviewed by $REVIEWER · builder family: $B_FAMILY
+
+gate: reviewer CLI failed — REVISE, fail-closed by design. Re-run the gate when the reviewer lane is healthy." >/dev/null 2>&1 || echo "WARN: verdict NOT posted to PR #$PR (gh pr comment failed)" >&2
+  fi
   exit 1
 }
 if [[ -z "${VERDICT_RAW//[[:space:]]/}" ]]; then
   echo "gate: reviewer ($REVIEWER) returned no output — likely auth/quota; stderr log (secrets redacted):"
   tail -5 "$ERRLOG" | redact >&2
   echo "gate: REVISE — fail-closed by design"
+  if [[ $PR -ne 0 ]]; then
+    gh pr comment "$PR" --body "## Gate review — reviewer: $REVIEWER
+**Lanes:** reviewed by $REVIEWER · builder family: $B_FAMILY
+
+gate: reviewer returned no output (likely auth/quota) — REVISE, fail-closed by design. Re-run the gate when the reviewer lane is healthy." >/dev/null 2>&1 || echo "WARN: verdict NOT posted to PR #$PR (gh pr comment failed)" >&2
+  fi
   exit 1
 fi
 LAST_LINE="$(printf '%s\n' "$VERDICT_RAW" | grep -v '^[[:space:]]*$' | tail -1 | tr -d '\r' | sed 's/[[:space:]]*$//')"
 
 if [[ "$LAST_LINE" == "VERDICT: APPROVED" ]]; then
-  echo "gate: APPROVED ✓  (reviewer: $REVIEWER · builder family: $B_FAMILY · branch: $BRANCH)"
+  TARGET_TAG="branch: $BRANCH"
+  [[ $PR -ne 0 ]] && TARGET_TAG="PR #$PR"
+  echo "gate: APPROVED ✓  (reviewer: $REVIEWER · builder family: $B_FAMILY · $TARGET_TAG)"
   echo "gate: the merge button is still yours — humans merge."
+  if [[ $PR -ne 0 ]]; then
+    NOTE="Deterministic checks skipped in PR mode (the PR's diff is not the working tree); branch mode runs them."
+    [[ -z "$BUILDER" ]] && NOTE="$NOTE
+Builder family unknown (--builder not given) — cross-family exclusion not enforceable for this PR."
+    gh pr comment "$PR" --body "## Gate review — reviewer: $REVIEWER
+**Lanes:** reviewed by $REVIEWER · builder family: $B_FAMILY
+
+$NOTE
+
+---
+
+$VERDICT_RAW
+
+---
+VERDICT: APPROVED" >/dev/null 2>&1 && echo "(verdict posted to PR #$PR)" \
+      || echo "WARN: verdict NOT posted to PR #$PR (gh pr comment failed) — see stdout above" >&2
+  fi
   exit 0
 else
   printf '%s\n' "$VERDICT_RAW" | tail -20 | redact
   echo "gate: REVISE — final line was not 'VERDICT: APPROVED'. Fail-closed by design."
+  if [[ $PR -ne 0 ]]; then
+    NOTE="Deterministic checks skipped in PR mode (the PR's diff is not the working tree); branch mode runs them."
+    [[ -z "$BUILDER" ]] && NOTE="$NOTE
+Builder family unknown (--builder not given) — cross-family exclusion not enforceable for this PR."
+    REV_BODY="$(printf '%s\n' "$VERDICT_RAW" | tail -40 | redact)"
+    gh pr comment "$PR" --body "## Gate review — reviewer: $REVIEWER
+**Lanes:** reviewed by $REVIEWER · builder family: $B_FAMILY
+
+$NOTE
+
+---
+
+$REV_BODY
+
+---
+VERDICT: REVISE" >/dev/null 2>&1 && echo "(verdict posted to PR #$PR)" \
+      || echo "WARN: verdict NOT posted to PR #$PR (gh pr comment failed) — see stdout above" >&2
+  fi
   exit 1
 fi
