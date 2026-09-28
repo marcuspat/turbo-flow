@@ -693,6 +693,57 @@ OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --pr 7 2>/dev/null)"; RC=$?
 t "pr: empty diff → 0 (nothing to gate)" 0 $RC
 printf '%s' "$OUT" | grep -q 'empty diff' && echo "✓ pr: empty-diff message" || { echo "✗ pr: empty-diff silent"; FAIL=1; }
 
+# ── digest.sh: parser fixtures + a live end-to-end render ──────────────────
+bash "$KIT/digest.sh" --selftest >/dev/null 2>&1;          t "digest: --selftest fixtures → 0" 0 $?
+DFIX="$(mktemp -d)"   # no repos.txt anywhere → every section must still render
+# fake gh: repo-list fails with a TOKEN-BEARING stderr — the digest must
+# redact it before it lands in the output file
+fake_gh '#!/usr/bin/env bash
+case "$1" in
+  pr) case "$2" in list) exit 0;; *) exit 1;; esac;;
+  repo) echo "gh: auth failed (token sk-live-abcdef123456 expired)" >&2; exit 1;;
+  codespace) exit 1;;
+  api) case "$2" in user) printf "gate-bot\n"; exit 0;; *) exit 0;; esac;;
+  *) exit 1;;
+esac'
+env PATH="$TPATH" DIGEST_HYGIENE_OWNER=x bash "$KIT/digest.sh" "$DFIX/out.md" >/dev/null 2>&1
+t "digest: live render → 0" 0 $?
+if [[ -f "$DFIX/out.md" ]] && grep -q '^# Digest inputs' "$DFIX/out.md" && grep -q '^## Merge queue' "$DFIX/out.md"; then
+  echo "✓ digest: output file carries the core sections"
+else
+  echo "✗ digest: output malformed"; FAIL=1
+fi
+grep -q 'merge history unknown' "$DFIX/out.md" && echo "✓ digest: nothing-scanned is not reported as all-clear" || { echo "✗ digest: false all-clear with no repos scanned"; FAIL=1; }
+if grep -q 'REDACTED' "$DFIX/out.md" && ! grep -q 'sk-live-abcdef' "$DFIX/out.md"; then
+  echo "✓ digest: gh stderr redacted in the hygiene section"
+else
+  echo "✗ digest: token leaked into the digest file"; FAIL=1
+fi
+# owner fallback: without DIGEST_HYGIENE_OWNER the digest resolves the login
+# via gh api user (the fake answers gate-bot) and still renders
+env PATH="$TPATH" bash "$KIT/digest.sh" "$DFIX/out2.md" >/dev/null 2>&1
+t "digest: owner via gh api user → 0" 0 $?
+[[ -f "$DFIX/out2.md" ]] && echo "✓ digest: owner-fallback render produced output" || { echo "✗ digest: owner-fallback render missing"; FAIL=1; }
+rm -rf "$DFIX"
+
+# ── gate log: every verdict lands as one JSON line the digest can join ──────
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "reasons here\nVERDICT: APPROVED\n"'
+GLT="$BINS/gate-log-test.jsonl"; : > "$GLT"
+fresh_ahead
+env PATH="$BIN:$TBIN:/usr/bin:/bin" GATE_LOG="$GLT" "$GATE" --builder codex --no-exec >/dev/null 2>&1
+t "gate-log: branch verdict appended → 0" 0 $?
+if [[ "$(wc -l < "$GLT" | tr -d ' ')" == "1" ]] && grep -q '"result": "GATE: APPROVED"' "$GLT" && grep -q '"target": "branch:feat"' "$GLT"; then
+  echo "✓ gate-log: one well-formed JSON row for the branch run"
+else
+  echo "✗ gate-log: malformed rows:"; cat "$GLT"; FAIL=1
+fi
+GLP="$BINS/gate-log-pr.jsonl"; : > "$GLP"
+mk_gh "7" 0
+env PATH="$TPATH" GHLOG="$GHLOG" GATE_LOG="$GLP" "$GATE" --pr 7 >/dev/null 2>&1
+grep -q '"target": "pr#7"' "$GLP" && echo "✓ gate-log: PR run keyed as pr#7 (digest-joinable)" || { echo "✗ gate-log: PR target wrong"; FAIL=1; }
+
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
 echo
