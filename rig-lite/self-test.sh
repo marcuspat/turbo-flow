@@ -693,6 +693,36 @@ OUT="$(env PATH="$TPATH" GHLOG="$GHLOG" "$GATE" --pr 7 2>/dev/null)"; RC=$?
 t "pr: empty diff → 0 (nothing to gate)" 0 $RC
 printf '%s' "$OUT" | grep -q 'empty diff' && echo "✓ pr: empty-diff message" || { echo "✗ pr: empty-diff silent"; FAIL=1; }
 
+# ── digest.sh: parser fixtures + a live end-to-end render ──────────────────
+bash "$KIT/digest.sh" --selftest >/dev/null 2>&1;          t "digest: --selftest fixtures → 0" 0 $?
+DFIX="$(mktemp -d)"   # no repos.txt anywhere → every section must still render
+env PATH="$TPATH" DIGEST_HYGIENE_OWNER=x bash "$KIT/digest.sh" "$DFIX/out.md" >/dev/null 2>&1
+t "digest: live render → 0" 0 $?
+if [[ -f "$DFIX/out.md" ]] && grep -q '^# Digest inputs' "$DFIX/out.md" && grep -q '^## Merge queue' "$DFIX/out.md"; then
+  echo "✓ digest: output file carries the core sections"
+else
+  echo "✗ digest: output malformed"; FAIL=1
+fi
+rm -rf "$DFIX"
+
+# ── gate log: every verdict lands as one JSON line the digest can join ──────
+fake_claude '#!/usr/bin/env bash
+cat >/dev/null
+printf "reasons here\nVERDICT: APPROVED\n"'
+GLT="$BINS/gate-log-test.jsonl"; : > "$GLT"
+fresh_ahead
+env PATH="$BIN:$TBIN:/usr/bin:/bin" GATE_LOG="$GLT" "$GATE" --builder codex --no-exec >/dev/null 2>&1
+t "gate-log: branch verdict appended → 0" 0 $?
+if [[ "$(wc -l < "$GLT" | tr -d ' ')" == "1" ]] && grep -q '"result": "GATE: APPROVED"' "$GLT" && grep -q '"target": "branch:feat"' "$GLT"; then
+  echo "✓ gate-log: one well-formed JSON row for the branch run"
+else
+  echo "✗ gate-log: malformed rows:"; cat "$GLT"; FAIL=1
+fi
+GLP="$BINS/gate-log-pr.jsonl"; : > "$GLP"
+mk_gh "7" 0
+env PATH="$TPATH" GHLOG="$GHLOG" GATE_LOG="$GLP" "$GATE" --pr 7 >/dev/null 2>&1
+grep -q '"target": "pr#7"' "$GLP" && echo "✓ gate-log: PR run keyed as pr#7 (digest-joinable)" || { echo "✗ gate-log: PR target wrong"; FAIL=1; }
+
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
 echo

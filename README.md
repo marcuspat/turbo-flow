@@ -1,7 +1,7 @@
 > **⚡ TURBO FLOW v5.0-PREVIEW — THE RIG ERA. PRIVATE BETA OPEN.**
 > Turbo Flow continues as **Turbo Rig** — a thin agentic coding rig. The full rig runs in private beta; this repo is its public home: the drop-in governance kit for your v4 install, the evidence, and the beta funnel.
 
-![v5](https://img.shields.io/badge/version-5.0.0--preview-blue?style=flat-square) ![beta](https://img.shields.io/badge/private_beta-OPEN-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![study](https://img.shields.io/badge/cross--family_review-71.6%25→89.7%25-c25550?style=flat-square)
+![v5](https://img.shields.io/badge/version-5.1.0-blue?style=flat-square) ![beta](https://img.shields.io/badge/private_beta-OPEN-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![study](https://img.shields.io/badge/cross--family_review-71.6%25→89.7%25-c25550?style=flat-square)
 
 ## Two things live here — pick your door
 
@@ -10,7 +10,7 @@ This repo holds **two different products**. They pair well but stand alone:
 | You want… | Your door | What it is |
 |---|---|---|
 | an **agentic dev environment** — Claude in tmux windows, orchestration, memory, live token monitor | **Turbo Flow v4** | Open this repo in a Codespace — `postCreate` installs everything ([setup guide](github_codespaces_setup.md)). Full docs below the fold. |
-| **governance for AI-written code** — a review gate that says no | **[`rig-lite/`](rig-lite/)** | A standalone extract of Turbo Rig: `gate.sh` (cross-model review), `wt.sh` (isolated worktrees), the constitution, spec templates, the memory pattern. Works in **any** repo or environment — including the v4 install above. |
+| **governance for AI-written code** — a review gate that says no | **[`rig-lite/`](rig-lite/)** | A standalone extract of Turbo Rig: `gate.sh` (cross-model review, PR verdicts, sweep), `wt.sh` (isolated worktrees), the constitution, spec templates, the memory pattern, `digest.sh` (repo health), and a 9-task automation pack. Works in **any** repo or environment — including the v4 install above. |
 | the **integrated rig** both of these come from | **[private beta](https://turbo-rig-beta.vercel.app)** | Turbo Rig: gate + constitution + memory + automations, running as one system. |
 
 New here? The 60-second version: **v4 below is the environment you install; rig-lite is the rules you drop into it (or anywhere); the beta is both, integrated and growing.**
@@ -25,19 +25,23 @@ A clean Codespace boots this repo's devcontainer and the install chain runs end-
 
 `rig-lite/gate.sh` was itself reviewed by a model family that didn't write it — and got **REVISE'd sixteen times** before earning APPROVED. The findings are exactly the class the gate exists to catch: a prompt-injection hole that let a diff approve itself, a fail-open path that skipped review entirely, a quoting bug that swallowed failing tests, a silent-reviewer misdiagnosis. Every fix became a self-test. **Builder ≠ reviewer isn't a slogan in this repo — it's the reason this script is trustworthy.**
 
-## rig-lite — the missing half of your v4 install
+## rig-lite — the complete portable rig (still the missing half of your v4 install)
 
-Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig-lite/`](rig-lite/) is a portable governance layer — seven files, ten minutes, no new dependencies:
+Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig-lite/`](rig-lite/) is a portable governance layer — nine files, ten minutes, no new dependencies:
 
 | file | what it gives you |
 |---|---|
-| [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. `--pr <n>` gates a GitHub PR and posts the verdict as a comment (GitHub becomes the state machine); `--sweep` gates every open PR that has no verdict yet; `-C <repo>` gates another checkout. |
+| [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. `--pr <n>` gates a GitHub PR and posts the verdict as a comment (GitHub becomes the state machine); `--sweep` gates every open PR that has no verdict yet; `-C <repo>` gates another checkout. Every verdict also lands in a local JSONL log the digest joins. |
 | [`wt.sh`](rig-lite/wt.sh) | an isolated worktree per parallel writer (Law 3 made executable): `wt <name>` creates `.worktrees/<name>` + branch, `--clean` tidies up after merge. |
 | [`init-repo.sh`](rig-lite/init-repo.sh) | one-command onboarding for any repo: a thin `AGENTS.md` (constitution pointer + project cheat-sheet) and the `CLAUDE.md → AGENTS.md` symlink. Never clobbers existing files. |
 | [`specs/`](rig-lite/specs/) | the spec + UAT contract templates the constitution's "state on disk" points at: plan before build, verify behavior against the deployed app. |
+| [`digest.sh`](rig-lite/digest.sh) | one command, one file: repo health for your whole fleet — merge queue joined with gate verdicts, merged PRs, dirty/behind working copies, site liveness, stale codespaces, repo-hygiene gaps. Fixture-tested via `--selftest`. |
+| [`automations/`](rig-lite/automations/README.md) | the background tier as a portable prompt pack: 9 scheduled tasks (morning digest, security scan, memory consolidation, weekly retro, repo-hygiene pass, site sentinel, gate canary, portability canary, nightly sweep) plus two ways to schedule them. |
 | [`constitution.md`](rig-lite/constitution.md) | the four laws your agents can read: builder ≠ reviewer · agents never merge · parallel writers get isolated worktrees · secrets never in git. |
 | [`memory.md`](rig-lite/memory.md) | git-versioned cross-session memory — one fact per file + an index, sync rules, lifecycle (diagrams included). |
-| [`self-test.sh`](rig-lite/self-test.sh) | proves the kit's fail-closed behavior — injected `VERDICT` strings, silent/crashed/absent reviewers, deterministic-stage ordering, cross-family exclusion, plus `wt.sh` and `init-repo.sh` lifecycle checks. Run it before you trust it. |
+| [`self-test.sh`](rig-lite/self-test.sh) | proves the kit's fail-closed behavior — injected `VERDICT` strings, silent/crashed/absent reviewers, deterministic-stage ordering, cross-family exclusion, plus `wt.sh`, `init-repo.sh`, PR/sweep, and digest lifecycle checks. Run it before you trust it. |
+
+**Everything here was extracted from the running private beta** — not designed in the abstract, but lifted from a rig that gates its own PRs daily (the kit's gate survived 16 review rounds; the v5.1 waves survived their own gates too, findings and all). The beta builds continuously; periodically a matured batch kicks down here as one versioned sync point. **v5.1 is the first.**
 
 **Standalone-first**: drop them into any environment — turbo-flow v4 (below), a plain git repo, or CI. No dependency on the v4 stack; the two products are complements, not prerequisites.
 
@@ -433,7 +437,7 @@ gnx-wiki             # Generate repo wiki from graph
 
 ```
 turbo-flow/
-├── rig-lite/                    ← governance kit (gate.sh, wt.sh, init-repo.sh, specs, constitution, memory pattern)
+├── rig-lite/                    ← governance kit (gate.sh, wt.sh, init-repo.sh, specs, digest.sh, automations, constitution, memory pattern)
 ├── devpods/
 │   ├── setup.sh                 ← main setup script (runs itself via Codespaces postCreate)
 │   ├── post-setup.sh            ← post-setup verification

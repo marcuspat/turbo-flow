@@ -83,6 +83,23 @@ cd "$TOP" || { echo "gate: cannot enter repo root $TOP" >&2; exit 2; }
 # verdict comments are attributed: only the gate's OWN account says "gated"
 GATE_MARKER='## Gate review — reviewer:'
 
+# every verdict lands in the gate log (best-effort: a log failure never
+# changes the verdict) — digest.sh joins these rows into its merge queue.
+# Values are quote/backslash-stripped: repo/branch names must never be able
+# to inject JSON into the log.
+log_verdict() { # $1 = result string
+  local logf="${GATE_LOG:-$HOME/.local/state/rig-lite/gate-log.jsonl}" tgt
+  tgt="branch:$BRANCH"
+  [[ $PR -ne 0 ]] && tgt="pr#$PR"
+  mkdir -p "$(dirname "$logf")" 2>/dev/null || return 0
+  printf '{"ts": "%s", "repo": "%s", "target": "%s", "result": "GATE: %s", "reviewer": "%s"}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    "$(basename "$TOP" | tr -d '"\\')" \
+    "$(printf '%s' "$tgt" | tr -d '"\\')" \
+    "$(printf '%s' "$1" | tr -d '"\\')" \
+    "$(printf '%s' "$REVIEWER" | tr -d '"\\')" >> "$logf" 2>/dev/null || true
+}
+
 # post a verdict comment; report gh's own words if posting fails
 post_comment() { # $1 = PR number, $2 = body
   local err
@@ -310,6 +327,7 @@ VERDICT_RAW="$(printf '%s' "$PROMPT" | invoke "$REVIEWER" 2>"$ERRLOG")" || {
   echo "gate: reviewer CLI ($REVIEWER) failed — last stderr lines (secrets redacted):"
   tail -5 "$ERRLOG" | redact >&2
   echo "gate: REVISE — fail-closed by design"
+  log_verdict "REVISE (reviewer CLI failed)"
   if [[ $PR -ne 0 ]]; then
     post_comment "$PR" "## Gate review — reviewer: $REVIEWER
 **Lanes:** reviewed by $REVIEWER · builder family: $B_FAMILY
@@ -322,6 +340,7 @@ if [[ -z "${VERDICT_RAW//[[:space:]]/}" ]]; then
   echo "gate: reviewer ($REVIEWER) returned no output — likely auth/quota; stderr log (secrets redacted):"
   tail -5 "$ERRLOG" | redact >&2
   echo "gate: REVISE — fail-closed by design"
+  log_verdict "REVISE (no reviewer output)"
   if [[ $PR -ne 0 ]]; then
     post_comment "$PR" "## Gate review — reviewer: $REVIEWER
 **Lanes:** reviewed by $REVIEWER · builder family: $B_FAMILY
@@ -350,6 +369,7 @@ if [[ "$LAST_LINE" == "VERDICT: APPROVED" ]]; then
   [[ $PR -ne 0 ]] && TARGET_TAG="PR #$PR"
   echo "gate: APPROVED ✓  (reviewer: $REVIEWER · builder family: $B_FAMILY · $TARGET_TAG)"
   echo "gate: the merge button is still yours — humans merge."
+  log_verdict "APPROVED"
   if [[ $PR -ne 0 ]]; then
     post_comment "$PR" "$(pr_comment_body APPROVED)"
   fi
@@ -357,6 +377,7 @@ if [[ "$LAST_LINE" == "VERDICT: APPROVED" ]]; then
 else
   printf '%s\n' "$VERDICT_RAW" | tail -20 | redact
   echo "gate: REVISE — final line was not 'VERDICT: APPROVED'. Fail-closed by design."
+  log_verdict "REVISE"
   if [[ $PR -ne 0 ]]; then
     post_comment "$PR" "$(pr_comment_body REVISE)"
   fi
