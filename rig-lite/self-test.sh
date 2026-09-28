@@ -718,6 +718,11 @@ if grep -q 'REDACTED' "$DFIX/out.md" && ! grep -q 'sk-live-abcdef' "$DFIX/out.md
 else
   echo "✗ digest: token leaked into the digest file"; FAIL=1
 fi
+# owner fallback: without DIGEST_HYGIENE_OWNER the digest resolves the login
+# via gh api user (the fake answers gate-bot) and still renders
+env PATH="$TPATH" bash "$KIT/digest.sh" "$DFIX/out2.md" >/dev/null 2>&1
+t "digest: owner via gh api user → 0" 0 $?
+[[ -f "$DFIX/out2.md" ]] && echo "✓ digest: owner-fallback render produced output" || { echo "✗ digest: owner-fallback render missing"; FAIL=1; }
 rm -rf "$DFIX"
 
 # ── gate log: every verdict lands as one JSON line the digest can join ──────

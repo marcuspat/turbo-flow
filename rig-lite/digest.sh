@@ -142,19 +142,26 @@ PY
 
 # Tag `gh pr list --jq '.[]'` output (one JSON object per line) with its repo slug.
 # The slug travels as argv DATA — never built into code, so there is no injection
-# surface regardless of the repos.txt line's shape. Fixture-tested via --selftest.
+# surface regardless of the repos.txt line's shape. STRICT: that gh stream is
+# all-JSON by contract, so any unparsable non-empty line is a gh malfunction and
+# exits non-zero — a partially-garbage stream must shorten the queue LOUDLY,
+# not silently. Fixture-tested via --selftest.
 mq_tag() { # $1 = owner/repo slug; stdin = PR JSON objects
   python3 -c 'import json, sys
+saw, kept = 0, 0
 for line in sys.stdin:
     line = line.strip()
     if not line:
         continue
+    saw += 1
     try:
         o = json.loads(line)
     except Exception:
         continue
     o["repo"] = sys.argv[1]
-    print(json.dumps(o))' "$1"
+    kept += 1
+    print(json.dumps(o))
+sys.exit(1 if saw and kept != saw else 0)' "$1"
 }
 
 # Merged-PR renderer: TSV rows "<owner/repo>/<num>|<title>|<mergedAtIso>" + gate-log
@@ -344,13 +351,19 @@ FX
     echo "selftest FAILED — non-list JSON must report unknown, not crash"; exit 1
   fi
   echo "shape guard OK"
-  # the live tagging pipeline that feeds mq_render — broken here = dead feature
-  tagout=$(printf '%s\n%s\n' '{"number":11,"title":"a"}' 'garbage' | mq_tag "x/y")
+  # the live tagging pipeline that feeds mq_render — broken here = dead feature.
+  # STRICT: good objects pass through tagged; junk lines flag the stream loud
+  tagrc=0; tagout=$(printf '%s\n%s\n' '{"number":11,"title":"a"}' 'garbage' | mq_tag "x/y") || tagrc=$?
   if [[ "$(printf '%s\n' "$tagout" | wc -l | tr -d ' ')" == "1" ]] \
-     && printf '%s' "$tagout" | grep -q '"repo": "x/y"'; then
-    echo "mq tagging pipeline OK — objects tagged, junk skipped"
+     && printf '%s' "$tagout" | grep -q '"repo": "x/y"' && [[ $tagrc -ne 0 ]]; then
+    echo "mq tagging pipeline OK — object tagged, junk flagged loud (exit $tagrc)"
   else
-    echo "selftest FAILED — mq_tag output:"; echo "$tagout"; exit 1
+    echo "selftest FAILED — mq_tag output/rc:"; echo "$tagout"; echo "rc=$tagrc"; exit 1
+  fi
+  if printf '{"number":2,"title":"b"}\n' | mq_tag "x/y" >/dev/null 2>&1; then
+    echo "clean stream OK — all-JSON input exits 0"
+  else
+    echo "selftest FAILED — a clean stream must exit 0"; exit 1
   fi
   # failure detection: a failing gh inside the exact pipeline shape must make the
   # `if !` fire — and a healthy one must NOT (the pair isolates gh-status
@@ -459,18 +472,26 @@ PY
   rm -f "$MQTMP"
   echo
   echo "## Tasks completed — merged PRs (7 days)"
+  # Same loud-failure contract as the merge queue: a failed query must never
+  # read as "no merged PRs" (a false all-clear).
   TMPPRS="$RUNTMP/prs"; : > "$TMPPRS"
+  MPFAILED=""
   if [[ -f "$KIT/repos.txt" ]] && command -v gh >/dev/null 2>&1; then
     while IFS= read -r r; do
       # slug repos only, same filter as the merge queue — local paths and
       # typos are not merge-history sources
-      [[ -z "$r" || "$r" == \#* || "$r" != */* ]] && continue
+      [[ -z "$r" || "$r" == \#* ]] && continue
       [[ "$r" =~ $SLUG_RE ]] || continue
-      gh pr list -R "$r" --state merged --limit 20 --json number,title,mergedAt \
-        --template '{{range .}}{{.number}}|{{.title}}|{{.mergedAt}}{{"\n"}}{{end}}' 2>/dev/null | sed "s|^|$r/|" >> "$TMPPRS"
+      if ! gh pr list -R "$r" --state merged --limit 20 --json number,title,mergedAt \
+        --template '{{range .}}{{.number}}|{{.title}}|{{.mergedAt}}{{"\n"}}{{end}}' 2>/dev/null | sed "s|^|$r/|" >> "$TMPPRS"; then
+        MPFAILED+=" $r"
+      fi
     done < "$KIT/repos.txt"
   fi
   merged_render "$TMPPRS" "$GATE_LOG"
+  if [[ -n "$MPFAILED" ]]; then
+    echo "- (query failed for:$MPFAILED — their merged PRs are missing from this list)"
+  fi
   rm -f "$TMPPRS"
   echo
   echo "## Kit repo activity"
