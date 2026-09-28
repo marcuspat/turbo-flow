@@ -713,6 +713,7 @@ if [[ -f "$DFIX/out.md" ]] && grep -q '^# Digest inputs' "$DFIX/out.md" && grep 
 else
   echo "✗ digest: output malformed"; FAIL=1
 fi
+grep -q 'merge history unknown' "$DFIX/out.md" && echo "✓ digest: nothing-scanned is not reported as all-clear" || { echo "✗ digest: false all-clear with no repos scanned"; FAIL=1; }
 if grep -q 'REDACTED' "$DFIX/out.md" && ! grep -q 'sk-live-abcdef' "$DFIX/out.md"; then
   echo "✓ digest: gh stderr redacted in the hygiene section"
 else

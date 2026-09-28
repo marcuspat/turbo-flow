@@ -472,25 +472,30 @@ PY
   rm -f "$MQTMP"
   echo
   echo "## Tasks completed — merged PRs (7 days)"
-  # Same loud-failure contract as the merge queue: a failed query must never
-  # read as "no merged PRs" (a false all-clear).
+  # Same loud-failure contract as the merge queue: a failed query — or no
+  # query at all — must never read as "no merged PRs" (a false all-clear).
   TMPPRS="$RUNTMP/prs"; : > "$TMPPRS"
-  MPFAILED=""
+  MPFAILED=""; MPSCANNED=0
   if [[ -f "$KIT/repos.txt" ]] && command -v gh >/dev/null 2>&1; then
     while IFS= read -r r; do
       # slug repos only, same filter as the merge queue — local paths and
       # typos are not merge-history sources
       [[ -z "$r" || "$r" == \#* ]] && continue
       [[ "$r" =~ $SLUG_RE ]] || continue
+      MPSCANNED=$((MPSCANNED + 1))
       if ! gh pr list -R "$r" --state merged --limit 20 --json number,title,mergedAt \
         --template '{{range .}}{{.number}}|{{.title}}|{{.mergedAt}}{{"\n"}}{{end}}' 2>/dev/null | sed "s|^|$r/|" >> "$TMPPRS"; then
         MPFAILED+=" $r"
       fi
     done < "$KIT/repos.txt"
   fi
-  merged_render "$TMPPRS" "$GATE_LOG"
-  if [[ -n "$MPFAILED" ]]; then
-    echo "- (query failed for:$MPFAILED — their merged PRs are missing from this list)"
+  if [[ $MPSCANNED -eq 0 ]]; then
+    echo "- (no GitHub slug repos scanned — merge history unknown)"
+  else
+    merged_render "$TMPPRS" "$GATE_LOG"
+    if [[ -n "$MPFAILED" ]]; then
+      echo "- (query failed for:$MPFAILED — their merged PRs are missing from this list)"
+    fi
   fi
   rm -f "$TMPPRS"
   echo
