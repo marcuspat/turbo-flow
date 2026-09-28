@@ -696,12 +696,27 @@ printf '%s' "$OUT" | grep -q 'empty diff' && echo "✓ pr: empty-diff message" |
 # ── digest.sh: parser fixtures + a live end-to-end render ──────────────────
 bash "$KIT/digest.sh" --selftest >/dev/null 2>&1;          t "digest: --selftest fixtures → 0" 0 $?
 DFIX="$(mktemp -d)"   # no repos.txt anywhere → every section must still render
+# fake gh: repo-list fails with a TOKEN-BEARING stderr — the digest must
+# redact it before it lands in the output file
+fake_gh '#!/usr/bin/env bash
+case "$1" in
+  pr) case "$2" in list) exit 0;; *) exit 1;; esac;;
+  repo) echo "gh: auth failed (token sk-live-abcdef123456 expired)" >&2; exit 1;;
+  codespace) exit 1;;
+  api) case "$2" in user) printf "gate-bot\n"; exit 0;; *) exit 0;; esac;;
+  *) exit 1;;
+esac'
 env PATH="$TPATH" DIGEST_HYGIENE_OWNER=x bash "$KIT/digest.sh" "$DFIX/out.md" >/dev/null 2>&1
 t "digest: live render → 0" 0 $?
 if [[ -f "$DFIX/out.md" ]] && grep -q '^# Digest inputs' "$DFIX/out.md" && grep -q '^## Merge queue' "$DFIX/out.md"; then
   echo "✓ digest: output file carries the core sections"
 else
   echo "✗ digest: output malformed"; FAIL=1
+fi
+if grep -q 'REDACTED' "$DFIX/out.md" && ! grep -q 'sk-live-abcdef' "$DFIX/out.md"; then
+  echo "✓ digest: gh stderr redacted in the hygiene section"
+else
+  echo "✗ digest: token leaked into the digest file"; FAIL=1
 fi
 rm -rf "$DFIX"
 

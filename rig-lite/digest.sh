@@ -19,6 +19,18 @@ GATE_LOG="${GATE_LOG:-$HOME/.local/state/rig-lite/gate-log.jsonl}"
 # Repo-hygiene parser: concatenated gh JSON objects in (compact `gh repo list --jq '.[]'`
 # lines + pretty `gh api` objects), gap-only lines out. Fixture-tested via --selftest.
 SLUG_RE='^[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?/[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?$'
+
+# one redaction pipeline for every echoed external-tool stderr — the same
+# shapes gate.sh redacts: a token-bearing URL in a gh error must never land
+# in a digest file a scheduled agent reads and summarizes
+redact() {
+  sed -E -e $'s/\x1b\[[0-9;]*[a-zA-Z]//g' \
+    -e 's/VERDICT:/VERDICT·/g' \
+    -e 's/([Tt]oken|[Kk]ey|[Ss]ecret|[Pp]assword|[Aa]uthorization|Bearer)([=: ]+)[^ ]+/\1\2REDACTED/g' \
+    -e 's/sk-[A-Za-z0-9_-]{8,}/REDACTED/g' \
+    -e 's/(ghp|gho|ghu|ghs)_[A-Za-z0-9]{20,}/REDACTED/g' \
+    -e 's/AKIA[0-9A-Z]{12,}/REDACTED/g'
+}
 hygiene_parse() { # $1 = file of concatenated gh JSON objects
   python3 - "$1" <<'PY'
 import json, sys
@@ -159,10 +171,13 @@ def norm(x):  # identical to mq_render.norm()
 
 now = datetime.datetime.now(datetime.timezone.utc)
 rows = []
-for l in open(sys.argv[1]):
+# explicit utf-8: cron often runs under LC_ALL=C, and PR titles are arbitrary
+# user text — a locale-encoded open() would raise mid-loop and kill the section
+for l in open(sys.argv[1], encoding="utf-8", errors="replace"):
     if not l.strip(): continue
     parts = l.rstrip("\n").split("|", 2)
     if len(parts) != 3 or not parts[2]: continue
+    if "/" not in parts[0]: continue  # no slash → not a slug row; skip rather than crash
     repo, num = parts[0].rsplit("/", 1)
     try:
         mt = datetime.datetime.fromisoformat(parts[2].replace("Z", "+00:00"))
@@ -296,14 +311,17 @@ FX
     echo "selftest FAILED — no gate log should render all PRs UNGATED"; exit 1
   fi
   echo "no-log join OK — absent gate log degrades to UNGATED, never crashes"
-  # merged-PR join: the second repo-normalization copy must join the same way
+  # merged-PR join: the second repo-normalization copy must join the same way.
+  # LC_ALL=C on purpose: cron runs there, PR titles are arbitrary user text —
+  # the renderer must survive non-ASCII and slash-less junk rows regardless
   MPF=$(mktemp)
   Y=$(python3 -c 'import datetime; print((datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ"))')
-  printf 'some-org/alpha/11|support tickets|%s\nsome-org/beta/5|automation tier|%s\n' "$Y" "$Y" > "$MPF"
-  mout=$(merged_render "$MPF" "$GLF")
+  printf 'some-org/alpha/11|support tickets|%s\nsome-org/beta/5|automation tier|%s\nsome-org/u/3|soporte ñandú 🚀|%s\nnotaslug|junk row|%s\n' "$Y" "$Y" "$Y" "$Y" > "$MPF"
+  mout=$(LC_ALL=C merged_render "$MPF" "$GLF")
   if echo "$mout" | grep -q "alpha #11" && echo "$mout" | grep -q "2 gate rounds" \
-     && echo "$mout" | grep -q "beta #5" && echo "$mout" | grep -q "1 gate round" ; then
-    echo "merged-PR join OK — alias verified on BOTH join sides, both copies"
+     && echo "$mout" | grep -q "beta #5" && echo "$mout" | grep -q "1 gate round" \
+     && echo "$mout" | grep -q "ñandú" && ! echo "$mout" | grep -q "notaslug"; then
+    echo "merged-PR join OK — joins intact, unicode title survives LC_ALL=C, junk row skipped"
   else
     echo "selftest FAILED — merged_render output:"; echo "$mout"; exit 1
   fi
@@ -442,9 +460,12 @@ PY
   echo
   echo "## Tasks completed — merged PRs (7 days)"
   TMPPRS="$RUNTMP/prs"; : > "$TMPPRS"
-  if [[ -f "$KIT/repos.txt" ]]; then
+  if [[ -f "$KIT/repos.txt" ]] && command -v gh >/dev/null 2>&1; then
     while IFS= read -r r; do
-      [[ -z "$r" || "$r" == \#* || -d "$r" ]] && continue
+      # slug repos only, same filter as the merge queue — local paths and
+      # typos are not merge-history sources
+      [[ -z "$r" || "$r" == \#* || "$r" != */* ]] && continue
+      [[ "$r" =~ $SLUG_RE ]] || continue
       gh pr list -R "$r" --state merged --limit 20 --json number,title,mergedAt \
         --template '{{range .}}{{.number}}|{{.title}}|{{.mergedAt}}{{"\n"}}{{end}}' 2>/dev/null | sed "s|^|$r/|" >> "$TMPPRS"
     done < "$KIT/repos.txt"
@@ -513,7 +534,7 @@ PY
         fi
       else
         ERRNOTE=""
-        if [[ -n "${HYGERR:-}" ]]; then ERRNOTE=" — first error: ${HYGERR%%$'\n'*}"; fi
+        if [[ -n "${HYGERR:-}" ]]; then ERRNOTE=" — first error: $(printf '%s' "${HYGERR%%$'\n'*}" | redact)"; fi
         echo "- (gh queries failed or returned nothing; hygiene unknown${ERRNOTE:0:120})"
       fi
       rm -f "$HYG"
