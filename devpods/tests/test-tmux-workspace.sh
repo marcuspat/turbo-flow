@@ -95,9 +95,43 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$HERE/../../.devcontainer/devcont
   [[ "$PC" == *"chmod +x \${containerWorkspaceFolder}/devpods/*.sh 2>/dev/null || true"* ]] \
   && echo "✓ chmod is failure-tolerant" || { echo "✗ chmod intolerance"; FAIL=1; }
   [[ "$PC" == *"if sudo apt-get update && sudo apt-get install"* ]] && echo "✓ setup gated on apt success" || { echo "✗ apt gate regressed"; FAIL=1; }
+  # bashrc guard: every interactive shell self-attaches into the session
+  [[ "$PC" == *"tmux-attach.sh\" --inline"* ]] && echo "✓ bashrc auto-attach guard installed" || { echo "✗ bashrc guard missing"; FAIL=1; }
+  # terminal profile: self-healing attach, never a bare-shell fallback
+  PROF="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["customizations"]["vscode"]["settings"]["terminal.integrated.profiles.linux"]["tmux-workspace"]["args"][1])' "$HERE/../../.devcontainer/devcontainer.json")"
+  [[ "$PROF" == *tmux-attach.sh* ]] && echo "✓ terminal profile uses self-healing attach" || { echo "✗ profile still raw-attaches: $PROF"; FAIL=1; }
   if bash -n <<<"$PC" 2>/dev/null; then echo "✓ postCreateCommand parses as bash"; else echo "✗ postCreateCommand is not valid bash"; FAIL=1; fi
 else
   echo "⚠ devcontainer contract check SKIPPED (python3 or devcontainer.json unavailable)"
+fi
+
+# 7 · tmux-attach.sh — the self-healing entry the profile + bashrc guard call
+TA="$HERE/../tmux-attach.sh"
+if [ -f "$TA" ]; then
+  # 7a · unknown flag → exit 2 (same contract as tmux-workspace.sh)
+  bash "$TA" --bogus >/dev/null 2>&1; t "attach: unknown flag → 2" 2 $?
+  # 7b · probe with the session up → 0, instantly (no bootstrap needed)
+  tmux has-session -t workspace 2>/dev/null || bash "$TW" --no-attach >/dev/null 2>&1
+  bash "$TA" --probe >/dev/null 2>&1; t "attach: probe with session up → 0" 0 $?
+  # 7c · no tty without --probe → exit 1 with a pointer, never a hang
+  bash "$TA" >/dev/null 2>&1; t "attach: no-tty refuses to hang → 1" 1 $?
+  # 7d · the race the profile exists for: session dead, short timeout →
+  # waits, times out, bootstraps it itself via tmux-workspace.sh
+  tmux kill-session -t workspace 2>/dev/null || true
+  TF_ATTACH_TIMEOUT=4 bash "$TA" --probe >/dev/null 2>&1; t "attach: race lost → self-bootstrap → 0" 0 $?
+  tmux has-session -t workspace 2>/dev/null; t "attach: bootstrapped session exists" 0 $?
+  N=$(tmux list-windows -t workspace -F '#{window_name}' | wc -l | tr -d ' ')
+  t "attach: bootstrap built 4 windows" 4 "$N"
+  # 7e · already-inside-tmux → immediate clean exit (guard double-check);
+  # typed into a real pane so tmux's own TMUX env does the talking
+  if tmux has-session -t workspace 2>/dev/null; then
+    tmux send-keys -t workspace:0 "bash $TA --probe; echo RC=\$?" C-m
+    sleep 1
+    R="$(tmux capture-pane -pt workspace:0 2>/dev/null | grep -o 'RC=[0-9]*' | tail -1)"
+    [[ "$R" == "RC=0" ]] && echo "✓ attach: inside-tmux short-circuits" || { echo "✗ inside-tmux path failed: '$R'"; FAIL=1; }
+  fi
+else
+  echo "⚠ tmux-attach tests SKIPPED (devpods/tmux-attach.sh missing)"
 fi
 
 # teardown: the isolated socket dies with this test
