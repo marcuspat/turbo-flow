@@ -207,6 +207,8 @@ if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
 fi
 
 case "${1:-help}" in
+  -h|--help)
+    sed -n '2,34p' "$0"; exit 0 ;;
   set)
     NAME="${2:?usage: secret.sh set NAME}"
     valid_name "$NAME" || { echo "secret: name must match $NAME_RE (got: '$NAME')" >&2; exit 2; }

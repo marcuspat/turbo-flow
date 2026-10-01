@@ -87,8 +87,14 @@ COMMON="$(git rev-parse --git-common-dir)"
 HOOKS_DIR="$COMMON/hooks"
 if [[ -f "$KIT/hooks/pre-commit" && ! -e "$HOOKS_DIR/pre-commit" ]]; then
   mkdir -p "$HOOKS_DIR"
-  cp "$KIT/hooks/pre-commit" "$HOOKS_DIR/pre-commit" && chmod +x "$HOOKS_DIR/pre-commit"
-  echo "init-repo: deletion-guard pre-commit installed"
+  # no half-installs: a copied-but-unexecutable hook would be silently inert
+  # (and the ! -e guard would refuse to repair it on rerun)
+  if cp "$KIT/hooks/pre-commit" "$HOOKS_DIR/pre-commit" && chmod +x "$HOOKS_DIR/pre-commit"; then
+    echo "init-repo: deletion-guard pre-commit installed"
+  else
+    rm -f "$HOOKS_DIR/pre-commit"
+    echo "init-repo: hook install failed — removed the partial copy (nothing silently inert left behind)" >&2
+  fi
 elif [[ -e "$HOOKS_DIR/pre-commit" ]]; then
   echo "init-repo: a pre-commit hook already exists — left untouched"
 fi
