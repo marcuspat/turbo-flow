@@ -754,8 +754,12 @@ t "secret: get → 0" 0 $RC
 [[ "$OUT" == "s3cr3t-value" ]] && echo "✓ secret: round-trip exact" || { echo "✗ secret: got '$OUT'"; FAIL=1; }
 run_secret list | grep -q '^api.key$' && echo "✓ secret: list shows names only" || { echo "✗ secret: list wrong"; FAIL=1; }
 if run_secret list 2>/dev/null | grep -q 's3cr3t-value'; then echo "✗ secret: list leaked a value"; FAIL=1; else echo "✓ secret: list never prints values"; fi
+HELPSEC="$(bash "$KIT/secret.sh" 2>&1)"
+printf '%s' "$HELPSEC" | grep -q "RIG_LITE_SECRET_BACKEND" && printf '%s' "$HELPSEC" | grep -q "kit_secret_get"   && echo "✓ secret: --help carries the test knobs + sourceable note (drift guard)" || { echo "✗ secret: help output truncated"; FAIL=1; }
 run_secret rm api.key 2>/dev/null;                               t "secret: rm → 0" 0 $?
-OUT="$(run_secret get api.key)"; [[ -z "$OUT" ]] && echo "✓ secret: get after rm is empty" || { echo "✗ secret: rm left a residue"; FAIL=1; }
+OUT="$(run_secret get api.key)"; RC=$?
+[[ -z "$OUT" ]] && echo "✓ secret: get after rm is empty" || { echo "✗ secret: rm left a residue"; FAIL=1; }
+t "secret: get of a missing name → 1 (consistent across backends)" 1 $RC
 run_secret set 'bad|name' </dev/null 2>/dev/null;                t "secret: sed-hostile name → 2" 2 $?
 run_secret get '../evil' >/dev/null 2>&1;                        t "secret: traversal name → 2" 2 $?
 printf '' | run_secret set empty.val 2>/dev/null;                t "secret: empty value → 1" 1 $?
@@ -851,7 +855,8 @@ printf '%s' "$KCOUT" | grep -q 'stored: kc.token (backend: keychain)' && echo "�
 [[ "$(run_secret_kc get kc.token)" == "kc-value" ]] && echo "✓ secret/keychain: round-trip exact" || { echo "✗ secret/keychain: get wrong"; FAIL=1; }
 run_secret_kc list | grep -q '^kc.token$' && echo "✓ secret/keychain: list via the names index" || { echo "✗ secret/keychain: list wrong"; FAIL=1; }
 run_secret_kc rm kc.token 2>/dev/null;                                    t "secret/keychain: rm → 0" 0 $?
-[[ -z "$(run_secret_kc get kc.token)" ]] && echo "✓ secret/keychain: gone after rm" || { echo "✗ secret/keychain: residue"; FAIL=1; }
+run_secret_kc get kc.token >/dev/null 2>&1;                               t "secret/keychain: get of a missing name → 1" 1 $?
+run_secret_age get gone.token >/dev/null 2>&1;                             t "secret/age: get of a missing name → 1" 1 $?
 rm -f "$BIN/security"
 
 # ── secret.sh: libsecret backend via a fake secret-tool ────────────────────

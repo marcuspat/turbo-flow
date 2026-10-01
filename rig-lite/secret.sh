@@ -122,7 +122,8 @@ _get() { # NAME
     keychain)  security find-generic-password -s "$SVC" -a "$1" -w 2>/dev/null ;;
     libsecret) secret-tool lookup service "$SVC" name "$1" 2>/dev/null ;;
     age)       [ -f "$AGE_DIR/$1.age" ] && age -d -i "$AGE_KEY" "$AGE_DIR/$1.age" 2>/dev/null ;;
-    file)      sed -n "s|^${sn}=||p" "$FILE_STORE" 2>/dev/null | head -1 ;;
+    file)      local fv; fv="$(sed -n "s|^${sn}=||p" "$FILE_STORE" 2>/dev/null | head -1)"
+               [ -n "$fv" ] && printf '%s\n' "$fv" || return 1 ;;
     *)         echo "secret: backend detection failed" >&2; return 1 ;;
   esac
 }
@@ -196,5 +197,5 @@ case "${1:-help}" in
   list) _list ;;
   backend) _backend || exit 2 ;;
   *)
-    sed -n '2,35p' "$0"; exit 1 ;;
+    sed -n '2,34p' "$0"; exit 1 ;;
 esac
