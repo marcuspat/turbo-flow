@@ -744,6 +744,64 @@ mk_gh "7" 0
 env PATH="$TPATH" GHLOG="$GHLOG" GATE_LOG="$GLP" "$GATE" --pr 7 >/dev/null 2>&1
 grep -q '"target": "pr#7"' "$GLP" && echo "✓ gate-log: PR run keyed as pr#7 (digest-joinable)" || { echo "✗ gate-log: PR target wrong"; FAIL=1; }
 
+# ── secret.sh: hermetic file-backend round-trip + guards ───────────────────
+SEC_HOME="$BINS/secret-home"; mkdir -p "$SEC_HOME"
+run_secret() { env RIG_LITE_SECRET_BACKEND=file RIG_LITE_SECRET_HOME="$SEC_HOME" bash "$KIT/secret.sh" "$@"; }
+printf 's3cr3t-value' | run_secret set api.key 2>/dev/null;      t "secret: set via stdin → 0" 0 $?
+OUT="$(run_secret get api.key)"; RC=$?
+t "secret: get → 0" 0 $RC
+[[ "$OUT" == "s3cr3t-value" ]] && echo "✓ secret: round-trip exact" || { echo "✗ secret: got '$OUT'"; FAIL=1; }
+run_secret list | grep -q '^api.key$' && echo "✓ secret: list shows names only" || { echo "✗ secret: list wrong"; FAIL=1; }
+if run_secret list 2>/dev/null | grep -q 's3cr3t-value'; then echo "✗ secret: list leaked a value"; FAIL=1; else echo "✓ secret: list never prints values"; fi
+run_secret rm api.key 2>/dev/null;                               t "secret: rm → 0" 0 $?
+OUT="$(run_secret get api.key)"; [[ -z "$OUT" ]] && echo "✓ secret: get after rm is empty" || { echo "✗ secret: rm left a residue"; FAIL=1; }
+run_secret set 'bad|name' </dev/null 2>/dev/null;                t "secret: sed-hostile name → 2" 2 $?
+run_secret get '../evil' >/dev/null 2>&1;                        t "secret: traversal name → 2" 2 $?
+printf '' | run_secret set empty.val 2>/dev/null;                t "secret: empty value → 1" 1 $?
+printf 'line1\nline2' | run_secret set multi.val 2>/dev/null;    t "secret: multi-line value → 2" 2 $?
+printf 'v1' | run_secret set rotate.key 2>/dev/null; printf 'v2' | run_secret set rotate.key 2>/dev/null
+OUT="$(run_secret get rotate.key)"
+[[ "$OUT" == "v2" ]] && echo "✓ secret: re-set rotates, not duplicates" || { echo "✗ secret: rotation got '$OUT'"; FAIL=1; }
+run_secret list | grep -c '^rotate.key$' | grep -q '^1$' && echo "✓ secret: single index row after rotation" || { echo "✗ secret: duplicate index rows"; FAIL=1; }
+STORE="$SEC_HOME/.config/rig-lite/secrets.env"
+PERM="$(stat -f %Lp "$STORE" 2>/dev/null || stat -c %a "$STORE" 2>/dev/null)"
+[[ "$PERM" == "600" ]] && echo "✓ secret: file store is chmod 600" || { echo "✗ secret: store perms are $PERM"; FAIL=1; }
+[[ "$(run_secret backend)" == "file" ]] && echo "✓ secret: backend override honored" || { echo "✗ secret: override ignored"; FAIL=1; }
+env RIG_LITE_SECRET_BACKEND=bogus RIG_LITE_SECRET_HOME="$SEC_HOME" bash "$KIT/secret.sh" backend >/dev/null 2>&1; t "secret: unknown backend override → nonzero" 2 $?
+# sourceable: sourcing must NOT run the CLI dispatcher with the parent's $1
+SRCOUT="$(bash -c 'source "$1" "$0" 2>/dev/null; echo "sourced-ok"' _ "$KIT/secret.sh" 2>&1)"
+[[ "$SRCOUT" == "sourced-ok" ]] && echo "✓ secret: sourcing stays quiet (no dispatcher, no CLI noise)" || { echo "✗ secret: sourcing ran the CLI: $SRCOUT"; FAIL=1; }
+
+# ── hooks/pre-commit: warn-only deletion guard, installed by init-repo ─────
+# fixture pins core.hooksPath to the repo's own dir so a GLOBAL hooksPath
+# (some machines set one) can't mask the hook we're testing — and the kit's
+# install must target the repo dir even when such a global exists
+SHTMLFIX="$(mktemp -d)"
+git -C "$SHTMLFIX" init -q -b main && git -C "$SHTMLFIX" commit -q --allow-empty -m base
+(cd "$SHTMLFIX" && "$INIT" HookProj) >/dev/null 2>&1;           t "hook: init-repo installs (exit 0)" 0 $?
+[[ -x "$SHTMLFIX/.git/hooks/pre-commit" ]] && echo "✓ hook: installed into the repo's own hooks dir" || { echo "✗ hook: not installed"; FAIL=1; }
+git -C "$SHTMLFIX" config core.hooksPath .git/hooks   # activate repo-local hooks despite any global
+printf 'keep me\n' > "$SHTMLFIX/file.txt" && git -C "$SHTMLFIX" add file.txt && git -C "$SHTMLFIX" commit -qm add
+rm "$SHTMLFIX/file.txt" && git -C "$SHTMLFIX" add -A
+HOOKOUT="$(cd "$SHTMLFIX" && git commit -qm del 2>&1)"; RC=$?
+t "hook: commit with staged deletion still succeeds (warn-only)" 0 $RC
+printf '%s' "$HOOKOUT" | grep -q "RIG-LITE GUARD" && printf '%s' "$HOOKOUT" | grep -q "D file.txt" \
+  && echo "✓ hook: warns loudly and names the file" || { echo "✗ hook: warning missing: $HOOKOUT"; FAIL=1; }
+printf '#!/bin/sh\n# sentinel\n' > "$SHTMLFIX/.git/hooks/pre-commit"
+# capture-then-grep: `cmd | grep -q` under pipefail races SIGPIPE when the
+# producer has more to say after the match (init-repo prints a NOTE + Done)
+SRUN="$(cd "$SHTMLFIX" && "$INIT" HookProj 2>&1)"; RC=$?
+t "hook: rerun with existing hook → 0" 0 $RC
+printf '%s' "$SRUN" | grep -q "pre-commit hook already exists — left untouched" && echo "✓ hook: existing pre-commit never clobbered" || { echo "✗ hook: clobbered an existing hook: $SRUN"; FAIL=1; }
+printf '%s' "$SRUN" | grep -q "core.hooksPath is configured" && echo "✓ hook: hooksPath redirect called out loudly" || { echo "✗ hook: hooksPath note missing"; FAIL=1; }
+grep -q sentinel "$SHTMLFIX/.git/hooks/pre-commit" && echo "✓ hook: sentinel intact" || { echo "✗ hook: sentinel overwritten"; FAIL=1; }
+rm -rf "$SHTMLFIX"
+
+# ── memory scaffold ships + digest's inbox exists in-repo ──────────────────
+for f in decisions.md gotchas.md project-index.md inbox; do
+  if [[ -e "$KIT/memory/$f" ]]; then echo "✓ memory: $f present"; else echo "✗ memory: $f missing"; FAIL=1; fi
+done
+
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
 echo

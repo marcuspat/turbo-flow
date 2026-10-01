@@ -10,7 +10,7 @@ Este repo contiene **dos productos distintos**. Combinan bien, pero funcionan po
 | Quieres… | Tu puerta | Qué es |
 |---|---|---|
 | un **entorno de desarrollo agéntico** — Claude en ventanas tmux, orquestación, memoria, monitor de tokens en vivo | **Turbo Flow v4** | Abre este repo en un Codespace — `postCreate` instala todo ([guía](github_codespaces_setup.md)). Documentación completa más abajo. |
-| **gobernanza para código escrito por IA** — una compuerta de revisión que sabe decir no | **[`rig-lite/`](rig-lite/)** | Un extracto independiente de Turbo Rig: `gate.sh` (revisión entre modelos, veredictos en PRs, sweep), `wt.sh` (worktrees aislados), la constitución, las plantillas de spec, el patrón de memoria, `digest.sh` (salud de repos) y un paquete de 9 automatizaciones. Funciona en **cualquier** repo o entorno — incluida la instalación v4 de arriba. |
+| **gobernanza para código escrito por IA** — una compuerta de revisión que sabe decir no | **[`rig-lite/`](rig-lite/)** | Un extracto independiente de Turbo Rig: `gate.sh` (revisión entre modelos, veredictos en PRs, sweep), `wt.sh` (worktrees aislados), `secret.sh` (secretos cifrados), la constitución, las plantillas de spec, el patrón + scaffold de memoria, `digest.sh` (salud de repos) y un paquete de 9 automatizaciones. Funciona en **cualquier** repo o entorno — incluida la instalación v4 de arriba. |
 | el **rig integrado** del que ambos provienen | **[beta privada](https://turbo-rig-beta.vercel.app)** | Turbo Rig: compuerta + constitución + memoria + automatizaciones, corriendo como un sistema. |
 
 ¿Nuevo aquí? Versión de 60 segundos: **el v4 de abajo es el entorno que instalas; rig-lite son las reglas que le agregas (o agregas a cualquier lado); la beta es ambos, integrados y creciendo.**
@@ -33,7 +33,7 @@ A `rig-lite/gate.sh` lo revisó una familia de modelo que no lo escribió — y 
 
 ## rig-lite — el rig portable completo (sigue siendo la mitad que le falta a tu instalación v4)
 
-Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **no**. [`rig-lite/`](rig-lite/) es una capa de gobernanza portable — nueve archivos, diez minutos, sin dependencias nuevas:
+Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **no**. [`rig-lite/`](rig-lite/) es una capa de gobernanza portable — doce archivos, diez minutos, sin dependencias nuevas:
 
 | archivo | qué te da |
 |---|---|
@@ -43,11 +43,14 @@ Tu enjambre de Ruflo tiene 215+ herramientas y 60+ agentes. Nada en él dice **n
 | [`specs/`](rig-lite/specs/) | las plantillas de spec y contrato UAT a las que apunta el "estado en disco" de la constitución: planificar antes de construir, verificar el comportamiento contra la app desplegada. |
 | [`digest.sh`](rig-lite/digest.sh) | un comando, un archivo: salud de repos para toda tu flota — cola de merges unida con los veredictos de la compuerta, PRs fusionados, working copies sucias/rezagadas, liveness de sitios, codespaces muertos, huecos de higiene de repos. Probado con fixtures vía `--selftest`. |
 | [`automations/`](rig-lite/automations/README.md) | el tier de fondo como paquete portable de prompts: 9 tareas programadas (digest matutino, escaneo de seguridad, consolidación de memoria, retro semanal, pase de higiene de repos, centinela de sitios, canario de la compuerta, canario de portabilidad, sweep nocturno) más dos formas de programarlas. |
+| [`secret.sh`](rig-lite/secret.sh) | la Ley 4 ejecutable: secretos cifrados en reposo, backend auto-detectado (Keychain de macOS → libsecret → age → texto plano con advertencia fuerte, chmod 600). `set`/`get`/`rm`/`list` — el listado muestra nombres, nunca valores. |
+| [`hooks/`](rig-lite/hooks/) | el pre-commit guardián de eliminaciones (solo advierte, nunca bloquea): los borrados staged se vuelven ruidosos antes de que un `git add -A` indiscriminado se coma un archivo. `init-repo.sh` lo instala; nunca pisa un hook existente. |
 | [`constitution.md`](rig-lite/constitution.md) | las cuatro leyes que tus agentes pueden leer: constructor ≠ revisor · los agentes nunca fusionan · escritores en paralelo obtienen worktrees aislados · los secretos nunca van a git. |
 | [`memory.md`](rig-lite/memory.md) | memoria entre sesiones versionada en git — un hecho por archivo + un índice, reglas de sincronización, ciclo de vida (con diagramas). |
+| [`memory/`](rig-lite/memory/) | el scaffold mismo: decisiones / gotchas / project-index / inbox, con plantillas de entrada — la estructura que `memory.md` documenta y `digest.sh` alimenta. |
 | [`self-test.sh`](rig-lite/self-test.sh) | demuestra el comportamiento fail-closed del kit — strings `VERDICT` inyectados, revisores silenciosos/caídos/ausentes, orden de la etapa determinista, exclusión entre familias, más el ciclo de vida de `wt.sh`, `init-repo.sh`, PR/sweep y digest. Ejecútalo antes de confiar. |
 
-**Todo lo que hay aquí fue extraído de la beta privada en funcionamiento** — no diseñado en abstracto, sino levantado de un rig que compuerta sus propios PRs a diario (la compuerta del kit sobrevivió 16 rondas de revisión; las olas de v5.1 también sobrevivieron las suyas, hallazgos incluidos). La beta construye en continuo; periódicamente un lote madurado baja aquí como un punto de sincronización versionado. **v5.1 es el primero.**
+**Todo lo que hay aquí fue extraído de la beta privada en funcionamiento** — no diseñado en abstracto, sino levantado de un rig que compuerta sus propios PRs a diario (la compuerta del kit sobrevivió 16 rondas de revisión; las olas de v5.1 también sobrevivieron las suyas, hallazgos incluidos). Y ahora **cada ley trae su herramienta**: Ley 1 → `gate.sh`, Ley 2 → el diseño mismo de la compuerta (nunca fusiona), Ley 3 → `wt.sh`, Ley 4 → `secret.sh`. La beta construye en continuo; periódicamente un lote madurado baja aquí como un punto de sincronización versionado. **v5.1 fue el primero.**
 
 **Independiente por diseño**: funciona en cualquier entorno — turbo-flow v4 (abajo), un repo git plano, o CI. Sin dependencia del stack v4; los dos productos son complementos, no prerrequisitos.
 
