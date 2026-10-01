@@ -836,7 +836,7 @@ DIR="${FAKE_KC_DIR:?}"
 case "$1" in
   add-generic-password)  n=""; v=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; -w) v="$2";; esac; shift; done; mkdir -p "$DIR"; printf '%s' "$v" > "$DIR/$n" ;;
   find-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; [ -f "$DIR/$n" ] && cat "$DIR/$n" ;;
-  delete-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; rm -f "$DIR/$n" ;;
+  delete-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; [ -f "$DIR/$n" ] && rm -f "$DIR/$n" || exit 1 ;;
   *) exit 1 ;;
 esac
 SECEOF
@@ -864,7 +864,7 @@ while [ $# -gt 0 ]; do [ "$1" = "name" ] && n="$2"; shift; done
 case "$name" in
   store)  mkdir -p "$DIR"; cat > "$DIR/$n" ;;
   lookup) [ -f "$DIR/$n" ] && cat "$DIR/$n" ;;
-  clear)  rm -f "$DIR/$n" ;;
+  clear)  [ -f "$DIR/$n" ] && rm -f "$DIR/$n" || exit 1 ;;
   *) exit 1 ;;
 esac
 STEOF
@@ -875,17 +875,61 @@ printf 'ls-value' | run_secret_ls set ls.token 2>/dev/null;               t "sec
 [[ "$(run_secret_ls get ls.token)" == "ls-value" ]] && echo "✓ secret/libsecret: round-trip exact" || { echo "✗ secret/libsecret: get wrong"; FAIL=1; }
 run_secret_ls list | grep -q '^ls.token$' && echo "✓ secret/libsecret: list via the names index" || { echo "✗ secret/libsecret: list wrong"; FAIL=1; }
 run_secret_ls rm ls.token 2>/dev/null;                                    t "secret/libsecret: rm → 0" 0 $?
+LSRM="$(run_secret_ls rm never.stored 2>&1)"; RC=$?
+t "secret/libsecret: rm of a never-stored name → 1" 1 $RC
+printf '%s' "$LSRM" | grep -q "nothing removed" && echo "✓ secret/libsecret: no false 'removed'" || { echo "✗ secret/libsecret: lied: $LSRM"; FAIL=1; }
 rm -f "$BIN/secret-tool"
 
+# ── secret.sh: index bookkeeping must never invert a real store ────────────
+cat > "$BIN/security" <<'SECEOF2'
+#!/usr/bin/env bash
+DIR="${FAKE_KC_DIR:?}"
+case "$1" in
+  add-generic-password)  n=""; v=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; -w) v="$2";; esac; shift; done; mkdir -p "$DIR"; printf '%s' "$v" > "$DIR/$n" ;;
+  find-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; [ -f "$DIR/$n" ] && cat "$DIR/$n" ;;
+  delete-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; [ -f "$DIR/$n" ] && rm -f "$DIR/$n" || exit 1 ;;
+  *) exit 1 ;;
+esac
+SECEOF2
+chmod +x "$BIN/security"
+# unwritable config root + absent index: the keychain store SUCCEEDS, the
+# index can't be created, the warning fires, and the exit stays 0
+rm -f "$SEC_HOME/.config/rig-lite/secret-names.txt"
+chmod 500 "$SEC_HOME/.config/rig-lite"
+IDXOUT="$(printf 'idx-value' | run_secret_kc set idx.token 2>&1)"; RC=$?
+t "secret: unwritable index does not fail a successful store → 0" 0 $RC
+printf '%s' "$IDXOUT" | grep -q "names index unwritable" && printf '%s' "$IDXOUT" | grep -q "stored: idx.token" \
+  && echo "✓ secret: index failure warns without inverting the result" || { echo "✗ secret: index failure corrupted the outcome: $IDXOUT"; FAIL=1; }
+[[ "$(run_secret_kc get idx.token)" == "idx-value" ]] && echo "✓ secret: the store itself held" || { echo "✗ secret: store lost"; FAIL=1; }
+chmod 700 "$SEC_HOME/.config/rig-lite"
+# _index_del aliasing: rm api.key must not delete apiXkey's index row
+printf 'x' | run_secret_kc set apiXkey 2>/dev/null; printf 'y' | run_secret_kc set api.key 2>/dev/null
+run_secret_kc rm api.key 2>/dev/null
+run_secret_kc list | grep -q '^apiXkey$' && echo "✓ secret: rm api.key leaves apiXkey's index row (literal dot)" || { echo "✗ secret: index aliasing orphaned a secret"; FAIL=1; }
+[[ "$(run_secret_kc get apiXkey)" == "x" ]] && echo "✓ secret: apiXkey still retrievable" || { echo "✗ secret: apiXkey orphaned"; FAIL=1; }
+run_secret_kc rm apiXkey 2>/dev/null
+KCRM="$(run_secret_kc rm never.stored 2>&1)"; RC=$?
+t "secret/keychain: rm of a never-stored name → 1" 1 $RC
+printf '%s' "$KCRM" | grep -q "nothing removed" && echo "✓ secret/keychain: no false 'removed'" || { echo "✗ secret/keychain: lied: $KCRM"; FAIL=1; }
+FILERM="$(run_secret rm never.stored 2>&1)"; RC=$?
+t "secret/file: rm of a never-stored name → 1" 1 $RC
+printf '%s' "$FILERM" | grep -q "nothing removed" && echo "✓ secret/file: no false 'removed'" || { echo "✗ secret/file: lied: $FILERM"; FAIL=1; }
+rm -f "$BIN/security"
+
 # ── hooks/pre-commit: warn-only deletion guard, installed by init-repo ─────
-# fixture pins core.hooksPath to the repo's own dir so a GLOBAL hooksPath
-# (some machines set one) can't mask the hook we're testing — and the kit's
-# install must target the repo dir even when such a global exists
+# fixture sets a PRE-EXISTING core.hooksPath redirect before init-repo runs:
+# the install must still land in the repo's own hooks dir (not the redirect),
+# and the NOTE must fire on the first run — then repo hooks are activated to
+# prove the hook actually fires
 SHTMLFIX="$(mktemp -d)"
 git -C "$SHTMLFIX" init -q -b main && git -C "$SHTMLFIX" commit -q --allow-empty -m base
-(cd "$SHTMLFIX" && "$INIT" HookProj) >/dev/null 2>&1;           t "hook: init-repo installs (exit 0)" 0 $?
-[[ -x "$SHTMLFIX/.git/hooks/pre-commit" ]] && echo "✓ hook: installed into the repo's own hooks dir" || { echo "✗ hook: not installed"; FAIL=1; }
-git -C "$SHTMLFIX" config core.hooksPath .git/hooks   # activate repo-local hooks despite any global
+git -C "$SHTMLFIX" config core.hooksPath "$BINS/fake-global-hooks"
+FIRSTRUN="$(cd "$SHTMLFIX" && "$INIT" HookProj 2>&1)"; RC=$?
+t "hook: init-repo installs despite a hooksPath redirect → 0" 0 $RC
+[[ -x "$SHTMLFIX/.git/hooks/pre-commit" ]] && echo "✓ hook: installed into the repo's own dir, not the redirect" || { echo "✗ hook: redirected or missing"; FAIL=1; }
+[[ ! -e "$BINS/fake-global-hooks/pre-commit" ]] && echo "✓ hook: nothing leaked into the redirect target" || { echo "✗ hook: wrote into the foreign hooks dir"; FAIL=1; }
+printf '%s' "$FIRSTRUN" | grep -q "core.hooksPath is configured" && echo "✓ hook: redirect noted loudly on first run" || { echo "✗ hook: first-run note missing: $FIRSTRUN"; FAIL=1; }
+git -C "$SHTMLFIX" config core.hooksPath .git/hooks   # activate repo-local hooks for the fire test
 printf 'keep me\n' > "$SHTMLFIX/file.txt" && git -C "$SHTMLFIX" add file.txt && git -C "$SHTMLFIX" commit -qm add
 rm "$SHTMLFIX/file.txt" && git -C "$SHTMLFIX" add -A
 HOOKOUT="$(cd "$SHTMLFIX" && git commit -qm del 2>&1)"; RC=$?

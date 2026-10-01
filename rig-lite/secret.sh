@@ -54,8 +54,7 @@ _backend() {
   fi
   if [[ "$(uname)" == "Darwin" ]] && command -v security >/dev/null 2>&1; then echo "keychain"
   elif command -v secret-tool >/dev/null 2>&1 && \
-       (command -v gnome-keyring-daemon >/dev/null 2>&1 || command -v kwalletd5 >/dev/null 2>&1 || \
-        [[ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]]); then echo "libsecret"
+       (command -v gnome-keyring-daemon >/dev/null 2>&1 || command -v kwalletd5 >/dev/null 2>&1); then echo "libsecret"
   elif command -v age >/dev/null 2>&1 && command -v age-keygen >/dev/null 2>&1; then echo "age"
   else echo "file"; fi
 }
@@ -81,8 +80,18 @@ _age_ensure() {
   [ -s "$AGE_PUB" ]
 }
 
-_index_add() { mkdir -p "$CFG" 2>/dev/null; touch "$INDEX"; chmod 600 "$INDEX"; grep -qxF "$1" "$INDEX" || printf '%s\n' "$1" >> "$INDEX"; }
-_index_del() { [ -f "$INDEX" ] && sed -i.bak "\|^$1$|d" "$INDEX" && rm -f "$INDEX.bak"; return 0; }
+_index_add() { # bookkeeping only: a failure must WARN, never invert the real store's result
+  mkdir -p "$CFG" 2>/dev/null
+  if touch "$INDEX" 2>/dev/null && chmod 600 "$INDEX" 2>/dev/null \
+     && { grep -qxF "$1" "$INDEX" 2>/dev/null || printf '%s\n' "$1" >> "$INDEX" 2>/dev/null; }; then
+    return 0
+  fi
+  echo "secret: WARNING — names index unwritable at $INDEX; the secret itself was stored, but 'list' will be incomplete" >&2
+  return 0
+}
+_index_del() { # $1 = sed-escaped name
+  [ -f "$INDEX" ] && sed -i.bak "\|^$1$|d" "$INDEX" && rm -f "$INDEX.bak"; return 0
+}
 
 # names feed sed addresses — validate at the FUNCTION boundary too, not just
 # the CLI: the sourceable helpers bypass the dispatcher
@@ -118,14 +127,27 @@ _get() { # NAME
   esac
 }
 
-_rm() { # NAME
+_rm() { # NAME — removing something that was never stored reports failure, not "removed"
   _name_ok "$1" || return 2
   local sn; sn="$(_sed_name "$1")"
   case "$(_backend)" in
-    keychain)  security delete-generic-password -s "$SVC" -a "$1" >/dev/null 2>&1; _index_del "$1" ;;
-    libsecret) secret-tool clear service "$SVC" name "$1" 2>/dev/null; _index_del "$1" ;;
-    age)       rm -f "$AGE_DIR/$1.age" ;;
-    file)      sed -i.bak "\|^${sn}=|d" "$FILE_STORE" 2>/dev/null && rm -f "$FILE_STORE.bak" ;;
+    keychain)
+      security delete-generic-password -s "$SVC" -a "$1" >/dev/null 2>&1 \
+        || { echo "secret: '$1' not found in the keychain — nothing removed" >&2; return 1; }
+      _index_del "$sn" ;;
+    libsecret)
+      secret-tool clear service "$SVC" name "$1" 2>/dev/null \
+        || { echo "secret: '$1' not found in the secret service — nothing removed" >&2; return 1; }
+      _index_del "$sn" ;;
+    age)
+      [ -e "$AGE_DIR/$1.age" ] && rm -f "$AGE_DIR/$1.age" \
+        || { echo "secret: '$1' not stored (age backend) — nothing removed" >&2; return 1; } ;;
+    file)
+      if [ -f "$FILE_STORE" ] && grep -q "^${sn}=" "$FILE_STORE" 2>/dev/null; then
+        sed -i.bak "\|^${sn}=|d" "$FILE_STORE" && rm -f "$FILE_STORE.bak"
+      else
+        echo "secret: '$1' not stored (file backend) — nothing removed" >&2; return 1
+      fi ;;
     *)         echo "secret: backend detection failed" >&2; return 1 ;;
   esac
 }
@@ -160,7 +182,8 @@ case "${1:-help}" in
     fi
     [ -n "$VALUE" ] || { echo "empty value, aborting" >&2; exit 1; }
     case "$VALUE" in *$'\n'*|*$'\r'*) echo "secret: multi-line values are not supported (would corrupt the file backend)" >&2; exit 2;; esac
-    _set "$NAME" "$VALUE" && echo "stored: $NAME (backend: $(_backend))" >&2
+    BE="$(_backend)"   # detect once; _set re-detects internally only on failure paths
+    _set "$NAME" "$VALUE" && echo "stored: $NAME (backend: $BE)" >&2
     ;;
   get)
     [ -n "${2:-}" ] || { echo "usage: secret.sh get NAME" >&2; exit 1; }
