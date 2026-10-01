@@ -89,8 +89,22 @@ _index_add() { # bookkeeping only: a failure must WARN, never invert the real st
   echo "secret: WARNING — names index unwritable at $INDEX; the secret itself was stored, but 'list' will be incomplete" >&2
   return 0
 }
-_index_del() { # $1 = sed-escaped name
-  [ -f "$INDEX" ] && sed -i.bak "\|^$1$|d" "$INDEX" && rm -f "$INDEX.bak"; return 0
+_index_del() { # $1 = sed-escaped name; bookkeeping — warn, never fail the removal
+  if [ -f "$INDEX" ]; then
+    sed -i.bak "\|^$1$|d" "$INDEX" && rm -f "$INDEX.bak" 2>/dev/null \
+      || echo "secret: WARNING — names index unwritable; the row may linger in 'list'" >&2
+  fi
+  return 0
+}
+# keychain values never touch argv (ps-visible): they travel via `security -i`
+# stdin, hex-encoded (od is POSIX; the decode is pure bash \xHH)
+_kc_hex() { printf '%s' "$1" | od -An -tx1 | tr -d ' \n'; }
+_kc_unhex() { # stdout: bytes for a 0xHEX string; passthrough when not 0x-prefixed
+  local h="$1" i out=""
+  [[ "$h" == 0x* ]] || { printf '%s\n' "$h"; return 0; }
+  h="${h#0x}"
+  for ((i=0; i<${#h}; i+=2)); do out+="\\x${h:i:2}"; done
+  printf "$out"
 }
 
 # names feed sed addresses — validate at the FUNCTION boundary too, not just
@@ -103,7 +117,10 @@ _set() { # NAME VALUE
   _name_ok "$1" || return 2
   local sn; sn="$(_sed_name "$1")"
   case "$(_backend)" in
-    keychain)  security add-generic-password -U -s "$SVC" -a "$1" -w "$2" && _index_add "$1" ;;
+    keychain)
+      # value hex-encoded on the `security -i` stdin pipe — NEVER in argv
+      printf 'add-generic-password -U -s %s -a %s -w 0x%s\n' "$SVC" "$1" "$(_kc_hex "$2")" \
+        | security -i >/dev/null 2>&1 && _index_add "$1" ;;
     libsecret) printf '%s' "$2" | secret-tool store --label="rig-lite $1" service "$SVC" name "$1" && _index_add "$1" ;;
     age)       _age_ensure || { echo "age key setup failed" >&2; return 1; }
                printf '%s' "$2" | age -r "$(cat "$AGE_PUB")" > "$AGE_DIR/$1.age.tmp" \
@@ -119,7 +136,9 @@ _get() { # NAME
   _name_ok "$1" || return 2
   local sn; sn="$(_sed_name "$1")"
   case "$(_backend)" in
-    keychain)  security find-generic-password -s "$SVC" -a "$1" -w 2>/dev/null ;;
+    keychain)
+      local kv; kv="$(security find-generic-password -s "$SVC" -a "$1" -w 2>/dev/null)" || return 1
+      _kc_unhex "$kv" ;;
     libsecret) secret-tool lookup service "$SVC" name "$1" 2>/dev/null ;;
     age)       [ -f "$AGE_DIR/$1.age" ] && age -d -i "$AGE_KEY" "$AGE_DIR/$1.age" 2>/dev/null ;;
     file)      local fv; fv="$(sed -n "s|^${sn}=||p" "$FILE_STORE" 2>/dev/null | head -1)"

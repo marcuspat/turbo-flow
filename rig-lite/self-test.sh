@@ -833,19 +833,44 @@ printf 'v' | run_secret_age set broken.token 2>/dev/null;                 t "sec
 [[ ! -e "$SEC_HOME/.config/rig-lite/secrets.d/broken.token.age" ]] && echo "✓ secret/age: no zero-byte secret after failure" || { echo "✗ secret/age: truncated store left behind"; FAIL=1; }
 rm -f "$BIN/age" "$BIN/age-keygen"
 
-# ── secret.sh: keychain backend via a fake security CLI ────────────────────
-cat > "$BIN/security" <<'SECEOF'
+
+mk_fake_security() { # writes $BIN/security modeling real CLI shapes + `security -i`
+  cat > "$BIN/security" <<'FKSEC'
 #!/usr/bin/env bash
-# fake macOS security: generic-password CRUD against $FAKE_KC_DIR
 DIR="${FAKE_KC_DIR:?}"
+printf '%s\n' "$*" >> "$DIR/argv.log"   # every invocation's argv, for the leak test
+hex2bin() { python3 -c 'import sys; sys.stdout.buffer.write(bytes.fromhex(sys.argv[1][2:]))' "$1"; }
 case "$1" in
+  -i)  # interactive command stream from STDIN: add-generic-password ... -w 0xHEX
+       IFS= read -r line
+       n=""; w=""
+       set -- $line
+       while [ $# -gt 0 ]; do
+         case "$1" in
+           -a) n="$2"; shift;;
+           -w) w="$2"; shift;;
+           *) shift;;
+         esac
+       done
+       mkdir -p "$DIR"; hex2bin "$w" > "$DIR/$n" ;;
   add-generic-password)  n=""; v=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; -w) v="$2";; esac; shift; done; mkdir -p "$DIR"; printf '%s' "$v" > "$DIR/$n" ;;
-  find-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; [ -f "$DIR/$n" ] && cat "$DIR/$n" ;;
+  find-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done
+       if [ -f "$DIR/$n" ]; then
+         if python3 -c 'import sys; sys.exit(0 if open(sys.argv[1],"rb").read().isprintable() or b"\n" in open(sys.argv[1],"rb").read() else 1)' "$DIR/$n" 2>/dev/null; then
+           cat "$DIR/$n"
+         else
+           python3 -c 'import sys; d=open(sys.argv[1],"rb").read(); print("0x"+d.hex())' "$DIR/$n"
+         fi
+       else exit 1; fi ;;
   delete-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; [ -f "$DIR/$n" ] && rm -f "$DIR/$n" || exit 1 ;;
   *) exit 1 ;;
 esac
-SECEOF
-chmod +x "$BIN/security"
+FKSEC
+  chmod +x "$BIN/security"
+}
+
+# ── secret.sh: keychain backend via a fake security CLI ────────────────────
+mk_fake_security
 export FAKE_KC_DIR="$BINS/fake-keychain"; mkdir -p "$FAKE_KC_DIR"
 run_secret_kc() { env PATH="$BIN:$TBIN:/usr/bin:/bin" RIG_LITE_SECRET_BACKEND=keychain RIG_LITE_SECRET_HOME="$SEC_HOME" FAKE_KC_DIR="$FAKE_KC_DIR" bash "$KIT/secret.sh" "$@"; }
 KCOUT="$(printf 'kc-value' | run_secret_kc set kc.token 2>&1)"; RC=$?
@@ -857,6 +882,24 @@ run_secret_kc list | grep -q '^kc.token$' && echo "✓ secret/keychain: list via
 run_secret_kc rm kc.token 2>/dev/null;                                    t "secret/keychain: rm → 0" 0 $?
 run_secret_kc get kc.token >/dev/null 2>&1;                               t "secret/keychain: get of a missing name → 1" 1 $?
 run_secret_age get gone.token >/dev/null 2>&1;                             t "secret/age: get of a missing name → 1" 1 $?
+# argv hygiene: the VALUE must never appear in any security invocation's argv
+# (it travels hex-encoded on the `security -i` stdin pipe — ps-safe)
+printf 'hunter2-ps-visible' | run_secret_kc set argv.token 2>/dev/null
+if grep -q 'hunter2-ps-visible' "$FAKE_KC_DIR/argv.log"; then echo "✗ secret/keychain: value leaked into argv"; FAIL=1
+else echo "✓ secret/keychain: value never appears in any security argv (ps-safe)"; fi
+[[ "$(run_secret_kc get argv.token)" == "hunter2-ps-visible" ]] && echo "✓ secret/keychain: hex-pipe round-trip exact" || { echo "✗ secret/keychain: hex round-trip broke"; FAIL=1; }
+# binary value exercises the 0x-decode path on read
+printf '\377\376bin' | run_secret_kc set bin.token 2>/dev/null
+GOT="$(run_secret_kc get bin.token | od -An -tx1 | tr -d ' \n')"
+WANT="$(printf '\377\376bin' | od -An -tx1 | tr -d ' \n')"
+[[ "$GOT" == "$WANT" ]] && echo "✓ secret/keychain: binary value round-trips via 0x decode" || { echo "✗ secret/keychain: binary got $GOT want $WANT"; FAIL=1; }
+# index-deletion failure warns but never fails the removal
+printf 'x' | run_secret_kc set linger.token 2>/dev/null
+chmod 500 "$SEC_HOME/.config/rig-lite"   # BSD sed -i renames via the DIR — block it there
+DELOUT="$(run_secret_kc rm linger.token 2>&1)"; RC=$?
+t "secret: unwritable index does not fail a real removal → 0" 0 $RC
+printf '%s' "$DELOUT" | grep -q "names index unwritable" && printf '%s' "$DELOUT" | grep -q "removed: linger.token"   && echo "✓ secret: index-del failure warns without inverting the removal" || { echo "✗ secret: removal outcome corrupted: $DELOUT"; FAIL=1; }
+chmod 700 "$SEC_HOME/.config/rig-lite"
 rm -f "$BIN/security"
 
 # ── secret.sh: libsecret backend via a fake secret-tool ────────────────────
@@ -887,17 +930,7 @@ printf '%s' "$LSRM" | grep -q "nothing removed" && echo "✓ secret/libsecret: n
 rm -f "$BIN/secret-tool"
 
 # ── secret.sh: index bookkeeping must never invert a real store ────────────
-cat > "$BIN/security" <<'SECEOF2'
-#!/usr/bin/env bash
-DIR="${FAKE_KC_DIR:?}"
-case "$1" in
-  add-generic-password)  n=""; v=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; -w) v="$2";; esac; shift; done; mkdir -p "$DIR"; printf '%s' "$v" > "$DIR/$n" ;;
-  find-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; [ -f "$DIR/$n" ] && cat "$DIR/$n" ;;
-  delete-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; [ -f "$DIR/$n" ] && rm -f "$DIR/$n" || exit 1 ;;
-  *) exit 1 ;;
-esac
-SECEOF2
-chmod +x "$BIN/security"
+mk_fake_security
 # unwritable config root + absent index: the keychain store SUCCEEDS, the
 # index can't be created, the warning fires, and the exit stays 0
 rm -f "$SEC_HOME/.config/rig-lite/secret-names.txt"
