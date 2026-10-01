@@ -68,43 +68,65 @@ _warn_file() {
 }
 
 _age_ensure() {
-  [ -f "$AGE_KEY" ] && return 0
-  mkdir -p "$CFG" "$AGE_DIR" && chmod 700 "$CFG" "$AGE_DIR" 2>/dev/null
-  age-keygen -o "$AGE_KEY" 2>/dev/null && chmod 600 "$AGE_KEY"
-  age-keygen -y "$AGE_KEY" > "$AGE_PUB" 2>/dev/null
+  # both key AND pub must exist; a missing pub with an intact key is
+  # regenerated, never short-circuited (a missing recipient would truncate
+  # the store target to zero bytes via the output redirect)
+  if [ ! -f "$AGE_KEY" ]; then
+    mkdir -p "$CFG" "$AGE_DIR" && chmod 700 "$CFG" "$AGE_DIR" 2>/dev/null
+    age-keygen -o "$AGE_KEY" 2>/dev/null && chmod 600 "$AGE_KEY" || return 1
+  fi
+  if [ ! -s "$AGE_PUB" ]; then
+    age-keygen -y "$AGE_KEY" > "$AGE_PUB" 2>/dev/null
+  fi
   [ -s "$AGE_PUB" ]
 }
 
-_index_add() { touch "$INDEX"; chmod 600 "$INDEX"; grep -qxF "$1" "$INDEX" || printf '%s\n' "$1" >> "$INDEX"; }
+_index_add() { mkdir -p "$CFG" 2>/dev/null; touch "$INDEX"; chmod 600 "$INDEX"; grep -qxF "$1" "$INDEX" || printf '%s\n' "$1" >> "$INDEX"; }
 _index_del() { [ -f "$INDEX" ] && sed -i.bak "\|^$1$|d" "$INDEX" && rm -f "$INDEX.bak"; return 0; }
 
+# names feed sed addresses — validate at the FUNCTION boundary too, not just
+# the CLI: the sourceable helpers bypass the dispatcher
+_name_ok() { valid_name "$1" || { echo "secret: name must match $NAME_RE (got: '$1')" >&2; return 2; }; }
+# the dot in a legal name is a regex wildcard in sed — escape it per use
+_sed_name() { printf '%s' "$1" | sed 's/\./\\./g'; }
+
 _set() { # NAME VALUE
+  _name_ok "$1" || return 2
+  local sn; sn="$(_sed_name "$1")"
   case "$(_backend)" in
     keychain)  security add-generic-password -U -s "$SVC" -a "$1" -w "$2" && _index_add "$1" ;;
     libsecret) printf '%s' "$2" | secret-tool store --label="rig-lite $1" service "$SVC" name "$1" && _index_add "$1" ;;
     age)       _age_ensure || { echo "age key setup failed" >&2; return 1; }
-               printf '%s' "$2" | age -r "$(cat "$AGE_PUB")" > "$AGE_DIR/$1.age" ;;
+               printf '%s' "$2" | age -r "$(cat "$AGE_PUB")" > "$AGE_DIR/$1.age.tmp" \
+                 && mv -f "$AGE_DIR/$1.age.tmp" "$AGE_DIR/$1.age" || { rm -f "$AGE_DIR/$1.age.tmp"; return 1; } ;;
     file)      _warn_file; mkdir -p "$CFG"; touch "$FILE_STORE"; chmod 600 "$FILE_STORE"
-               sed -i.bak "\|^$1=|d" "$FILE_STORE" && rm -f "$FILE_STORE.bak"
-               printf '%s=%s\n' "$1" "$2" >> "$FILE_STORE" ;;
+               sed -i.bak "\|^${sn}=|d" "$FILE_STORE" && rm -f "$FILE_STORE.bak" \
+                 && printf '%s=%s\n' "$1" "$2" >> "$FILE_STORE" ;;
+    *)         echo "secret: backend detection failed — nothing stored" >&2; return 1 ;;
   esac
 }
 
 _get() { # NAME
+  _name_ok "$1" || return 2
+  local sn; sn="$(_sed_name "$1")"
   case "$(_backend)" in
     keychain)  security find-generic-password -s "$SVC" -a "$1" -w 2>/dev/null ;;
     libsecret) secret-tool lookup service "$SVC" name "$1" 2>/dev/null ;;
     age)       [ -f "$AGE_DIR/$1.age" ] && age -d -i "$AGE_KEY" "$AGE_DIR/$1.age" 2>/dev/null ;;
-    file)      sed -n "s|^$1=||p" "$FILE_STORE" 2>/dev/null | head -1 ;;
+    file)      sed -n "s|^${sn}=||p" "$FILE_STORE" 2>/dev/null | head -1 ;;
+    *)         echo "secret: backend detection failed" >&2; return 1 ;;
   esac
 }
 
 _rm() { # NAME
+  _name_ok "$1" || return 2
+  local sn; sn="$(_sed_name "$1")"
   case "$(_backend)" in
     keychain)  security delete-generic-password -s "$SVC" -a "$1" >/dev/null 2>&1; _index_del "$1" ;;
     libsecret) secret-tool clear service "$SVC" name "$1" 2>/dev/null; _index_del "$1" ;;
     age)       rm -f "$AGE_DIR/$1.age" ;;
-    file)      sed -i.bak "\|^$1=|d" "$FILE_STORE" 2>/dev/null && rm -f "$FILE_STORE.bak" ;;
+    file)      sed -i.bak "\|^${sn}=|d" "$FILE_STORE" 2>/dev/null && rm -f "$FILE_STORE.bak" ;;
+    *)         echo "secret: backend detection failed" >&2; return 1 ;;
   esac
 }
 
@@ -113,6 +135,7 @@ _list() {
     keychain|libsecret) [ -f "$INDEX" ] && cat "$INDEX" ;;
     age)       [ -d "$AGE_DIR" ] && ls "$AGE_DIR" 2>/dev/null | sed 's/\.age$//' ;;
     file)      [ -f "$FILE_STORE" ] && sed 's/=.*//' "$FILE_STORE" ;;
+    *)         echo "secret: backend detection failed" >&2; return 1 ;;
   esac
 }
 

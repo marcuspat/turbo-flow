@@ -771,6 +771,111 @@ env RIG_LITE_SECRET_BACKEND=bogus RIG_LITE_SECRET_HOME="$SEC_HOME" bash "$KIT/se
 # sourceable: sourcing must NOT run the CLI dispatcher with the parent's $1
 SRCOUT="$(bash -c 'source "$1" "$0" 2>/dev/null; echo "sourced-ok"' _ "$KIT/secret.sh" 2>&1)"
 [[ "$SRCOUT" == "sourced-ok" ]] && echo "✓ secret: sourcing stays quiet (no dispatcher, no CLI noise)" || { echo "✗ secret: sourcing ran the CLI: $SRCOUT"; FAIL=1; }
+# the sourceable HELPERS validate names too (they bypass the dispatcher)
+SRCRC="$(bash -c 'source "$1" 2>/dev/null; kit_secret_set "bad|name" v >/dev/null 2>&1; echo $?' _ "$KIT/secret.sh")"
+[[ "$SRCRC" == "2" ]] && echo "✓ secret: sourceable helper enforces the name charset" || { echo "✗ secret: helper accepted a bad name (rc=$SRCRC)"; FAIL=1; }
+# set with a bogus backend override must FAIL LOUDLY, not print fake success
+SBOUT="$(printf 'v1' | env RIG_LITE_SECRET_BACKEND=bogus RIG_LITE_SECRET_HOME="$SEC_HOME" bash "$KIT/secret.sh" set x 2>&1)"; RC=$?
+t "secret: unmatched backend → set exits 1" 1 $RC
+printf '%s' "$SBOUT" | grep -q "nothing stored" && echo "✓ secret: unmatched backend refuses loudly on set" || { echo "✗ secret: silent no-op store: $SBOUT"; FAIL=1; }
+# regex-aliasing regression: api.key must not match apiXkey
+printf 'apiXkey=other' >> "$SEC_HOME/.config/rig-lite/secrets.env"
+OUT="$(run_secret get api.key)"
+[[ -z "$OUT" ]] && echo "✓ secret: dot in names is literal (no wildcard aliasing)" || { echo "✗ secret: aliased to '$OUT'"; FAIL=1; }
+sed -i.bak '/^apiXkey=/d' "$SEC_HOME/.config/rig-lite/secrets.env" && rm -f "$SEC_HOME/.config/rig-lite/secrets.env.bak"
+
+# ── secret.sh: age backend via fake age/age-keygen CLIs ────────────────────
+cat > "$BIN/age" <<'AGEEOF'
+#!/usr/bin/env bash
+# fake age: -r RECIPIENT encrypts stdin (prefix lines); -d -i KEY FILE decrypts the FILE
+case " $* " in
+  *" -r "*) sed 's/^/ENC:/' ;;
+  *" -d "*) f=""; for a in "$@"; do f="$a"; done; sed 's/^ENC://' "$f" ;;
+  *) exit 1 ;;
+esac
+AGEEOF
+cat > "$BIN/age-keygen" <<'KGEOF'
+#!/usr/bin/env bash
+# fake age-keygen: -o OUT writes a key; -y KEY prints a pub
+case " $* " in
+  *" -o "*) out=""; while [ $# -gt 0 ]; do [ "$1" = "-o" ] && out="$2"; shift; done; printf 'AGE-SECRET-KEY-FAKE\n' > "$out" ;;
+  *" -y "*)  printf 'age1fakepub\n' ;;
+  *) exit 1 ;;
+esac
+KGEOF
+chmod +x "$BIN/age" "$BIN/age-keygen"
+run_secret_age() { env PATH="$BIN:$TBIN:/usr/bin:/bin" RIG_LITE_SECRET_BACKEND=age RIG_LITE_SECRET_HOME="$SEC_HOME" bash "$KIT/secret.sh" "$@"; }
+printf 'age-secret-value' | run_secret_age set dep.token 2>/dev/null;     t "secret/age: set → 0" 0 $?
+OUT="$(run_secret_age get dep.token)"; RC=$?
+t "secret/age: get → 0" 0 $RC
+[[ "$OUT" == "age-secret-value" ]] && echo "✓ secret/age: round-trip exact" || { echo "✗ secret/age: got '$OUT'"; FAIL=1; }
+[[ -f "$SEC_HOME/.config/rig-lite/secrets.d/dep.token.age" ]] && echo "✓ secret/age: stored under secrets.d" || { echo "✗ secret/age: store file missing"; FAIL=1; }
+grep -q '^ENC:' "$SEC_HOME/.config/rig-lite/secrets.d/dep.token.age" && echo "✓ secret/age: value encrypted at rest (fake marker)" || { echo "✗ secret/age: plaintext at rest"; FAIL=1; }
+PERM="$(stat -f %Lp "$SEC_HOME/.config/rig-lite/secret.key" 2>/dev/null || stat -c %a "$SEC_HOME/.config/rig-lite/secret.key" 2>/dev/null)"
+[[ "$PERM" == "600" ]] && echo "✓ secret/age: key file is chmod 600" || { echo "✗ secret/age: key perms $PERM"; FAIL=1; }
+run_secret_age list | grep -q '^dep.token$' && echo "✓ secret/age: list from the native store" || { echo "✗ secret/age: list wrong"; FAIL=1; }
+# pub regeneration: intact key + deleted pub must recover, not truncate
+rm -f "$SEC_HOME/.config/rig-lite/secret.pub"
+printf 'second-value' | run_secret_age set second.token 2>/dev/null;      t "secret/age: set with missing pub (regenerated) → 0" 0 $?
+[[ "$(run_secret_age get dep.token)" == "age-secret-value" ]] && echo "✓ secret/age: prior secret survived pub regeneration" || { echo "✗ secret/age: prior secret lost"; FAIL=1; }
+# a failing age must not leave a zero-byte secret behind (tmp+mv pattern)
+cat > "$BIN/age" <<'AGEEOF2'
+#!/usr/bin/env bash
+exit 1
+AGEEOF2
+chmod +x "$BIN/age"
+printf 'v' | run_secret_age set broken.token 2>/dev/null;                 t "secret/age: backend failure → nonzero" 1 $?
+[[ ! -e "$SEC_HOME/.config/rig-lite/secrets.d/broken.token.age" ]] && echo "✓ secret/age: no zero-byte secret after failure" || { echo "✗ secret/age: truncated store left behind"; FAIL=1; }
+rm -f "$BIN/age" "$BIN/age-keygen"
+
+# ── secret.sh: keychain backend via a fake security CLI ────────────────────
+cat > "$BIN/security" <<'SECEOF'
+#!/usr/bin/env bash
+# fake macOS security: generic-password CRUD against $FAKE_KC_DIR
+DIR="${FAKE_KC_DIR:?}"
+case "$1" in
+  add-generic-password)  n=""; v=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; -w) v="$2";; esac; shift; done; mkdir -p "$DIR"; printf '%s' "$v" > "$DIR/$n" ;;
+  find-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; [ -f "$DIR/$n" ] && cat "$DIR/$n" ;;
+  delete-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; rm -f "$DIR/$n" ;;
+  *) exit 1 ;;
+esac
+SECEOF
+chmod +x "$BIN/security"
+export FAKE_KC_DIR="$BINS/fake-keychain"; mkdir -p "$FAKE_KC_DIR"
+run_secret_kc() { env PATH="$BIN:$TBIN:/usr/bin:/bin" RIG_LITE_SECRET_BACKEND=keychain RIG_LITE_SECRET_HOME="$SEC_HOME" FAKE_KC_DIR="$FAKE_KC_DIR" bash "$KIT/secret.sh" "$@"; }
+KCOUT="$(printf 'kc-value' | run_secret_kc set kc.token 2>&1)"; RC=$?
+t "secret/keychain: set → 0 (fresh home, no silent index failure)" 0 $RC
+printf '%s' "$KCOUT" | grep -q 'stored: kc.token (backend: keychain)' && echo "✓ secret/keychain: success reported as success" || { echo "✗ secret/keychain: set message wrong: $KCOUT"; FAIL=1; }
+[[ -f "$SEC_HOME/.config/rig-lite/secret-names.txt" ]] && echo "✓ secret/keychain: names index created (mkdir regression)" || { echo "✗ secret/keychain: index write failed silently"; FAIL=1; }
+[[ "$(run_secret_kc get kc.token)" == "kc-value" ]] && echo "✓ secret/keychain: round-trip exact" || { echo "✗ secret/keychain: get wrong"; FAIL=1; }
+run_secret_kc list | grep -q '^kc.token$' && echo "✓ secret/keychain: list via the names index" || { echo "✗ secret/keychain: list wrong"; FAIL=1; }
+run_secret_kc rm kc.token 2>/dev/null;                                    t "secret/keychain: rm → 0" 0 $?
+[[ -z "$(run_secret_kc get kc.token)" ]] && echo "✓ secret/keychain: gone after rm" || { echo "✗ secret/keychain: residue"; FAIL=1; }
+rm -f "$BIN/security"
+
+# ── secret.sh: libsecret backend via a fake secret-tool ────────────────────
+cat > "$BIN/secret-tool" <<'STEOF'
+#!/usr/bin/env bash
+# fake secret-tool: store/lookup/clear against $FAKE_LS_DIR (name = last arg)
+DIR="${FAKE_LS_DIR:?}"
+name="$1"; shift
+n=""
+while [ $# -gt 0 ]; do [ "$1" = "name" ] && n="$2"; shift; done
+case "$name" in
+  store)  mkdir -p "$DIR"; cat > "$DIR/$n" ;;
+  lookup) [ -f "$DIR/$n" ] && cat "$DIR/$n" ;;
+  clear)  rm -f "$DIR/$n" ;;
+  *) exit 1 ;;
+esac
+STEOF
+chmod +x "$BIN/secret-tool"
+export FAKE_LS_DIR="$BINS/fake-libsecret"; mkdir -p "$FAKE_LS_DIR"
+run_secret_ls() { env PATH="$BIN:$TBIN:/usr/bin:/bin" RIG_LITE_SECRET_BACKEND=libsecret RIG_LITE_SECRET_HOME="$SEC_HOME" FAKE_LS_DIR="$FAKE_LS_DIR" bash "$KIT/secret.sh" "$@"; }
+printf 'ls-value' | run_secret_ls set ls.token 2>/dev/null;               t "secret/libsecret: set → 0" 0 $?
+[[ "$(run_secret_ls get ls.token)" == "ls-value" ]] && echo "✓ secret/libsecret: round-trip exact" || { echo "✗ secret/libsecret: get wrong"; FAIL=1; }
+run_secret_ls list | grep -q '^ls.token$' && echo "✓ secret/libsecret: list via the names index" || { echo "✗ secret/libsecret: list wrong"; FAIL=1; }
+run_secret_ls rm ls.token 2>/dev/null;                                    t "secret/libsecret: rm → 0" 0 $?
+rm -f "$BIN/secret-tool"
 
 # ── hooks/pre-commit: warn-only deletion guard, installed by init-repo ─────
 # fixture pins core.hooksPath to the repo's own dir so a GLOBAL hooksPath
