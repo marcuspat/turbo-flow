@@ -99,9 +99,13 @@ _index_del() { # $1 = sed-escaped name; bookkeeping — warn, never fail the rem
 # keychain values never touch argv (ps-visible): they travel via `security -i`
 # stdin, hex-encoded (od is POSIX; the decode is pure bash \xHH)
 _kc_hex() { printf '%s' "$1" | od -An -tx1 | tr -d ' \n'; }
-_kc_unhex() { # stdout: bytes for a 0xHEX string; passthrough when not 0x-prefixed
+_kc_unhex() { # stdout: bytes for a strict 0xHEX string; verbatim otherwise.
+  # The format string below is built ONLY from validated hex pairs — the
+  # regex + even-length guard make any other byte (including %) impossible.
   local h="$1" i out=""
-  [[ "$h" == 0x* ]] || { printf '%s\n' "$h"; return 0; }
+  if [[ ! "$h" =~ ^0x[0-9A-Fa-f]+$ ]] || (( (${#h} - 2) % 2 != 0 )); then
+    printf '%s\n' "$h"; return 0
+  fi
   h="${h#0x}"
   for ((i=0; i<${#h}; i+=2)); do out+="\\x${h:i:2}"; done
   printf "$out"
@@ -115,8 +119,9 @@ _sed_name() { printf '%s' "$1" | sed 's/\./\\./g'; }
 
 _set() { # NAME VALUE
   _name_ok "$1" || return 2
-  local sn; sn="$(_sed_name "$1")"
-  case "$(_backend)" in
+  local sn be tmp; sn="$(_sed_name "$1")"
+  be="$(_backend)" || { echo "secret: backend detection failed — nothing stored" >&2; return 1; }
+  case "$be" in
     keychain)
       # value hex-encoded on the `security -i` stdin pipe — NEVER in argv
       printf 'add-generic-password -U -s %s -a %s -w 0x%s\n' "$SVC" "$1" "$(_kc_hex "$2")" \
@@ -125,17 +130,25 @@ _set() { # NAME VALUE
     age)       _age_ensure || { echo "age key setup failed" >&2; return 1; }
                printf '%s' "$2" | age -r "$(cat "$AGE_PUB")" > "$AGE_DIR/$1.age.tmp" \
                  && mv -f "$AGE_DIR/$1.age.tmp" "$AGE_DIR/$1.age" || { rm -f "$AGE_DIR/$1.age.tmp"; return 1; } ;;
-    file)      _warn_file; mkdir -p "$CFG"; touch "$FILE_STORE"; chmod 600 "$FILE_STORE"
-               sed -i.bak "\|^${sn}=|d" "$FILE_STORE" && rm -f "$FILE_STORE.bak" \
-                 && printf '%s=%s\n' "$1" "$2" >> "$FILE_STORE" ;;
+    file)
+      # plaintext fallback gets the SAME atomicity discipline as age:
+      # build the new store aside, secure it, then a single mv; a failed
+      # chmod aborts the write (never plaintext to a world-readable file)
+      _warn_file; mkdir -p "$CFG"; touch "$FILE_STORE" 2>/dev/null
+      chmod 600 "$FILE_STORE" || { echo "secret: cannot secure $FILE_STORE (chmod failed) — refusing to write plaintext" >&2; return 1; }
+      tmp="$FILE_STORE.tmp.$$"
+      { grep -v "^${sn}=" "$FILE_STORE" 2>/dev/null; printf '%s=%s\n' "$1" "$2"; } > "$tmp" \
+        && chmod 600 "$tmp" && mv -f "$tmp" "$FILE_STORE" \
+        || { rm -f "$tmp"; echo "secret: store write failed (permissions? disk full?) — value NOT stored" >&2; return 1; } ;;
     *)         echo "secret: backend detection failed — nothing stored" >&2; return 1 ;;
   esac
 }
 
 _get() { # NAME
   _name_ok "$1" || return 2
-  local sn; sn="$(_sed_name "$1")"
-  case "$(_backend)" in
+  local sn be; sn="$(_sed_name "$1")"
+  be="$(_backend)" || return 1
+  case "$be" in
     keychain)
       local kv; kv="$(security find-generic-password -s "$SVC" -a "$1" -w 2>/dev/null)" || return 1
       _kc_unhex "$kv" ;;
@@ -149,8 +162,9 @@ _get() { # NAME
 
 _rm() { # NAME — removing something that was never stored reports failure, not "removed"
   _name_ok "$1" || return 2
-  local sn; sn="$(_sed_name "$1")"
-  case "$(_backend)" in
+  local sn be; sn="$(_sed_name "$1")"
+  be="$(_backend)" || return 1
+  case "$be" in
     keychain)
       security delete-generic-password -s "$SVC" -a "$1" >/dev/null 2>&1 \
         || { echo "secret: '$1' not found in the keychain — nothing removed" >&2; return 1; }
@@ -173,7 +187,8 @@ _rm() { # NAME — removing something that was never stored reports failure, not
 }
 
 _list() {
-  case "$(_backend)" in
+  local be; be="$(_backend)" || return 1
+  case "$be" in
     keychain|libsecret) [ -f "$INDEX" ] && cat "$INDEX" ;;
     age)       [ -d "$AGE_DIR" ] && ls "$AGE_DIR" 2>/dev/null | sed 's/\.age$//' ;;
     file)      [ -f "$FILE_STORE" ] && sed 's/=.*//' "$FILE_STORE" ;;

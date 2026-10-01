@@ -760,6 +760,12 @@ run_secret rm api.key 2>/dev/null;                               t "secret: rm �
 OUT="$(run_secret get api.key)"; RC=$?
 [[ -z "$OUT" ]] && echo "✓ secret: get after rm is empty" || { echo "✗ secret: rm left a residue"; FAIL=1; }
 t "secret: get of a missing name → 1 (consistent across backends)" 1 $RC
+chmod 500 "$SEC_HOME/.config/rig-lite"
+REFOUT="$(printf 'nope' | run_secret set refuse.key 2>&1)"; RC=$?
+t "secret: unwritable store dir → set fails" 1 $RC
+printf '%s' "$REFOUT" | grep -qi "refus\|fail" && echo "✓ secret: refusal says why" || { echo "✗ secret: refusal silent: $REFOUT"; FAIL=1; }
+[[ "$(run_secret get refuse.key 2>/dev/null)" != "nope" ]] && echo "✓ secret: refused write left nothing behind" || { echo "✗ secret: wrote despite refusal"; FAIL=1; }
+chmod 700 "$SEC_HOME/.config/rig-lite"
 run_secret set 'bad|name' </dev/null 2>/dev/null;                t "secret: sed-hostile name → 2" 2 $?
 run_secret get '../evil' >/dev/null 2>&1;                        t "secret: traversal name → 2" 2 $?
 printf '' | run_secret set empty.val 2>/dev/null;                t "secret: empty value → 1" 1 $?
@@ -856,7 +862,8 @@ case "$1" in
   add-generic-password)  n=""; v=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; -w) v="$2";; esac; shift; done; mkdir -p "$DIR"; printf '%s' "$v" > "$DIR/$n" ;;
   find-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done
        if [ -f "$DIR/$n" ]; then
-         if python3 -c 'import sys; sys.exit(0 if open(sys.argv[1],"rb").read().isprintable() or b"\n" in open(sys.argv[1],"rb").read() else 1)' "$DIR/$n" 2>/dev/null; then
+         # printable → verbatim (models a value stored by any tool); else 0xHEX
+         if python3 -c 'import sys; sys.exit(0 if open(sys.argv[1],"rb").read().decode("utf-8","strict").isprintable() else 1)' "$DIR/$n" 2>/dev/null; then
            cat "$DIR/$n"
          else
            python3 -c 'import sys; d=open(sys.argv[1],"rb").read(); print("0x"+d.hex())' "$DIR/$n"
@@ -893,6 +900,10 @@ printf '\377\376bin' | run_secret_kc set bin.token 2>/dev/null
 GOT="$(run_secret_kc get bin.token | od -An -tx1 | tr -d ' \n')"
 WANT="$(printf '\377\376bin' | od -An -tx1 | tr -d ' \n')"
 [[ "$GOT" == "$WANT" ]] && echo "✓ secret/keychain: binary value round-trips via 0x decode" || { echo "✗ secret/keychain: binary got $GOT want $WANT"; FAIL=1; }
+# passthrough branch: a raw printable value stored outside the kit reads back
+# verbatim (real keychain items written by other tools)
+printf 'plain-external-value' > "$FAKE_KC_DIR/external.token"
+[[ "$(run_secret_kc get external.token)" == "plain-external-value" ]] && echo "✓ secret/keychain: external printable value passes through verbatim" || { echo "✗ secret/keychain: passthrough mangled an external value"; FAIL=1; }
 # index-deletion failure warns but never fails the removal
 printf 'x' | run_secret_kc set linger.token 2>/dev/null
 chmod 500 "$SEC_HOME/.config/rig-lite"   # BSD sed -i renames via the DIR — block it there
