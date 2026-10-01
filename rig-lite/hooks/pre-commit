@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # git-deletion-guard — make staged deletions loud instead of silent.
 # WARN-ONLY and fail-open: never blocks a commit; a two-second pause before
-# `git add -A` eats a file is cheaper than a restore-from-refactor.
-names=$(git diff --cached --name-only --diff-filter=D 2>/dev/null)
-if [ -n "$names" ]; then
-  echo "⚠️  RIG-LITE GUARD — staged DELETIONS:" >&2
-  printf '    D %s\n' $names >&2
-  echo "    intentional? commit again to proceed · accidental? git restore --staged <path>" >&2
-fi
+# `git add -A` eats a file is cheaper than a restore-from-reflog.
+# -z + quoted read: paths with spaces, globs, or newlines print exactly.
+while IFS= read -rd '' f; do
+  [ -n "$f" ] || continue
+  if [ -z "$seen" ]; then
+    echo "⚠️  RIG-LITE GUARD — staged DELETIONS:" >&2
+    seen=1
+  fi
+  printf '    D %s\n' "$f" >&2
+done < <(git diff --cached --name-only --diff-filter=D -z 2>/dev/null)
+[ -n "$seen" ] && echo "    intentional? commit again to proceed · accidental? git restore --staged <path>" >&2
 exit 0

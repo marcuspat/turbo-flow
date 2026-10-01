@@ -80,8 +80,10 @@ fi
 #    Deliberately NOT `git rev-parse --git-path hooks`: that honors a global
 #    core.hooksPath and would install into a foreign hooks dir — so we resolve
 #    the common dir ourselves and WARN when core.hooksPath redirects hooks.
+#    cwd IS the repo root here (cd'd above), so a relative common-dir anchors
+#    to it via pwd — immune to subdir invocation and toplevel/cwd skew.
 COMMON="$(git rev-parse --git-common-dir)"
-[[ "$COMMON" == /* ]] || COMMON="$(git rev-parse --show-toplevel)/$COMMON"
+[[ "$COMMON" == /* ]] || COMMON="$(pwd -P)/$COMMON"
 HOOKS_DIR="$COMMON/hooks"
 if [[ -f "$KIT/hooks/pre-commit" && ! -e "$HOOKS_DIR/pre-commit" ]]; then
   mkdir -p "$HOOKS_DIR"

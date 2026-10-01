@@ -354,6 +354,7 @@ grep -q "# local amendment" "$IFIX/rig-constitution.md" && echo "✓ init-repo: 
 mkdir -p "$WFIX/src"
 (cd "$WFIX/src" && "$INIT" SubProj) >/dev/null 2>&1;               t "init-repo: from a subdirectory → 0" 0 $?
 if [[ -f "$WFIX/AGENTS.md" && ! -f "$WFIX/src/AGENTS.md" ]]; then echo "✓ init-repo: subdirectory run writes at the repo root, not $PWD"; else echo "✗ init-repo: subdir run scattered files"; FAIL=1; fi
+[[ -x "$WFIX/.git/hooks/pre-commit" ]] && echo "✓ hook: subdir run still installs at the repo root's hooks dir" || { echo "✗ hook: subdir run misplaced the hook"; FAIL=1; }
 
 # a project name is argv: command substitution inside it must land as TEXT,
 # never execute (the AGENTS.md write goes through printf %s + quoted heredoc)
@@ -931,11 +932,13 @@ t "hook: init-repo installs despite a hooksPath redirect → 0" 0 $RC
 printf '%s' "$FIRSTRUN" | grep -q "core.hooksPath is configured" && echo "✓ hook: redirect noted loudly on first run" || { echo "✗ hook: first-run note missing: $FIRSTRUN"; FAIL=1; }
 git -C "$SHTMLFIX" config core.hooksPath .git/hooks   # activate repo-local hooks for the fire test
 printf 'keep me\n' > "$SHTMLFIX/file.txt" && git -C "$SHTMLFIX" add file.txt && git -C "$SHTMLFIX" commit -qm add
-rm "$SHTMLFIX/file.txt" && git -C "$SHTMLFIX" add -A
+printf 'with space\n' > "$SHTMLFIX/has space.txt" && git -C "$SHTMLFIX" add "has space.txt" && git -C "$SHTMLFIX" commit -qm add2
+rm "$SHTMLFIX/file.txt" "$SHTMLFIX/has space.txt" && git -C "$SHTMLFIX" add -A
 HOOKOUT="$(cd "$SHTMLFIX" && git commit -qm del 2>&1)"; RC=$?
 t "hook: commit with staged deletion still succeeds (warn-only)" 0 $RC
 printf '%s' "$HOOKOUT" | grep -q "RIG-LITE GUARD" && printf '%s' "$HOOKOUT" | grep -q "D file.txt" \
   && echo "✓ hook: warns loudly and names the file" || { echo "✗ hook: warning missing: $HOOKOUT"; FAIL=1; }
+printf '%s' "$HOOKOUT" | grep -q "D has space.txt" && echo "✓ hook: space-bearing path printed intact" || { echo "✗ hook: mangled the spaced path: $HOOKOUT"; FAIL=1; }
 printf '#!/bin/sh\n# sentinel\n' > "$SHTMLFIX/.git/hooks/pre-commit"
 # capture-then-grep: `cmd | grep -q` under pipefail races SIGPIPE when the
 # producer has more to say after the match (init-repo prints a NOTE + Done)
