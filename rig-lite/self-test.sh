@@ -354,6 +354,7 @@ grep -q "# local amendment" "$IFIX/rig-constitution.md" && echo "✓ init-repo: 
 mkdir -p "$WFIX/src"
 (cd "$WFIX/src" && "$INIT" SubProj) >/dev/null 2>&1;               t "init-repo: from a subdirectory → 0" 0 $?
 if [[ -f "$WFIX/AGENTS.md" && ! -f "$WFIX/src/AGENTS.md" ]]; then echo "✓ init-repo: subdirectory run writes at the repo root, not $PWD"; else echo "✗ init-repo: subdir run scattered files"; FAIL=1; fi
+[[ -x "$WFIX/.git/hooks/pre-commit" ]] && echo "✓ hook: subdir run still installs at the repo root's hooks dir" || { echo "✗ hook: subdir run misplaced the hook"; FAIL=1; }
 
 # a project name is argv: command substitution inside it must land as TEXT,
 # never execute (the AGENTS.md write goes through printf %s + quoted heredoc)
@@ -743,6 +744,264 @@ GLP="$BINS/gate-log-pr.jsonl"; : > "$GLP"
 mk_gh "7" 0
 env PATH="$TPATH" GHLOG="$GHLOG" GATE_LOG="$GLP" "$GATE" --pr 7 >/dev/null 2>&1
 grep -q '"target": "pr#7"' "$GLP" && echo "✓ gate-log: PR run keyed as pr#7 (digest-joinable)" || { echo "✗ gate-log: PR target wrong"; FAIL=1; }
+
+# ── secret.sh: hermetic file-backend round-trip + guards ───────────────────
+SEC_HOME="$BINS/secret-home"; mkdir -p "$SEC_HOME"
+run_secret() { env RIG_LITE_SECRET_BACKEND=file RIG_LITE_SECRET_HOME="$SEC_HOME" bash "$KIT/secret.sh" "$@"; }
+printf 's3cr3t-value' | run_secret set api.key 2>/dev/null;      t "secret: set via stdin → 0" 0 $?
+OUT="$(run_secret get api.key)"; RC=$?
+t "secret: get → 0" 0 $RC
+[[ "$OUT" == "s3cr3t-value" ]] && echo "✓ secret: round-trip exact" || { echo "✗ secret: got '$OUT'"; FAIL=1; }
+run_secret list | grep -q '^api.key$' && echo "✓ secret: list shows names only" || { echo "✗ secret: list wrong"; FAIL=1; }
+if run_secret list 2>/dev/null | grep -q 's3cr3t-value'; then echo "✗ secret: list leaked a value"; FAIL=1; else echo "✓ secret: list never prints values"; fi
+HELPSEC="$(bash "$KIT/secret.sh" 2>&1)"
+printf '%s' "$HELPSEC" | grep -q "RIG_LITE_SECRET_BACKEND" && printf '%s' "$HELPSEC" | grep -q "kit_secret_get"   && echo "✓ secret: --help carries the test knobs + sourceable note (drift guard)" || { echo "✗ secret: help output truncated"; FAIL=1; }
+run_secret rm api.key 2>/dev/null;                               t "secret: rm → 0" 0 $?
+OUT="$(run_secret get api.key)"; RC=$?
+[[ -z "$OUT" ]] && echo "✓ secret: get after rm is empty" || { echo "✗ secret: rm left a residue"; FAIL=1; }
+t "secret: get of a missing name → 1 (consistent across backends)" 1 $RC
+chmod 500 "$SEC_HOME/.config/rig-lite"
+REFOUT="$(printf 'nope' | run_secret set refuse.key 2>&1)"; RC=$?
+t "secret: unwritable store dir → set fails" 1 $RC
+printf '%s' "$REFOUT" | grep -qi "refus\|fail" && echo "✓ secret: refusal says why" || { echo "✗ secret: refusal silent: $REFOUT"; FAIL=1; }
+[[ "$(run_secret get refuse.key 2>/dev/null)" != "nope" ]] && echo "✓ secret: refused write left nothing behind" || { echo "✗ secret: wrote despite refusal"; FAIL=1; }
+chmod 700 "$SEC_HOME/.config/rig-lite"
+run_secret set 'bad|name' </dev/null 2>/dev/null;                t "secret: sed-hostile name → 2" 2 $?
+run_secret get '../evil' >/dev/null 2>&1;                        t "secret: traversal name → 2" 2 $?
+printf '' | run_secret set empty.val 2>/dev/null;                t "secret: empty value → 1" 1 $?
+printf 'line1\nline2' | run_secret set multi.val 2>/dev/null;    t "secret: multi-line value → 2" 2 $?
+printf 'v1' | run_secret set rotate.key 2>/dev/null; printf 'v2' | run_secret set rotate.key 2>/dev/null
+OUT="$(run_secret get rotate.key)"
+[[ "$OUT" == "v2" ]] && echo "✓ secret: re-set rotates, not duplicates" || { echo "✗ secret: rotation got '$OUT'"; FAIL=1; }
+run_secret list | grep -c '^rotate.key$' | grep -q '^1$' && echo "✓ secret: single index row after rotation" || { echo "✗ secret: duplicate index rows"; FAIL=1; }
+STORE="$SEC_HOME/.config/rig-lite/secrets.env"
+PERM="$(stat -f %Lp "$STORE" 2>/dev/null || stat -c %a "$STORE" 2>/dev/null)"
+[[ "$PERM" == "600" ]] && echo "✓ secret: file store is chmod 600" || { echo "✗ secret: store perms are $PERM"; FAIL=1; }
+[[ "$(run_secret backend)" == "file" ]] && echo "✓ secret: backend override honored" || { echo "✗ secret: override ignored"; FAIL=1; }
+env RIG_LITE_SECRET_BACKEND=bogus RIG_LITE_SECRET_HOME="$SEC_HOME" bash "$KIT/secret.sh" backend >/dev/null 2>&1; t "secret: unknown backend override → nonzero" 2 $?
+# sourceable: sourcing must NOT run the CLI dispatcher with the parent's $1
+SRCOUT="$(bash -c 'source "$1" "$0" 2>/dev/null; echo "sourced-ok"' _ "$KIT/secret.sh" 2>&1)"
+[[ "$SRCOUT" == "sourced-ok" ]] && echo "✓ secret: sourcing stays quiet (no dispatcher, no CLI noise)" || { echo "✗ secret: sourcing ran the CLI: $SRCOUT"; FAIL=1; }
+# the sourceable HELPERS validate names too (they bypass the dispatcher)
+SRCRC="$(bash -c 'source "$1" 2>/dev/null; kit_secret_set "bad|name" v >/dev/null 2>&1; echo $?' _ "$KIT/secret.sh")"
+[[ "$SRCRC" == "2" ]] && echo "✓ secret: sourceable helper enforces the name charset" || { echo "✗ secret: helper accepted a bad name (rc=$SRCRC)"; FAIL=1; }
+# set with a bogus backend override must FAIL LOUDLY, not print fake success
+SBOUT="$(printf 'v1' | env RIG_LITE_SECRET_BACKEND=bogus RIG_LITE_SECRET_HOME="$SEC_HOME" bash "$KIT/secret.sh" set x 2>&1)"; RC=$?
+t "secret: unmatched backend → set exits 1" 1 $RC
+printf '%s' "$SBOUT" | grep -q "nothing stored" && echo "✓ secret: unmatched backend refuses loudly on set" || { echo "✗ secret: silent no-op store: $SBOUT"; FAIL=1; }
+# regex-aliasing regression: api.key must not match apiXkey
+printf 'apiXkey=other' >> "$SEC_HOME/.config/rig-lite/secrets.env"
+OUT="$(run_secret get api.key)"
+[[ -z "$OUT" ]] && echo "✓ secret: dot in names is literal (no wildcard aliasing)" || { echo "✗ secret: aliased to '$OUT'"; FAIL=1; }
+sed -i.bak '/^apiXkey=/d' "$SEC_HOME/.config/rig-lite/secrets.env" && rm -f "$SEC_HOME/.config/rig-lite/secrets.env.bak"
+
+# ── secret.sh: age backend via fake age/age-keygen CLIs ────────────────────
+cat > "$BIN/age" <<'AGEEOF'
+#!/usr/bin/env bash
+# fake age: -r RECIPIENT encrypts stdin (prefix lines); -d -i KEY FILE decrypts the FILE
+case " $* " in
+  *" -r "*) sed 's/^/ENC:/' ;;
+  *" -d "*) f=""; for a in "$@"; do f="$a"; done; sed 's/^ENC://' "$f" ;;
+  *) exit 1 ;;
+esac
+AGEEOF
+cat > "$BIN/age-keygen" <<'KGEOF'
+#!/usr/bin/env bash
+# fake age-keygen: -o OUT writes a key; -y KEY prints a pub
+case " $* " in
+  *" -o "*) out=""; while [ $# -gt 0 ]; do [ "$1" = "-o" ] && out="$2"; shift; done; printf 'AGE-SECRET-KEY-FAKE\n' > "$out" ;;
+  *" -y "*)  printf 'age1fakepub\n' ;;
+  *) exit 1 ;;
+esac
+KGEOF
+chmod +x "$BIN/age" "$BIN/age-keygen"
+run_secret_age() { env PATH="$BIN:$TBIN:/usr/bin:/bin" RIG_LITE_SECRET_BACKEND=age RIG_LITE_SECRET_HOME="$SEC_HOME" bash "$KIT/secret.sh" "$@"; }
+printf 'age-secret-value' | run_secret_age set dep.token 2>/dev/null;     t "secret/age: set → 0" 0 $?
+OUT="$(run_secret_age get dep.token)"; RC=$?
+t "secret/age: get → 0" 0 $RC
+[[ "$OUT" == "age-secret-value" ]] && echo "✓ secret/age: round-trip exact" || { echo "✗ secret/age: got '$OUT'"; FAIL=1; }
+[[ -f "$SEC_HOME/.config/rig-lite/secrets.d/dep.token.age" ]] && echo "✓ secret/age: stored under secrets.d" || { echo "✗ secret/age: store file missing"; FAIL=1; }
+grep -q '^ENC:' "$SEC_HOME/.config/rig-lite/secrets.d/dep.token.age" && echo "✓ secret/age: value encrypted at rest (fake marker)" || { echo "✗ secret/age: plaintext at rest"; FAIL=1; }
+PERM="$(stat -f %Lp "$SEC_HOME/.config/rig-lite/secret.key" 2>/dev/null || stat -c %a "$SEC_HOME/.config/rig-lite/secret.key" 2>/dev/null)"
+[[ "$PERM" == "600" ]] && echo "✓ secret/age: key file is chmod 600" || { echo "✗ secret/age: key perms $PERM"; FAIL=1; }
+run_secret_age list | grep -q '^dep.token$' && echo "✓ secret/age: list from the native store" || { echo "✗ secret/age: list wrong"; FAIL=1; }
+# pub regeneration: intact key + deleted pub must recover, not truncate
+rm -f "$SEC_HOME/.config/rig-lite/secret.pub"
+printf 'second-value' | run_secret_age set second.token 2>/dev/null;      t "secret/age: set with missing pub (regenerated) → 0" 0 $?
+[[ "$(run_secret_age get dep.token)" == "age-secret-value" ]] && echo "✓ secret/age: prior secret survived pub regeneration" || { echo "✗ secret/age: prior secret lost"; FAIL=1; }
+# a failing age must not leave a zero-byte secret behind (tmp+mv pattern)
+cat > "$BIN/age" <<'AGEEOF2'
+#!/usr/bin/env bash
+exit 1
+AGEEOF2
+chmod +x "$BIN/age"
+printf 'v' | run_secret_age set broken.token 2>/dev/null;                 t "secret/age: backend failure → nonzero" 1 $?
+[[ ! -e "$SEC_HOME/.config/rig-lite/secrets.d/broken.token.age" ]] && echo "✓ secret/age: no zero-byte secret after failure" || { echo "✗ secret/age: truncated store left behind"; FAIL=1; }
+rm -f "$BIN/age" "$BIN/age-keygen"
+
+
+mk_fake_security() { # writes $BIN/security modeling real CLI shapes + `security -i`
+  cat > "$BIN/security" <<'FKSEC'
+#!/usr/bin/env bash
+DIR="${FAKE_KC_DIR:?}"
+printf '%s\n' "$*" >> "$DIR/argv.log"   # every invocation's argv, for the leak test
+hex2bin() { python3 -c 'import sys; sys.stdout.buffer.write(bytes.fromhex(sys.argv[1][2:]))' "$1"; }
+case "$1" in
+  -i)  # interactive command stream from STDIN: add-generic-password ... -w 0xHEX
+       IFS= read -r line
+       n=""; w=""
+       set -- $line
+       while [ $# -gt 0 ]; do
+         case "$1" in
+           -a) n="$2"; shift;;
+           -w) w="$2"; shift;;
+           *) shift;;
+         esac
+       done
+       mkdir -p "$DIR"; hex2bin "$w" > "$DIR/$n" ;;
+  add-generic-password)  n=""; v=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; -w) v="$2";; esac; shift; done; mkdir -p "$DIR"; printf '%s' "$v" > "$DIR/$n" ;;
+  find-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done
+       if [ -f "$DIR/$n" ]; then
+         # printable → verbatim (models a value stored by any tool); else 0xHEX
+         if python3 -c 'import sys; sys.exit(0 if open(sys.argv[1],"rb").read().decode("utf-8","strict").isprintable() else 1)' "$DIR/$n" 2>/dev/null; then
+           cat "$DIR/$n"
+         else
+           python3 -c 'import sys; d=open(sys.argv[1],"rb").read(); print("0x"+d.hex())' "$DIR/$n"
+         fi
+       else exit 1; fi ;;
+  delete-generic-password) n=""; while [ $# -gt 0 ]; do case "$1" in -a) n="$2";; esac; shift; done; [ -f "$DIR/$n" ] && rm -f "$DIR/$n" || exit 1 ;;
+  *) exit 1 ;;
+esac
+FKSEC
+  chmod +x "$BIN/security"
+}
+
+# ── secret.sh: keychain backend via a fake security CLI ────────────────────
+mk_fake_security
+export FAKE_KC_DIR="$BINS/fake-keychain"; mkdir -p "$FAKE_KC_DIR"
+run_secret_kc() { env PATH="$BIN:$TBIN:/usr/bin:/bin" RIG_LITE_SECRET_BACKEND=keychain RIG_LITE_SECRET_HOME="$SEC_HOME" FAKE_KC_DIR="$FAKE_KC_DIR" bash "$KIT/secret.sh" "$@"; }
+KCOUT="$(printf 'kc-value' | run_secret_kc set kc.token 2>&1)"; RC=$?
+t "secret/keychain: set → 0 (fresh home, no silent index failure)" 0 $RC
+printf '%s' "$KCOUT" | grep -q 'stored: kc.token (backend: keychain)' && echo "✓ secret/keychain: success reported as success" || { echo "✗ secret/keychain: set message wrong: $KCOUT"; FAIL=1; }
+[[ -f "$SEC_HOME/.config/rig-lite/secret-names.txt" ]] && echo "✓ secret/keychain: names index created (mkdir regression)" || { echo "✗ secret/keychain: index write failed silently"; FAIL=1; }
+[[ "$(run_secret_kc get kc.token)" == "kc-value" ]] && echo "✓ secret/keychain: round-trip exact" || { echo "✗ secret/keychain: get wrong"; FAIL=1; }
+run_secret_kc list | grep -q '^kc.token$' && echo "✓ secret/keychain: list via the names index" || { echo "✗ secret/keychain: list wrong"; FAIL=1; }
+run_secret_kc rm kc.token 2>/dev/null;                                    t "secret/keychain: rm → 0" 0 $?
+run_secret_kc get kc.token >/dev/null 2>&1;                               t "secret/keychain: get of a missing name → 1" 1 $?
+run_secret_age get gone.token >/dev/null 2>&1;                             t "secret/age: get of a missing name → 1" 1 $?
+# argv hygiene: the VALUE must never appear in any security invocation's argv
+# (it travels hex-encoded on the `security -i` stdin pipe — ps-safe)
+printf 'hunter2-ps-visible' | run_secret_kc set argv.token 2>/dev/null
+if grep -q 'hunter2-ps-visible' "$FAKE_KC_DIR/argv.log"; then echo "✗ secret/keychain: value leaked into argv"; FAIL=1
+else echo "✓ secret/keychain: value never appears in any security argv (ps-safe)"; fi
+[[ "$(run_secret_kc get argv.token)" == "hunter2-ps-visible" ]] && echo "✓ secret/keychain: hex-pipe round-trip exact" || { echo "✗ secret/keychain: hex round-trip broke"; FAIL=1; }
+# binary value exercises the 0x-decode path on read
+printf '\377\376bin' | run_secret_kc set bin.token 2>/dev/null
+GOT="$(run_secret_kc get bin.token | od -An -tx1 | tr -d ' \n')"
+WANT="$(printf '\377\376bin' | od -An -tx1 | tr -d ' \n')"
+[[ "$GOT" == "$WANT" ]] && echo "✓ secret/keychain: binary value round-trips via 0x decode" || { echo "✗ secret/keychain: binary got $GOT want $WANT"; FAIL=1; }
+# passthrough branch: a raw printable value stored outside the kit reads back
+# verbatim (real keychain items written by other tools)
+printf 'plain-external-value' > "$FAKE_KC_DIR/external.token"
+[[ "$(run_secret_kc get external.token)" == "plain-external-value" ]] && echo "✓ secret/keychain: external printable value passes through verbatim" || { echo "✗ secret/keychain: passthrough mangled an external value"; FAIL=1; }
+# index-deletion failure warns but never fails the removal
+printf 'x' | run_secret_kc set linger.token 2>/dev/null
+chmod 500 "$SEC_HOME/.config/rig-lite"   # BSD sed -i renames via the DIR — block it there
+DELOUT="$(run_secret_kc rm linger.token 2>&1)"; RC=$?
+t "secret: unwritable index does not fail a real removal → 0" 0 $RC
+printf '%s' "$DELOUT" | grep -q "names index unwritable" && printf '%s' "$DELOUT" | grep -q "removed: linger.token"   && echo "✓ secret: index-del failure warns without inverting the removal" || { echo "✗ secret: removal outcome corrupted: $DELOUT"; FAIL=1; }
+chmod 700 "$SEC_HOME/.config/rig-lite"
+rm -f "$BIN/security"
+
+# ── secret.sh: libsecret backend via a fake secret-tool ────────────────────
+cat > "$BIN/secret-tool" <<'STEOF'
+#!/usr/bin/env bash
+# fake secret-tool: store/lookup/clear against $FAKE_LS_DIR (name = last arg)
+DIR="${FAKE_LS_DIR:?}"
+name="$1"; shift
+n=""
+while [ $# -gt 0 ]; do [ "$1" = "name" ] && n="$2"; shift; done
+case "$name" in
+  store)  mkdir -p "$DIR"; cat > "$DIR/$n" ;;
+  lookup) [ -f "$DIR/$n" ] && cat "$DIR/$n" ;;
+  clear)  [ -f "$DIR/$n" ] && rm -f "$DIR/$n" || exit 1 ;;
+  *) exit 1 ;;
+esac
+STEOF
+chmod +x "$BIN/secret-tool"
+export FAKE_LS_DIR="$BINS/fake-libsecret"; mkdir -p "$FAKE_LS_DIR"
+run_secret_ls() { env PATH="$BIN:$TBIN:/usr/bin:/bin" RIG_LITE_SECRET_BACKEND=libsecret RIG_LITE_SECRET_HOME="$SEC_HOME" FAKE_LS_DIR="$FAKE_LS_DIR" bash "$KIT/secret.sh" "$@"; }
+printf 'ls-value' | run_secret_ls set ls.token 2>/dev/null;               t "secret/libsecret: set → 0" 0 $?
+[[ "$(run_secret_ls get ls.token)" == "ls-value" ]] && echo "✓ secret/libsecret: round-trip exact" || { echo "✗ secret/libsecret: get wrong"; FAIL=1; }
+run_secret_ls list | grep -q '^ls.token$' && echo "✓ secret/libsecret: list via the names index" || { echo "✗ secret/libsecret: list wrong"; FAIL=1; }
+run_secret_ls rm ls.token 2>/dev/null;                                    t "secret/libsecret: rm → 0" 0 $?
+LSRM="$(run_secret_ls rm never.stored 2>&1)"; RC=$?
+t "secret/libsecret: rm of a never-stored name → 1" 1 $RC
+printf '%s' "$LSRM" | grep -q "nothing removed" && echo "✓ secret/libsecret: no false 'removed'" || { echo "✗ secret/libsecret: lied: $LSRM"; FAIL=1; }
+rm -f "$BIN/secret-tool"
+
+# ── secret.sh: index bookkeeping must never invert a real store ────────────
+mk_fake_security
+# unwritable config root + absent index: the keychain store SUCCEEDS, the
+# index can't be created, the warning fires, and the exit stays 0
+rm -f "$SEC_HOME/.config/rig-lite/secret-names.txt"
+chmod 500 "$SEC_HOME/.config/rig-lite"
+IDXOUT="$(printf 'idx-value' | run_secret_kc set idx.token 2>&1)"; RC=$?
+t "secret: unwritable index does not fail a successful store → 0" 0 $RC
+printf '%s' "$IDXOUT" | grep -q "names index unwritable" && printf '%s' "$IDXOUT" | grep -q "stored: idx.token" \
+  && echo "✓ secret: index failure warns without inverting the result" || { echo "✗ secret: index failure corrupted the outcome: $IDXOUT"; FAIL=1; }
+[[ "$(run_secret_kc get idx.token)" == "idx-value" ]] && echo "✓ secret: the store itself held" || { echo "✗ secret: store lost"; FAIL=1; }
+chmod 700 "$SEC_HOME/.config/rig-lite"
+# _index_del aliasing: rm api.key must not delete apiXkey's index row
+printf 'x' | run_secret_kc set apiXkey 2>/dev/null; printf 'y' | run_secret_kc set api.key 2>/dev/null
+run_secret_kc rm api.key 2>/dev/null
+run_secret_kc list | grep -q '^apiXkey$' && echo "✓ secret: rm api.key leaves apiXkey's index row (literal dot)" || { echo "✗ secret: index aliasing orphaned a secret"; FAIL=1; }
+[[ "$(run_secret_kc get apiXkey)" == "x" ]] && echo "✓ secret: apiXkey still retrievable" || { echo "✗ secret: apiXkey orphaned"; FAIL=1; }
+run_secret_kc rm apiXkey 2>/dev/null
+KCRM="$(run_secret_kc rm never.stored 2>&1)"; RC=$?
+t "secret/keychain: rm of a never-stored name → 1" 1 $RC
+printf '%s' "$KCRM" | grep -q "nothing removed" && echo "✓ secret/keychain: no false 'removed'" || { echo "✗ secret/keychain: lied: $KCRM"; FAIL=1; }
+FILERM="$(run_secret rm never.stored 2>&1)"; RC=$?
+t "secret/file: rm of a never-stored name → 1" 1 $RC
+printf '%s' "$FILERM" | grep -q "nothing removed" && echo "✓ secret/file: no false 'removed'" || { echo "✗ secret/file: lied: $FILERM"; FAIL=1; }
+rm -f "$BIN/security"
+
+# ── hooks/pre-commit: warn-only deletion guard, installed by init-repo ─────
+# fixture sets a PRE-EXISTING core.hooksPath redirect before init-repo runs:
+# the install must still land in the repo's own hooks dir (not the redirect),
+# and the NOTE must fire on the first run — then repo hooks are activated to
+# prove the hook actually fires
+SHTMLFIX="$(mktemp -d)"
+git -C "$SHTMLFIX" init -q -b main && git -C "$SHTMLFIX" commit -q --allow-empty -m base
+git -C "$SHTMLFIX" config core.hooksPath "$BINS/fake-global-hooks"
+FIRSTRUN="$(cd "$SHTMLFIX" && "$INIT" HookProj 2>&1)"; RC=$?
+t "hook: init-repo installs despite a hooksPath redirect → 0" 0 $RC
+[[ -x "$SHTMLFIX/.git/hooks/pre-commit" ]] && echo "✓ hook: installed into the repo's own dir, not the redirect" || { echo "✗ hook: redirected or missing"; FAIL=1; }
+[[ ! -e "$BINS/fake-global-hooks/pre-commit" ]] && echo "✓ hook: nothing leaked into the redirect target" || { echo "✗ hook: wrote into the foreign hooks dir"; FAIL=1; }
+printf '%s' "$FIRSTRUN" | grep -q "core.hooksPath is configured" && echo "✓ hook: redirect noted loudly on first run" || { echo "✗ hook: first-run note missing: $FIRSTRUN"; FAIL=1; }
+git -C "$SHTMLFIX" config core.hooksPath .git/hooks   # activate repo-local hooks for the fire test
+printf 'keep me\n' > "$SHTMLFIX/file.txt" && git -C "$SHTMLFIX" add file.txt && git -C "$SHTMLFIX" commit -qm add
+printf 'with space\n' > "$SHTMLFIX/has space.txt" && git -C "$SHTMLFIX" add "has space.txt" && git -C "$SHTMLFIX" commit -qm add2
+rm "$SHTMLFIX/file.txt" "$SHTMLFIX/has space.txt" && git -C "$SHTMLFIX" add -A
+HOOKOUT="$(cd "$SHTMLFIX" && git commit -qm del 2>&1)"; RC=$?
+t "hook: commit with staged deletion still succeeds (warn-only)" 0 $RC
+printf '%s' "$HOOKOUT" | grep -q "RIG-LITE GUARD" && printf '%s' "$HOOKOUT" | grep -q "D file.txt" \
+  && echo "✓ hook: warns loudly and names the file" || { echo "✗ hook: warning missing: $HOOKOUT"; FAIL=1; }
+printf '%s' "$HOOKOUT" | grep -q "D has space.txt" && echo "✓ hook: space-bearing path printed intact" || { echo "✗ hook: mangled the spaced path: $HOOKOUT"; FAIL=1; }
+printf '#!/bin/sh\n# sentinel\n' > "$SHTMLFIX/.git/hooks/pre-commit"
+# capture-then-grep: `cmd | grep -q` under pipefail races SIGPIPE when the
+# producer has more to say after the match (init-repo prints a NOTE + Done)
+SRUN="$(cd "$SHTMLFIX" && "$INIT" HookProj 2>&1)"; RC=$?
+t "hook: rerun with existing hook → 0" 0 $RC
+printf '%s' "$SRUN" | grep -q "pre-commit hook already exists — left untouched" && echo "✓ hook: existing pre-commit never clobbered" || { echo "✗ hook: clobbered an existing hook: $SRUN"; FAIL=1; }
+printf '%s' "$SRUN" | grep -q "core.hooksPath is configured" && echo "✓ hook: hooksPath redirect called out loudly" || { echo "✗ hook: hooksPath note missing"; FAIL=1; }
+grep -q sentinel "$SHTMLFIX/.git/hooks/pre-commit" && echo "✓ hook: sentinel intact" || { echo "✗ hook: sentinel overwritten"; FAIL=1; }
+rm -rf "$SHTMLFIX"
+
+# ── memory scaffold ships + digest's inbox exists in-repo ──────────────────
+for f in decisions.md gotchas.md project-index.md inbox; do
+  if [[ -e "$KIT/memory/$f" ]]; then echo "✓ memory: $f present"; else echo "✗ memory: $f missing"; FAIL=1; fi
+done
 
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1

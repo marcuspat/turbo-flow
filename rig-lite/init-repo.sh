@@ -5,12 +5,14 @@
 #   1. creates a thin AGENTS.md (constitution pointer + project cheat-sheet;
 #      kit outside this repo → the constitution is copied in, so every clone resolves it)
 #   2. symlinks CLAUDE.md → AGENTS.md (one source, no drift; Codex reads AGENTS.md natively)
+#   3. installs the deletion-guard pre-commit hook into the repo's git dir
+#      (worktree-aware; skipped if a hook already exists)
 #
 # Usage:  from anywhere inside the repo (root, subdir, or a wt.sh worktree):
 #         path/to/rig-lite/init-repo.sh ["Project name"]
 set -euo pipefail
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then sed -n '2,10p' "$0"; exit 0; fi
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then sed -n '2,12p' "$0"; exit 0; fi
 
 # rev-parse, not [[ -d .git ]]: in a worktree .git is a FILE, and onboarding
 # from inside a wt.sh worktree is this kit's own workflow
@@ -71,6 +73,33 @@ elif [[ -L CLAUDE.md ]]; then
   echo "init-repo: CLAUDE.md symlink already present"
 else
   echo "init-repo: real CLAUDE.md exists — left untouched"
+fi
+
+# 3. deletion-guard pre-commit hook — into the REPO'S OWN hooks dir (the
+#    common git dir, so worktrees share it), copy only if absent.
+#    Deliberately NOT `git rev-parse --git-path hooks`: that honors a global
+#    core.hooksPath and would install into a foreign hooks dir — so we resolve
+#    the common dir ourselves and WARN when core.hooksPath redirects hooks.
+#    cwd IS the repo root here (cd'd above), so a relative common-dir anchors
+#    to it via pwd — immune to subdir invocation and toplevel/cwd skew.
+COMMON="$(git rev-parse --git-common-dir)"
+[[ "$COMMON" == /* ]] || COMMON="$(pwd -P)/$COMMON"
+HOOKS_DIR="$COMMON/hooks"
+if [[ -f "$KIT/hooks/pre-commit" && ! -e "$HOOKS_DIR/pre-commit" ]]; then
+  mkdir -p "$HOOKS_DIR"
+  # no half-installs: a copied-but-unexecutable hook would be silently inert
+  # (and the ! -e guard would refuse to repair it on rerun)
+  if cp "$KIT/hooks/pre-commit" "$HOOKS_DIR/pre-commit" && chmod +x "$HOOKS_DIR/pre-commit"; then
+    echo "init-repo: deletion-guard pre-commit installed"
+  else
+    rm -f "$HOOKS_DIR/pre-commit"
+    echo "init-repo: hook install failed — removed the partial copy (nothing silently inert left behind)" >&2
+  fi
+elif [[ -e "$HOOKS_DIR/pre-commit" ]]; then
+  echo "init-repo: a pre-commit hook already exists — left untouched"
+fi
+if [[ -n "$(git config core.hooksPath 2>/dev/null)" ]]; then
+  echo "init-repo: NOTE — core.hooksPath is configured on this repo/machine: repo-local hooks may not run. Point it at (or include) $HOOKS_DIR if you want the deletion guard active." >&2
 fi
 
 echo
