@@ -241,6 +241,7 @@ class ZcodeAdapter:
         if not os.path.isfile(self.db):
             return {"rows": [], "meta": {"absent": self.db}, "degraded": None}
         uri = "file:" + urllib.parse.quote(self.db) + "?mode=ro"
+        conn = None
         try:
             conn = sqlite3.connect(uri, uri=True, timeout=2)
             cutoff_ms = int((now - RETENTION) * 1000)
@@ -267,6 +268,11 @@ class ZcodeAdapter:
             conn.close()
             return {"rows": rows, "meta": {"db": self.db}, "degraded": None}
         except sqlite3.Error as e:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
             return {"rows": [], "meta": {}, "degraded": f"sqlite: {e}"}
 
 
@@ -306,16 +312,20 @@ class ClaudeAdapter:
                     j = json.loads(line)  # bytes ok; UnicodeDecodeError is a ValueError
                 except ValueError:
                     continue  # torn/garbage line
-                if j.get("type") != "assistant":
+                if not isinstance(j, dict) or j.get("type") != "assistant":
                     continue
-                msg = j.get("message") or {}
+                msg = j.get("message")
+                msg = msg if isinstance(msg, dict) else {}
                 if msg.get("model") == "<synthetic>" or j.get("isApiErrorMessage"):
                     continue
-                u = msg.get("usage") or {}
-                details = u.get("output_tokens_details") or {}
+                u = msg.get("usage")
+                if not isinstance(u, dict):
+                    continue  # malformed usage envelope: not ours to count
+                details = u.get("output_tokens_details")
+                details = details if isinstance(details, dict) else {}
                 try:
                     ts = iso_to_epoch(j["timestamp"])
-                except (KeyError, ValueError):
+                except Exception:  # missing / null / non-string / unparseable
                     continue
                 if msg.get("id") is None:  # not a real API envelope -> no dedup key, skip
                     continue
@@ -326,10 +336,10 @@ class ClaudeAdapter:
                 key = (j.get("requestId"), msg.get("id"))
                 row = {
                     "ts": ts, "model": msg.get("model") or "?",
-                    "tin": u.get("input_tokens") or 0,
-                    "cc": u.get("cache_creation_input_tokens") or 0,
-                    "cr": u.get("cache_read_input_tokens") or 0,
-                    "tout": u.get("output_tokens") or 0,
+                    "tin": num(u.get("input_tokens")),
+                    "cc": num(u.get("cache_creation_input_tokens")),
+                    "cr": num(u.get("cache_read_input_tokens")),
+                    "tout": num(u.get("output_tokens")),
                 }
                 row["total"] = row["tin"] + row["cc"] + row["cr"] + row["tout"]
                 prev = self.dedup.get(key)
@@ -399,7 +409,10 @@ class CodexAdapter:
                     j = json.loads(line)
                 except ValueError:
                     continue
-                p = j.get("payload") or {}
+                if not isinstance(j, dict):
+                    continue
+                p = j.get("payload")
+                p = p if isinstance(p, dict) else {}
                 if j.get("type") == "session_meta":
                     sess["cwd"] = p.get("cwd") or ""
                 elif j.get("type") == "turn_context" and p.get("model"):
@@ -407,12 +420,16 @@ class CodexAdapter:
                 elif j.get("type") == "event_msg" and p.get("type") == "token_count":
                     try:
                         ts = iso_to_epoch(j["timestamp"])
-                    except (KeyError, ValueError):
+                    except Exception:  # missing / null / non-string / unparseable
                         continue
-                    rate = p.get("rate_limits") or {}
-                    p_used = _f((rate.get("primary") or {}).get("used_percent"))
-                    s_used = _f((rate.get("secondary") or {}).get("used_percent"))
-                    cr_info = rate.get("credits") or {}
+                    rate = p.get("rate_limits")
+                    rate = rate if isinstance(rate, dict) else {}
+                    rp = rate.get("primary"); rp = rp if isinstance(rp, dict) else {}
+                    rs = rate.get("secondary"); rs = rs if isinstance(rs, dict) else {}
+                    p_used = _f(rp.get("used_percent"))
+                    s_used = _f(rs.get("used_percent"))
+                    cr_info = rate.get("credits")
+                    cr_info = cr_info if isinstance(cr_info, dict) else {}
                     has_credits = bool(cr_info.get("unlimited")
                                        or (cr_info.get("has_credits") and cr_info.get("balance") is not None))
                     # snapshot fields update independently: a newer block reporting only
@@ -421,21 +438,23 @@ class CodexAdapter:
                     if p_used is not None:
                         prev = sess.get("primary")
                         if prev is None or ts >= prev[0]:
-                            sess["primary"] = (ts, rate["primary"])
+                            sess["primary"] = (ts, rp)
                     if s_used is not None:
                         prev = sess.get("secondary")
                         if prev is None or ts >= prev[0]:
-                            sess["secondary"] = (ts, rate["secondary"])
+                            sess["secondary"] = (ts, rs)
                     if has_credits:
                         prevc = sess.get("credits")
                         if prevc is None or ts >= prevc[0]:
                             sess["credits"] = (ts, cr_info)
                     info = p.get("info")
-                    if not info:
+                    if not isinstance(info, dict) or not info:
                         continue  # free plan often emits info:null -> undercount, shown as coverage
                     sess["has_usage"] = True
-                    delta = info.get("last_token_usage") or {}
-                    ttu = info.get("total_token_usage") or {}
+                    delta = info.get("last_token_usage")
+                    delta = delta if isinstance(delta, dict) else {}
+                    ttu = info.get("total_token_usage")
+                    ttu = ttu if isinstance(ttu, dict) else {}
                     sess["final_total"] = ttu.get("total_tokens", sess["final_total"] or 0)
                     win = info.get("model_context_window")
                     if win:
@@ -446,11 +465,11 @@ class CodexAdapter:
                             sess["ctx"] = (ts, used, win)
                     sess["rows"].append({
                         "ts": ts, "model": sess["model"] or "codex",
-                        "tin": delta.get("input_tokens") or 0,
-                        "cr": delta.get("cached_input_tokens") or 0,
-                        "cc": delta.get("cache_write_input_tokens") or 0,
-                        "tout": delta.get("output_tokens") or 0,
-                        "reason": delta.get("reasoning_output_tokens") or 0,
+                        "tin": num(delta.get("input_tokens")),
+                        "cr": num(delta.get("cached_input_tokens")),
+                        "cc": num(delta.get("cache_write_input_tokens")),
+                        "tout": num(delta.get("output_tokens")),
+                        "reason": num(delta.get("reasoning_output_tokens")),
                         "proj": repo_label(sess.get("cwd")),
                         "total": delta.get("total_tokens")
                         or (delta.get("input_tokens") or 0) + (delta.get("output_tokens") or 0)
@@ -513,9 +532,11 @@ class GateAdapter:
                         j = json.loads(line)
                     except ValueError:
                         continue
+                    if not isinstance(j, dict):
+                        continue
                     try:
                         ts = naive_local_to_epoch(j["ts"])
-                    except (KeyError, ValueError):
+                    except Exception:  # missing / null / non-string / unparseable
                         continue
                     rows.append({"ts": ts, "j": j})
         except OSError as e:
@@ -555,7 +576,10 @@ class QuotaProbe:
             creds = json.loads(qo)
             if not isinstance(creds, dict):
                 return None
-            tok = creds["claudeAiOauth"]["accessToken"]
+            oa = creds.get("claudeAiOauth")
+            tok = oa.get("accessToken") if isinstance(oa, dict) else None
+            if not tok:
+                return None
             cfg = f'header = "Authorization: Bearer {tok}"\n'
             out = subprocess.run(
                 ["curl", "-s", "--max-time", "8", "-K", "-", QUOTA_URL,
@@ -567,10 +591,11 @@ class QuotaProbe:
                 return None
             keep = {}
             for k in ("five_hour", "seven_day"):
-                blk = d.get(k) or {}
+                blk = d.get(k)
+                blk = blk if isinstance(blk, dict) else {}
                 keep[k] = {"utilization": blk.get("utilization"), "resets_at": blk.get("resets_at")}
             return keep
-        except (subprocess.SubprocessError, ValueError, KeyError, json.JSONDecodeError):
+        except Exception:  # any keystore/network/shape surprise -> treat as no data, never crash the dashboard
             return None
 
 
@@ -609,11 +634,11 @@ def gate_totals(rows, since):
         tin += int(round(num(j.get("in"))))
         cached += int(round(num(j.get("cached"))))
         out += int(round(num(j.get("out"))))
-        if "APPROVED" in (j.get("result") or ""):
+        if "APPROVED" in str(j.get("result") or ""):
             approved += 1
         if j.get("duration_ms") is not None:
             durs.append(num(j["duration_ms"]))
-        rk = j.get("repo") or "?"
+        rk = str(j.get("repo") or "?")
         repos[rk] = repos.get(rk, 0) + 1
     top_repo = sorted(repos.items(), key=lambda kv: (-kv[1], kv[0]))[0][0] if repos else None
     return {"count": count, "cost_usd": round(cost, 2), "in": tin, "cached": cached, "out": out,
@@ -634,7 +659,10 @@ def parse_caps(items):
         name = name.strip()
         if name not in CAP_PROVIDERS:
             raise ValueError(f"--cap provider must be one of {', '.join(CAP_PROVIDERS)}; got {name!r}")
-        caps[name] = int(float(val))
+        try:
+            caps[name] = int(float(val))
+        except (ValueError, OverflowError):
+            raise ValueError(f"--cap TOKENS must be a finite number, got {val!r}")
     return caps
 
 
@@ -1075,6 +1103,17 @@ def _mk_fixtures(tmp):
            {"input_tokens": 100, "output_tokens": 100}),  # yesterday same-hour (d2d)
         cl("2026-08-31T12:00:00Z", "r10", "m10", "claude-opus-5",
            {"input_tokens": 450, "output_tokens": 450}),  # 20d old: 30d window only
+        # malformed shapes — every one must be skipped without killing the tick
+        json.dumps(["not", "an", "object"]),  # JSON array line
+        json.dumps({"type": "assistant", "timestamp": None, "requestId": "rX", "cwd": CA,
+                    "message": {"id": "mX", "model": "claude-opus-5",
+                                "usage": {"input_tokens": 888, "output_tokens": 888}}}),  # null timestamp
+        json.dumps({"type": "assistant", "timestamp": "2026-09-20T17:45:00Z",
+                    "requestId": "rY", "message": "not-a-dict"}),  # non-dict message
+        json.dumps({"type": "assistant", "timestamp": "2026-09-20T17:46:00Z", "requestId": "rZ",
+                    "cwd": CA,
+                    "message": {"id": "mZ", "model": "claude-opus-5",
+                                "usage": "not-a-dict"}}),  # non-dict usage
     ]
     with open(os.path.join(cl_dir, "s1.jsonl"), "w") as fh:
         fh.write("\n".join(lines) + "\n" + '{"type":"assi')  # torn tail: skipped
@@ -1190,11 +1229,11 @@ def _mk_fixtures(tmp):
 
 
 def selftest():
-    """Fixture golden tests. TZ is PINNED to America/Denver (UTC-6 in September,
-    matching the fixtures) so the suite passes identically in UTC CI, the kit
-    devcontainer, and any local timezone."""
+    """Fixture golden tests. TZ is PINNED (POSIX MST7MDT string — no tzdata
+    dependency; UTC-6 in September, matching the fixtures) so the suite passes
+    identically in UTC CI, slim containers, and any local timezone."""
     _old_tz = os.environ.get("TZ")
-    os.environ["TZ"] = "America/Denver"
+    os.environ["TZ"] = "MST7MDT,M3.2.0,M11.1.0"
     time.tzset()
     try:
         return _selftest_body()
@@ -1561,13 +1600,38 @@ def _selftest_run(tmp):
             fh.write(json.dumps({"ts": "2026-09-20T17:30:00Z", "repo": "turbo-flow",
                                  "target": "pr#9", "reviewer": "claude",
                                  "result": "GATE: APPROVED"}) + "\n")
+            # hostile shapes: non-string result, list repo, plus a non-object line
+            fh.write(json.dumps({"ts": "2026-09-20T17:40:00Z", "repo": ["evil"],
+                                 "result": 1, "reviewer": None}) + "\n")
+            fh.write(json.dumps(["gate", "log", "array"]) + "\n")
         krows = GateAdapter(path=p2).collect(now)["rows"]
         gt = gate_totals(krows, window_start("5h", now))
-        _ae(gt["count"], 1, "kit schema: UTC-Z ts counted in 5h window")
-        _ae(gt["approved_pct"], 100, "kit schema: approved parsed from result")
+        _ae(gt["count"], 2, "kit schema: UTC-Z ts counted; hostile rows survive")
+        _ae(gt["approved_pct"], 50, "kit schema: approved parsed from result; non-string coerces clean")
         _ae(gt["in"], 0, "kit schema: absent token fields read as 0, no crash")
         _ae(gt["cost_usd"], 0.0, "kit schema: absent cost read as 0.0")
+        _ae(isinstance(gt["top_repo"], str), True, "kit schema: list repo coerced to hashable str")
     case("gate adapter reads kit-gate schema (UTC-Z, minimal fields)", _kit_gate_schema)
+
+    def _probe_shapes():
+        import subprocess as _sp
+        class _R:
+            def __init__(self, stdout): self.stdout = stdout
+        orig_run = _sp.run
+        try:
+            # 1st call = keystore, 2nd = endpoint
+            seq = [_R('{"claudeAiOauth": "not-a-dict"}'),
+                   _R('{"claudeAiOauth": {"accessToken": "tok123"}}'),
+                   _R('{"five_hour": "n/a", "seven_day": [1, 2]}')]
+            _sp.run = lambda *a, **k: seq.pop(0)
+            qp = QuotaProbe()
+            _ae(qp.get(force=True), None, "probe: keystore shape garbage -> None, no crash")
+            v = qp.get(force=True)
+            _ae(isinstance(v, dict), True, "probe: endpoint shape garbage -> degraded dict, no crash")
+            _ae(v.get("five_hour", {}).get("utilization"), None, "probe: non-dict block reads as absent")
+        finally:
+            _sp.run = orig_run
+    case("quota probe survives malformed keystore/endpoint shapes", _probe_shapes)
 
     # --- helpers ---
     case("fmt helpers", lambda: (
