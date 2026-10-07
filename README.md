@@ -53,6 +53,18 @@ bash /path/to/turbo-flow/rig-lite/self-test.sh   # prove the kit on your machine
 
 No Codespace? Fine — it's bash. Want the 30-second container tour anyway? Open this repo in a Codespace; `postCreate` runs the self-test. That's the whole install surface.
 
+## Add a harness (optional — one script, three doors)
+
+The kit ships no harness. When you want one, [`setup-harness.sh`](setup-harness.sh) turns a fresh Codespace into an agentic box in one run — it asks which harness to start with:
+
+| choice | what you get |
+|---|---|
+| **Claude Code** | Anthropic login · Ruflo installed as plugins (`marketplace add ruvnet/ruflo` + console/mods) |
+| **Codex** | OpenAI login · Ruflo wired through **MCP** (`~/.codex/config.toml`) |
+| **GLM** | Claude Code on your **GLM Coding Plan** key (docs.z.ai, Anthropic-protocol endpoint) via a dedicated `claude-glm` launcher — plain `claude` stays your Anthropic reviewer, so builder ≠ reviewer survives by construction |
+
+Keys are read hidden and stored with `600` permissions, and everything installs user-space (nvm + npm global prefix). The GLM path is fail-closed: a missing or incomplete `glm.env` makes `claude-glm` refuse to run rather than silently fall back to an Anthropic session. One shared surface, stated plainly: Ruflo plugins installed via the Claude/GLM paths load in **both** `claude` and `claude-glm` (they're tooling, not model — the reviewer's model stays Anthropic, so builder ≠ reviewer holds). `--claude` / `--codex` / `--glm` flags run it non-interactively.
+
 ## Where the v4 environment went
 
 Turbo Flow v4 packaged and wired a Claude Code + Ruflo environment. Ruflo grew its own onboarding (`npx ruflo@latest init wizard`, plugin marketplace, built-in memory and console), which retired the reason a wrapper repo existed. The v4 install chain lives on in the `v1.0.1 → v4.0` tags; the v5 line is governance-first and orchestration-agnostic.

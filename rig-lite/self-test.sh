@@ -1044,6 +1044,51 @@ else
   echo "⚠ tokens checks SKIPPED (python3 or rig-lite/tokens.py unavailable)"
 fi
 
+# ── setup-harness contract (the repo-root harness installer) ─────────────────
+RGSH="$KIT/../setup-harness.sh"
+if [ -f "$RGSH" ]; then
+  bash -n "$RGSH" 2>/dev/null && echo "✓ setup-harness: bash -n clean" || { echo "✗ setup-harness: syntax error"; FAIL=1; }
+  RGOUT="$("$RGSH" --help 2>&1)"; RC=$?
+  t "setup-harness: --help exits 0" 0 $RC
+  case "$RGOUT" in *"--codex"*"--glm"*) echo "✓ setup-harness: help documents all flags";; *) echo "✗ setup-harness: help missing flags"; FAIL=1;; esac
+  "$RGSH" --bogus >/dev/null 2>&1; RC=$?
+  [ "$RC" -ne 0 ] && echo "✓ setup-harness: unknown flag fails closed" || { echo "✗ setup-harness: unknown flag accepted"; FAIL=1; }
+  # glm path: dedicated launcher; ~/.claude/settings.json is NEVER touched
+  RGH="$(mktemp -d)"
+  if ( . "$RGSH"
+      glm_write_env "testkey123.0-X" "$RGH/.config/turbo-flow"
+      glm_write_wrapper "$RGH/.local/bin"
+    ) 2>/dev/null \
+     && [ -f "$RGH/.config/turbo-flow/glm.env" ] \
+     && grep -q '^ANTHROPIC_AUTH_TOKEN=testkey123.0-X$' "$RGH/.config/turbo-flow/glm.env" \
+     && grep -q '^ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic$' "$RGH/.config/turbo-flow/glm.env"; then
+    PERM="$(stat -f '%Lp' "$RGH/.config/turbo-flow/glm.env" 2>/dev/null || stat -c '%a' "$RGH/.config/turbo-flow/glm.env")"
+    [ "$PERM" = "600" ] && echo "✓ setup-harness: glm.env written 0600 with both vars" || { echo "✗ glm.env perms: $PERM"; FAIL=1; }
+  else
+    echo "✗ setup-harness: glm.env contract broken"; FAIL=1
+  fi
+  if [ -x "$RGH/.local/bin/claude-glm" ] \
+     && grep -q 'glm.env' "$RGH/.local/bin/claude-glm" \
+     && grep -q 'exec claude' "$RGH/.local/bin/claude-glm" \
+     && grep -q 'refusing to fall back to Anthropic' "$RGH/.local/bin/claude-glm" \
+     && grep -q 'unset ANTHROPIC_API_KEY' "$RGH/.local/bin/claude-glm"; then
+    echo "✓ setup-harness: claude-glm launcher executable, fail-closed, unsets ANTHROPIC_API_KEY"
+  else
+    echo "✗ setup-harness: claude-glm launcher broken (missing guard/unset)"; FAIL=1
+  fi
+  [ ! -e "$RGH/.claude/settings.json" ] \
+    && echo "✓ setup-harness: glm helpers write only glm.env + launcher (no ~/.claude/settings.json writes)" \
+    || { echo "✗ setup-harness: glm helpers wrote ~/.claude/settings.json"; FAIL=1; }
+  if ( . "$RGSH"; glm_write_env "bad;key\$(x)" "$RGH/x" ) >/dev/null 2>&1; then
+    echo "✗ setup-harness: charset gate accepted a hostile key"; FAIL=1
+  else
+    echo "✓ setup-harness: hostile key charset rejected (never written anywhere)"
+  fi
+  rm -rf "$RGH"
+else
+  echo "⚠ setup-harness checks SKIPPED (script not present — kit running outside its home repo)"
+fi
+
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
 echo

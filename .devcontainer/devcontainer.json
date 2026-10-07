@@ -9,7 +9,7 @@
     "containerEnv": {
         "KIT_DIR": "${containerWorkspaceFolder}/rig-lite"
     },
-    "postCreateCommand": "chmod +x ${containerWorkspaceFolder}/rig-lite/*.sh 2>/dev/null || true; bash ${containerWorkspaceFolder}/rig-lite/self-test.sh",
+    "postCreateCommand": "chmod +x ${containerWorkspaceFolder}/rig-lite/*.sh ${containerWorkspaceFolder}/setup-harness.sh 2>/dev/null || true; bash ${containerWorkspaceFolder}/rig-lite/self-test.sh; echo 'next: ./setup-harness.sh adds a harness - Claude, Codex, or GLM (coding plan)'",
     "hostRequirements": {
         "memory": "4gb"
     },
