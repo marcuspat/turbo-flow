@@ -1049,17 +1049,25 @@ for RGREC in "$KIT/../demo/record-harness-boot-demo.sh" "$KIT/../demo/record-rig
   if [ -f "$RGREC" ]; then
     RGNAME="$(basename "$RGREC")"
     bash -n "$RGREC" 2>/dev/null && echo "✓ recorder $RGNAME: bash -n clean" || { echo "✗ recorder $RGNAME: syntax"; FAIL=1; }
-    # the guard must be ENFORCED: an explicit || exit, or the script runs under set -e
-    if grep -q 'auth-guard.sh || exit' "$RGREC" || { grep -q 'set -euo pipefail' "$RGREC" && grep -q 'auth-guard' "$RGREC"; }; then
-      echo "✓ recorder $RGNAME: auth-guard enforced (never records a logged-in session)"
+    # the guard must be ENFORCED on an uncommented line — explicit || exit, or bare call under set -e.
+    # comments, || true, if-wrapped and echo'd mentions all FAIL.
+    if grep -Eq '^[[:space:]]*bash demo/auth-guard\.sh[[:space:]]*(\|\|[[:space:]]*exit\b.*)?$' "$RGREC" \
+       || { grep -Eq '^[[:space:]]*set -euo pipefail\b' "$RGREC" \
+            && grep -Eq '^[[:space:]]*bash demo/auth-guard\.sh[[:space:]]*$' "$RGREC"; }; then
+      echo "✓ recorder $RGNAME: auth-guard enforced on a live line (never records a logged-in session)"
     else
-      echo "✗ recorder $RGNAME: auth-guard present but not enforced"; FAIL=1
+      echo "✗ recorder $RGNAME: auth-guard not enforced (need an uncommented call with || exit, or set -e + bare call)"; FAIL=1
+    fi
+    if grep -Eq 'auth-guard\.sh[[:space:]]*\|\|[[:space:]]*(true|:)' "$RGREC"; then
+      echo "✗ recorder $RGNAME: auth-guard DEFUSED (|| true/:)"; FAIL=1
     fi
     if grep -q "/workspaces/" "$RGREC"; then
       echo "✗ recorder $RGNAME: hardcodes /workspaces"; FAIL=1
     else
       echo "✓ recorder $RGNAME: no hardcoded workspace path"
     fi
+  else
+    echo "⚠ recorder checks SKIPPED ($RGREC missing — coverage gap, not a pass)"
   fi
 done
 
@@ -1070,6 +1078,9 @@ if [ -f "$RGSH" ]; then
   RGOUT="$("$RGSH" --help 2>&1)"; RC=$?
   t "setup-harness: --help exits 0" 0 $RC
   case "$RGOUT" in *"--codex"*"--glm"*) echo "✓ setup-harness: help documents all flags";; *) echo "✗ setup-harness: help missing flags"; FAIL=1;; esac
+  grep -q 'done. next: open the repo README' "$RGSH" \
+    && echo "✓ setup-harness: boot-recorder success marker present in its real output" \
+    || { echo "✗ setup-harness: recorder waits on a marker the script no longer prints"; FAIL=1; }
   "$RGSH" --bogus >/dev/null 2>&1; RC=$?
   [ "$RC" -ne 0 ] && echo "✓ setup-harness: unknown flag fails closed" || { echo "✗ setup-harness: unknown flag accepted"; FAIL=1; }
   # glm path: dedicated launcher; ~/.claude/settings.json is NEVER touched

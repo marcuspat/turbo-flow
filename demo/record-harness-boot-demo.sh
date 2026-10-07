@@ -4,7 +4,8 @@
 # Prereqs (user-space, no privileges):
 #   pip3 install --user --break-system-packages asciinema pexpect
 #   curl -fsSL -o ~/bin/agg https://github.com/asciinema/agg/releases/download/v1.9.0/agg-x86_64-unknown-linux-musl
-#     (pin + verify the sha256 against the release page before running it)
+#     (pinned; verify: sha256 == ddcbf6ca044c8ac3a434dcb9ee89fb9e3be87209982b7c2adb55f782e8f0f390 —
+#      agg publishes no checksums on the release page, so it is inlined here)
 # Then:  bash demo/record-harness-boot-demo.sh   (it execs the driver below)
 set -euo pipefail
 cd "$(dirname "$0")/.."
