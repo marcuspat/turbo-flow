@@ -1033,6 +1033,15 @@ else
   echo "⚠ devcontainer checks SKIPPED (python3 or .devcontainer/devcontainer.json unavailable)"
 fi
 
+RGTK="$KIT/tokens.py"
+if command -v python3 >/dev/null 2>&1 && [ -f "$RGTK" ]; then
+  RGOUT="$(python3 "$RGTK" --selftest 2>&1)"; RERC=$?
+  if [ "$RERC" -eq 0 ]; then echo "✓ tokens: fixture suite passes (read-only adapters, TZ-pinned)";
+  else echo "✗ tokens: selftest failed — tail:"; printf '%s\n' "$RGOUT" | tail -4; FAIL=1; fi
+else
+  echo "⚠ tokens checks SKIPPED (python3 or rig-lite/tokens.py unavailable)"
+fi
+
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
 echo

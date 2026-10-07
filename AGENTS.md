@@ -19,7 +19,7 @@ The full law set lives in [`rig-lite/constitution.md`](rig-lite/constitution.md)
 
 | Path | What it is |
 |---|---|
-| `rig-lite/` | the kit: gate, worktrees, secrets, digest, memory pattern, spec templates, automation prompts, self-test |
+| `rig-lite/` | the kit: gate, worktrees, secrets, digest, token dashboard, memory pattern, spec templates, automation prompts, self-test |
 | `demo/` | the recorded demo + its recorder + auth-guard (refuses to record logged-in sessions) |
 | `.devcontainer/` | minimal container whose postCreate runs the kit self-test — the 30-second tour |
 
@@ -35,4 +35,4 @@ The full law set lives in [`rig-lite/constitution.md`](rig-lite/constitution.md)
 
 **ZCode builds · Claude Code reviews — with the Ruflo mod installed when you want orchestration · Codex backs up the review.**
 
-The gate knows the builder families (`claude`, `codex`, `glm`/`zcode`/`zai`, `gemini`, `grok`, `xai`) and refuses to run unless it can find a reviewer from a family other than the builder's.
+The gate knows the builder families (`claude`, `codex`, `glm`/`zcode`/`zai`, `gemini`, `grok`, `xai`) and refuses to run unless it can find a reviewer from a family other than the builder's. `rig-lite/tokens.py` watches live token burn across zcode + claude + codex, read-only.
