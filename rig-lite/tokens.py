@@ -33,6 +33,7 @@
 import argparse
 import glob
 import json
+import math
 import os
 import select
 import shutil
@@ -455,11 +456,11 @@ class CodexAdapter:
                     delta = delta if isinstance(delta, dict) else {}
                     ttu = info.get("total_token_usage")
                     ttu = ttu if isinstance(ttu, dict) else {}
-                    sess["final_total"] = ttu.get("total_tokens", sess["final_total"] or 0)
+                    sess["final_total"] = num(ttu.get("total_tokens")) or sess["final_total"] or 0
                     win = info.get("model_context_window")
                     if win:
-                        used = (delta.get("input_tokens") or 0) + (delta.get("cached_input_tokens") or 0) \
-                            + (delta.get("cache_write_input_tokens") or 0)
+                        used = num(delta.get("input_tokens")) + num(delta.get("cached_input_tokens")) \
+                            + num(delta.get("cache_write_input_tokens"))
                         pctx = sess.get("ctx")
                         if pctx is None or ts >= pctx[0]:
                             sess["ctx"] = (ts, used, win)
@@ -471,9 +472,9 @@ class CodexAdapter:
                         "tout": num(delta.get("output_tokens")),
                         "reason": num(delta.get("reasoning_output_tokens")),
                         "proj": repo_label(sess.get("cwd")),
-                        "total": delta.get("total_tokens")
-                        or (delta.get("input_tokens") or 0) + (delta.get("output_tokens") or 0)
-                        + (delta.get("cached_input_tokens") or 0) + (delta.get("cache_write_input_tokens") or 0),
+                        "total": num(delta.get("total_tokens"))
+                        or num(delta.get("input_tokens")) + num(delta.get("output_tokens"))
+                        + num(delta.get("cached_input_tokens")) + num(delta.get("cache_write_input_tokens")),
                     })
             self.scan.commit(path, new_off)
         # per-session row lists are replaced on re-read-from-zero and extended on
@@ -579,6 +580,11 @@ class QuotaProbe:
             oa = creds.get("claudeAiOauth")
             tok = oa.get("accessToken") if isinstance(oa, dict) else None
             if not tok:
+                return None
+            # the token is pasted into a curl -K config; refuse anything that
+            # could break out of the header line
+            _ok = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._~+/=-")
+            if any(c not in _ok for c in tok):
                 return None
             cfg = f'header = "Authorization: Bearer {tok}"\n'
             out = subprocess.run(
@@ -786,6 +792,8 @@ def resets_countdown(raw):
     """resets_at: epoch seconds (int/float/str-digit) or ISO string -> seconds from now."""
     try:
         target = float(raw)
+        if not math.isfinite(target):
+            return None  # 'inf'/'1e400' parse to infinity; never let it reach fmt_dur
         return max(0, target - time.time())
     except (TypeError, ValueError):
         pass
@@ -1167,6 +1175,21 @@ def _mk_fixtures(tmp):
                   "credits": {"has_credits": False, "unlimited": False, "balance": None}})])
     codex_file("rollout-b.jsonl", "gpt-5.6-terra",
                [(iso(120), usage(50, 0, 10, 60, r=10), None)])
+    with open(os.path.join(cx_dir, "rollout-bad.jsonl"), "w") as fh:  # malformed shapes
+        fh.write("\n".join([
+            json.dumps(["not", "an", "object"]),
+            json.dumps({"timestamp": "2026-08-11T00:00:00Z", "type": "event_msg",
+                        "payload": "not-a-dict"}),
+            json.dumps({"timestamp": "2026-08-11T00:01:00Z", "type": "event_msg",
+                        "payload": {"type": "token_count",
+                                    "info": {"last_token_usage": {"input_tokens": "12",
+                                                                  "output_tokens": "3",
+                                                                  "total_tokens": "15"},
+                                             "total_token_usage": {"total_tokens": "99"},
+                                             "model_context_window": 258400},
+                                    "rate_limits": {"primary": {"used_percent": 50.0,
+                                                                "resets_at": "1e400"}}}}),
+        ]) + "\n")
     codex_file("rollout-c.jsonl", "gpt-5.6-terra",   # 7d-only (30h ago)
                [("2026-09-19T12:00:00Z", usage(7, 0, 999, 1006), None)])
     codex_file("rollout-d.jsonl", "gpt-5.6-terra",   # never reports usage
@@ -1378,8 +1401,9 @@ def _selftest_run(tmp):
         _ae(agg["tin"], 500 + 50 + 100, "delta inputs")
         _ae(agg["tout"], 40 + 10, "delta outputs")
         _ae(agg["total"], 640 + 60 + 100, "delta totals")
-        _ae(cx["meta"]["sessions_with_usage"], 5, "coverage used (incl. 20d-old session)")
-        _ae(cx["meta"]["sessions_total"], 6, "coverage total")
+        _ae(cx["meta"]["sessions_with_usage"], 6,
+            "coverage used (4 real + 20d-old + rollout-bad's num()-coerced string-token session)")
+        _ae(cx["meta"]["sessions_total"], 7, "coverage total (6 with-usage-eligible + rollout-bad)")
         _ae(cx["meta"]["final_totals"]["rollout-a.jsonl"], 640, "final cumulative")
         _ae(cx["meta"]["rate_limits"]["primary"]["used_percent"], 99.0, "primary window parsed")
         _ae(cx["meta"]["rate_limits"]["secondary"]["used_percent"], 42.0, "secondary window parsed")
@@ -1409,8 +1433,9 @@ def _selftest_run(tmp):
         rows = cxa.collect(now)["rows"]
         _ae(aggregate(rows, now - 5 * 3600, now)["gpt-5.6-terra"]["total"], 160,
             "shrunk re-read replaced session rows (no double-count)")
-        _ae(cxa.collect(now)["meta"]["rate_limits"], None,
-            "shrunk re-read clears stale per-session rate meta")
+        rl = cxa.collect(now)["meta"]["rate_limits"]
+        _ae(rl["primary"]["used_percent"], 50.0,
+            "shrunk re-read clears rollout-a's stale 99% (freshest = rollout-bad's 50)")
         # append one new event to rollout-b -> totals grow by exactly that delta
         ev = {"input_tokens": 0, "cached_input_tokens": 0, "cache_write_input_tokens": 0,
               "output_tokens": 5, "total_tokens": 5}
@@ -1618,12 +1643,17 @@ def _selftest_run(tmp):
         class _R:
             def __init__(self, stdout): self.stdout = stdout
         orig_run = _sp.run
+        orig_plat = sys.platform
+        orig_which = shutil.which
         try:
-            # 1st call = keystore, 2nd = endpoint
+            # 1st call = keystore, 2nd = endpoint. platform+which pinned so the
+            # case exercises the same code path on Linux CI / the devcontainer.
             seq = [_R('{"claudeAiOauth": "not-a-dict"}'),
                    _R('{"claudeAiOauth": {"accessToken": "tok123"}}'),
                    _R('{"five_hour": "n/a", "seven_day": [1, 2]}')]
             _sp.run = lambda *a, **k: seq.pop(0)
+            sys.platform = "darwin"
+            shutil.which = lambda n: "/usr/bin/" + n
             qp = QuotaProbe()
             _ae(qp.get(force=True), None, "probe: keystore shape garbage -> None, no crash")
             v = qp.get(force=True)
@@ -1631,7 +1661,20 @@ def _selftest_run(tmp):
             _ae(v.get("five_hour", {}).get("utilization"), None, "probe: non-dict block reads as absent")
         finally:
             _sp.run = orig_run
+            sys.platform = orig_plat
+            shutil.which = orig_which
     case("quota probe survives malformed keystore/endpoint shapes", _probe_shapes)
+
+    def _codex_malformed():
+        allrows = CodexAdapter(root=os.path.join(tmp, "codex")).collect(now)["rows"]
+        outside = [r for r in allrows if r["ts"] < window_start("30d", now)]
+        _ae(len(outside), 1, "codex malformed: string-token row num()-coerced (old ts, outside windows)")
+        _ae(all(isinstance(r.get("total"), (int, float)) for r in allrows), True,
+            "codex malformed: every total numeric — no string reaches aggregate()")
+        again = CodexAdapter(root=os.path.join(tmp, "codex")).collect(now)["rows"]
+        _ae(all(isinstance(r.get("total"), (int, float)) for r in again), True,
+            "codex malformed: re-collect stable (no stale-skip crash loop)")
+    case("codex adapter survives malformed shapes (strings, non-dict payload, array)", _codex_malformed)
 
     # --- helpers ---
     case("fmt helpers", lambda: (
