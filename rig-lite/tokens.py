@@ -27,7 +27,7 @@
 #
 # Exit codes: 0 ok · 1 usage error · 2 rendered but >=1 provider degraded · 3 selftest failure.
 #
-# Non-goals (spec 2026-09-20-tokens-dashboard.md): no cost tables, no daemon, no
+# Non-goals (from the original spec): no cost tables, no daemon, no
 # config-file plugins, no history DB, no alerting. New provider = new adapter here.
 
 import argparse
@@ -129,8 +129,13 @@ def iso_to_epoch(s):
 
 
 def naive_local_to_epoch(s):
-    """Gate-log ts: naive local wall time (gotchas.md — NOT Zulu) -> epoch seconds."""
-    dt = datetime.fromisoformat(s.strip())
+    """Gate-log ts -> epoch seconds. Handles BOTH formats the kit can meet:
+    the private rig's naive LOCAL wall time AND the kit gate's UTC 'Z' time
+    (aware timestamps carry their own offset; naive ones are read as system-local)."""
+    t = s.strip()
+    if t.endswith("Z"):
+        t = t[:-1] + "+00:00"
+    dt = datetime.fromisoformat(t)
     return dt.astimezone().timestamp()  # astimezone() on naive assumes system-local
 
 
@@ -268,7 +273,7 @@ class ZcodeAdapter:
 class ClaudeAdapter:
     """~/.claude/projects/*/*.jsonl, type=='assistant' lines only.
     Skip synthetic/error lines; dedup (requestId, message.id, file) keep-last.
-    Files unmodified for >7d cannot hold in-window rows -> skipped by mtime."""
+    Files unmodified beyond RETENTION cannot hold in-window rows -> skipped by mtime."""
 
     def __init__(self, root=None):
         self.root = root or os.environ.get("TOKENS_CLAUDE_ROOT") or os.path.expanduser("~/.claude")
@@ -335,7 +340,7 @@ class ClaudeAdapter:
                     self.dedup[key] = row
             self.scan.commit(path, new_off)
         rows = list(self.dedup.values())
-        # bound memory to the widest window we can render: drop keys older than 7d
+        # bound memory to the widest window we can render: drop keys older than RETENTION
         horizon = now - RETENTION
         stale = [k for k, r in self.dedup.items() if r["ts"] < horizon]
         for k in stale:
@@ -520,7 +525,7 @@ class GateAdapter:
 
 class QuotaProbe:
     """Claude plan quota via macOS Keychain + Anthropic oauth endpoint.
-    review.sh pattern: token reaches curl through its stdin config (-K -), never argv.
+    gate.sh pattern: token reaches curl through its stdin config (-K -), never argv.
     60s result cache so watch doesn't hammer the endpoint."""
 
     TTL = 60
@@ -547,7 +552,10 @@ class QuotaProbe:
             ).stdout.strip()
             if not qo:
                 return None
-            tok = json.loads(qo)["claudeAiOauth"]["accessToken"]
+            creds = json.loads(qo)
+            if not isinstance(creds, dict):
+                return None
+            tok = creds["claudeAiOauth"]["accessToken"]
             cfg = f'header = "Authorization: Bearer {tok}"\n'
             out = subprocess.run(
                 ["curl", "-s", "--max-time", "8", "-K", "-", QUOTA_URL,
@@ -555,6 +563,8 @@ class QuotaProbe:
                 input=cfg, capture_output=True, text=True, timeout=10,
             ).stdout
             d = json.loads(out)
+            if not isinstance(d, dict):
+                return None
             keep = {}
             for k in ("five_hour", "seven_day"):
                 blk = d.get(k) or {}
@@ -1180,7 +1190,31 @@ def _mk_fixtures(tmp):
 
 
 def selftest():
+    """Fixture golden tests. TZ is PINNED to America/Denver (UTC-6 in September,
+    matching the fixtures) so the suite passes identically in UTC CI, the kit
+    devcontainer, and any local timezone."""
+    _old_tz = os.environ.get("TZ")
+    os.environ["TZ"] = "America/Denver"
+    time.tzset()
+    try:
+        return _selftest_body()
+    finally:
+        if _old_tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = _old_tz
+        time.tzset()
+
+
+def _selftest_body():
     tmp = tempfile.mkdtemp(prefix="tokens-selftest-")
+    try:
+        return _selftest_run(tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _selftest_run(tmp):
     fx = _mk_fixtures(tmp)
     now = fx["now"]
     checks = []
@@ -1520,6 +1554,21 @@ def selftest():
         print(f"  (info) machine tz {off:+g}h — gate-log naive ts parsed as system-local")
     case("tz boundary local-midnight", _tz_boundary)
 
+    def _kit_gate_schema():
+        # exactly what rig-lite/gate.sh writes: UTC 'Z' ts, NO token/cost fields
+        p2 = os.path.join(tmp, "kit-gate-log.jsonl")
+        with open(p2, "w") as fh:
+            fh.write(json.dumps({"ts": "2026-09-20T17:30:00Z", "repo": "turbo-flow",
+                                 "target": "pr#9", "reviewer": "claude",
+                                 "result": "GATE: APPROVED"}) + "\n")
+        krows = GateAdapter(path=p2).collect(now)["rows"]
+        gt = gate_totals(krows, window_start("5h", now))
+        _ae(gt["count"], 1, "kit schema: UTC-Z ts counted in 5h window")
+        _ae(gt["approved_pct"], 100, "kit schema: approved parsed from result")
+        _ae(gt["in"], 0, "kit schema: absent token fields read as 0, no crash")
+        _ae(gt["cost_usd"], 0.0, "kit schema: absent cost read as 0.0")
+    case("gate adapter reads kit-gate schema (UTC-Z, minimal fields)", _kit_gate_schema)
+
     # --- helpers ---
     case("fmt helpers", lambda: (
         _ae(fmt_tok(262800000), "262.8M", "fmt M"),
@@ -1594,6 +1643,9 @@ def main(argv=None):
     probe = QuotaProbe()
 
     if args.watch is not None:
+        if args.watch <= 0:
+            print("tokens: --watch needs a positive refresh interval (seconds)", file=sys.stderr)
+            return 1
         return watch_loop(args.since, args.watch, adapters, probe, caps, args.json,
                           args.no_quota, args.color)
 

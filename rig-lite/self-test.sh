@@ -1035,8 +1035,9 @@ fi
 
 RGTK="$KIT/tokens.py"
 if command -v python3 >/dev/null 2>&1 && [ -f "$RGTK" ]; then
-  python3 "$RGTK" --selftest >/dev/null 2>&1 && echo "✓ tokens: fixture suite passes (read-only adapters)" \
-    || { echo "✗ tokens: selftest failed"; FAIL=1; }
+  RGOUT="$(python3 "$RGTK" --selftest 2>&1)"; RERC=$?
+  if [ "$RERC" -eq 0 ]; then echo "✓ tokens: fixture suite passes (read-only adapters, TZ-pinned)";
+  else echo "✗ tokens: selftest failed — tail:"; printf '%s\n' "$RGOUT" | tail -4; FAIL=1; fi
 else
   echo "⚠ tokens checks SKIPPED (python3 or rig-lite/tokens.py unavailable)"
 fi

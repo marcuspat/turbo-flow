@@ -37,7 +37,7 @@ Un Codespace limpio arranca el devcontainer de este repo y el kit se prueba a s�
 | [`automations/`](rig-lite/automations/README.md) | el tier de fondo como pack portable de prompts: 9 tareas programadas + dos formas de agendarlas. |
 | [`secret.sh`](rig-lite/secret.sh) | secretos cifrados en reposo, backend autodetectado (Keychain → libsecret → age → texto plano con advertencia). `list` muestra nombres, nunca valores. |
 | [`memory.md`](rig-lite/memory.md) + [`memory/`](rig-lite/memory/) | el patrón de memoria versionado en git: índice, decisiones, gotchas, inbox. |
-| [`tokens.py`](rig-lite/tokens.py) | dashboard en vivo de consumo de tokens entre **zcode + claude + codex + gate** — lee los datos locales de cada CLI en solo-lectura; `--watch`, `--json`, self-test de 31 casos. El primer drop open-core desde Turbo Rig. |
+| [`tokens.py`](rig-lite/tokens.py) | dashboard en vivo de consumo de tokens entre **zcode + claude + codex + gate** — lee los datos locales de cada CLI en solo-lectura; `--watch`, `--json`, self-test de 32 casos fijando la zona horaria. El primer drop open-core desde Turbo Rig. En macOS la corrida por defecto además lee el token OAuth de Claude del Keychain y consulta el endpoint de uso de Anthropic — `--no-quota` salta ambos. |
 | [`hooks/pre-commit`](rig-lite/hooks/pre-commit) | guardián de borrados: las eliminaciones staged se anuncian en voz alta. |
 | [`constitution.md`](rig-lite/constitution.md) | las leyes — constructor ≠ revisor, los agentes nunca fusionan, secretos cifrados, estado en disco. |
 | [`self-test.sh`](rig-lite/self-test.sh) | la suite fail-closed del kit; avisa cuando el coverage de shellcheck se omite. |
