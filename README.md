@@ -62,7 +62,7 @@ The full rig — integrated gate, constitution, git-versioned memory, automation
 
 **Beta feedback:** open an issue or start a discussion here — this repo is the beta's public tracker.
 
-**This repo's active job** is unchanged: the Codespaces-first devcontainer that boots the remote execution plane — **open this repo in a Codespace and `postCreate` runs the whole install chain** (see `github_codespaces_setup.md`). Kubernetes/other-cloud planes now live in [`legacy/k8s-planes/`](legacy/k8s-planes/) — community-maintained, unverified since v4.
+**This repo's active job** is unchanged: the Codespaces-first devcontainer that boots the remote execution plane — **open this repo in a Codespace and `postCreate` runs the whole install chain** (see `github_codespaces_setup.md`).
 
 ---
 
@@ -213,7 +213,7 @@ turbo-status
 
 ### DevPod & Kubernetes
 
-DevPod still works (`devpod up https://github.com/marcuspat/turbo-flow --ide vscode`) against this repo's devcontainer, but the k8s/Rackspace plane guides and boot scripts are **legacy** — see [`legacy/k8s-planes/`](legacy/k8s-planes/) (community-maintained, unverified since v4).
+DevPod still works (`devpod up https://github.com/marcuspat/turbo-flow --ide vscode`) against this repo's devcontainer. The k8s/Rackspace plane guides and boot scripts have been removed (unverified since v4) — the `v4.0` tag keeps them.
 
 ---
 
@@ -449,7 +449,6 @@ turbo-flow/
 │   ├── tests/                   ← behavioral tests (tmux policy)
 │   └── tf-verify.sh             ← the verifier
 ├── demo/                        ← demo GIF + reproducible recorder + auth guard
-├── legacy/k8s-planes/           ← Rackspace/Kubernetes era (unverified since v4)
 ├── CLAUDE.md                    ← workspace context (active)
 └── README.md
 ```
@@ -515,7 +514,6 @@ MIT — Copyright (c) 2025-2026 Adventure Wave Labs
 *Turbo Flow v4.0 — Ruflo v3.5. 215+ MCP tools. 6 plugins. Beads. GitNexus. Worktrees. One command.*
 
 </div>
-https://github.com/marcuspat/turbo-flow/blob/main/AWLabs.png
 
 ## Ecosystem
 
