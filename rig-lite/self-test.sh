@@ -1044,6 +1044,19 @@ else
   echo "⚠ tokens checks SKIPPED (python3 or rig-lite/tokens.py unavailable)"
 fi
 
+# ── demo recorder contracts ──────────────────────────────────────────────────
+for RGREC in "$KIT/../demo/record-harness-boot-demo.sh" "$KIT/../demo/record-rig-lite-demo.sh"; do
+  if [ -f "$RGREC" ]; then
+    RGNAME="$(basename "$RGREC")"
+    bash -n "$RGREC" 2>/dev/null && echo "✓ recorder $RGNAME: bash -n clean" || { echo "✗ recorder $RGNAME: syntax"; FAIL=1; }
+    grep -q "auth-guard" "$RGREC" \
+      && echo "✓ recorder $RGNAME: gates on auth-guard (never records a logged-in session)" \
+      || { echo "✗ recorder $RGNAME: no auth-guard call"; FAIL=1; }
+    OUT="$(grep -c "/workspaces/" "$RGREC")"
+    [ "$OUT" = "0" ] && echo "✓ recorder $RGNAME: no hardcoded workspace path" || { echo "✗ recorder $RGNAME: hardcodes /workspaces"; FAIL=1; }
+  fi
+done
+
 # ── setup-harness contract (the repo-root harness installer) ─────────────────
 RGSH="$KIT/../setup-harness.sh"
 if [ -f "$RGSH" ]; then
