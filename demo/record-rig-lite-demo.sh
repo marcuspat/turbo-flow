@@ -12,9 +12,9 @@ t() { # type a command char-by-char, then run it
 }
 
 clear
-t 'echo "TURBO FLOW v5.0-PREVIEW — the rig era  ·  fresh Codespace, nothing preinstalled"'
-t 'grep -a "━━━" /tmp/e2e.log | tail -12'        # the 11 install steps that ran in THIS container
-t 'bash rig-lite/self-test.sh'                    # 26 fail-closed checks
+t 'echo "TURBO FLOW — the rules layer  ·  fresh Codespace, nothing preinstalled"'
+t 'echo "postCreate already ran rig-lite/self-test.sh in THIS container"'   # the kit container proves the kit on boot
+t 'bash rig-lite/self-test.sh'                    # the fail-closed suite, on camera
 t 'echo "gate.sh — cross-model review, fail-closed"'
 # live gate run: reviewer CLIs stubbed (no API keys on the recording box)
 D=$(mktemp -d) || exit 1; cd "$D" || exit 1

@@ -1003,6 +1003,36 @@ for f in decisions.md gotchas.md project-index.md inbox; do
   if [[ -e "$KIT/memory/$f" ]]; then echo "✓ memory: $f present"; else echo "✗ memory: $f missing"; FAIL=1; fi
 done
 
+# ── repo-context checks (only when the kit lives inside its home repo) ──────
+# The kit runs anywhere; these two contracts exist only in turbo-flow itself.
+RGAG="$KIT/../demo/auth-guard.sh"
+if [ -f "$RGAG" ]; then
+  rg_fake_claude() { printf '%s\n' "$1" > "$RGDIR/response.json"; printf '#!/usr/bin/env bash\ncat "%s/response.json"\n' "$RGDIR" > "$RGDIR/claude"; chmod +x "$RGDIR/claude"; }
+  RGDIR="$(mktemp -d)"
+  rg_fake_claude '{"loggedIn": false, "authMethod": "none", "apiProvider": "firstParty"}'
+  PATH="$RGDIR:$PATH" bash "$RGAG" >/dev/null 2>&1 \
+    && echo "✓ auth guard passes loggedIn:false" || { echo "✗ auth guard rejects a logged-out box"; FAIL=1; }
+  rg_fake_claude '{"loggedIn": true, "authMethod": "oauth"}'
+  PATH="$RGDIR:$PATH" bash "$RGAG" >/dev/null 2>&1 && { echo "✗ auth guard passed an AUTHENTICATED box"; FAIL=1; } \
+    || echo "✓ auth guard aborts on authenticated"
+  rg_fake_claude 'not json at all'
+  PATH="$RGDIR:$PATH" bash "$RGAG" >/dev/null 2>&1 && { echo "✗ auth guard passed garbage"; FAIL=1; } \
+    || echo "✓ auth guard aborts on garbage"
+  rm -rf "$RGDIR"
+else
+  echo "⚠ auth-guard checks SKIPPED (demo/auth-guard.sh not present — kit running outside its home repo)"
+fi
+
+RGDC="$KIT/../.devcontainer/devcontainer.json"
+if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
+  RGPC="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["postCreateCommand"])' "$RGDC")"
+  if bash -n <<<"$RGPC" 2>/dev/null; then echo "✓ devcontainer: postCreateCommand parses as bash"; else echo "✗ devcontainer: postCreateCommand is not valid bash"; FAIL=1; fi
+  [[ "$RGPC" == *"rig-lite/self-test.sh"* ]] && echo "✓ devcontainer: postCreate runs the kit self-test" || { echo "✗ devcontainer: postCreate lost the self-test"; FAIL=1; }
+  [[ "$RGPC" != *"devpods"* ]] && echo "✓ devcontainer: no references to the removed devpods/ chain" || { echo "✗ devcontainer: devpods reference survived"; FAIL=1; }
+else
+  echo "⚠ devcontainer checks SKIPPED (python3 or .devcontainer/devcontainer.json unavailable)"
+fi
+
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
 echo
