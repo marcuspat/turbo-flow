@@ -82,7 +82,7 @@ The kit is the portable extract of **Turbo Rig** — gate + constitution + memor
 
 ## Does builder ≠ reviewer actually matter?
 
-In a controlled 116-task study, cross-family review lifted pass rates from **71.6% → 89.7%**, while same-family self-review barely moved. One recent week of building Turbo Rig with Turbo Rig: **141 PRs · 868 gate runs · 104 parallel lanes** — every merge held by a human. The badge at the top is the receipt.
+The builder is never its own reviewer — a design choice, not something the audited week measured. What one recent week of building Turbo Rig with Turbo Rig measured is the gate's strictness: **141 PRs · 868 gate verdicts · 687 REVISE (79%) · 104 parallel lanes** — verdicts cover the gate-live window (Sept 16–21), merges the full week, and every merge was held by a human. Every number re-derived from the primary logs in the public verification dossier: https://www.turbo-rig.com/evidence (a 116-task study previously cited here was withdrawn — no underlying dataset exists). The badge at the top is the receipt.
 
 ## About Adventure Wave Labs
 
