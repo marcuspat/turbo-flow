@@ -20,8 +20,8 @@ Thank you for your interest in contributing to Turbo Flow — the portable gover
 ### Prerequisites
 
 - Bash, git, python3 — that's it
+- Optional, each with a loud self-test skip when absent: `jq` (only for recording demos — the auth guard parses claude's JSON with it), `shellcheck` (full self-test coverage)
 - Any coding-agent CLI you like (ZCode, Claude Code, Codex) — none is bundled or required to run the kit
-- `shellcheck` on PATH for full self-test coverage (the suite says so when it's missing)
 
 ### Quick Setup
 

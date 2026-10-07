@@ -6,6 +6,6 @@ version: "5.2.0"
 date-released: "2026-10-07"
 repository-code: "https://github.com/marcuspat/turbo-flow"
 license: "MIT"
-abstract: "Portable governance kit for AI-written code: a cross-model review gate (builder ≠ reviewer, fail-closed, humans merge), isolated worktrees, encrypted secrets, git-versioned agent memory, fleet digest, automation prompts, and a multi-harness token dashboard. Bash-only; works with any coding agent that reads AGENTS.md."
+abstract: "Portable governance kit for AI-written code: a cross-model review gate (builder ≠ reviewer, fail-closed, humans merge), isolated worktrees, encrypted secrets, git-versioned agent memory, fleet digest, and automation prompts. Bash-only; works with any coding agent that reads AGENTS.md."
 authors:
   - name: "Brandon A Calderon-Morales"

@@ -19,7 +19,7 @@ The full law set lives in [`rig-lite/constitution.md`](rig-lite/constitution.md)
 
 | Path | What it is |
 |---|---|
-| `rig-lite/` | the kit: gate, worktrees, secrets, digest, token dashboard, memory pattern, spec templates, automation prompts, self-test |
+| `rig-lite/` | the kit: gate, worktrees, secrets, digest, memory pattern, spec templates, automation prompts, self-test |
 | `demo/` | the recorded demo + its recorder + auth-guard (refuses to record logged-in sessions) |
 | `.devcontainer/` | minimal container whose postCreate runs the kit self-test — the 30-second tour |
 

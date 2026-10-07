@@ -1006,7 +1006,7 @@ done
 # ── repo-context checks (only when the kit lives inside its home repo) ──────
 # The kit runs anywhere; these two contracts exist only in turbo-flow itself.
 RGAG="$KIT/../demo/auth-guard.sh"
-if [ -f "$RGAG" ]; then
+if [ -f "$RGAG" ] && command -v jq >/dev/null 2>&1; then
   rg_fake_claude() { printf '%s\n' "$1" > "$RGDIR/response.json"; printf '#!/usr/bin/env bash\ncat "%s/response.json"\n' "$RGDIR" > "$RGDIR/claude"; chmod +x "$RGDIR/claude"; }
   RGDIR="$(mktemp -d)"
   rg_fake_claude '{"loggedIn": false, "authMethod": "none", "apiProvider": "firstParty"}'
@@ -1020,7 +1020,7 @@ if [ -f "$RGAG" ]; then
     || echo "✓ auth guard aborts on garbage"
   rm -rf "$RGDIR"
 else
-  echo "⚠ auth-guard checks SKIPPED (demo/auth-guard.sh not present — kit running outside its home repo)"
+  echo "⚠ auth-guard checks SKIPPED (demo/auth-guard.sh or jq not present — the guard parses claude's JSON with jq; kit running outside its home repo or without jq)"
 fi
 
 RGDC="$KIT/../.devcontainer/devcontainer.json"
