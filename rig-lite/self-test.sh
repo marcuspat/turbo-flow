@@ -1051,35 +1051,36 @@ if [ -f "$RGSH" ]; then
   case "$RGOUT" in *"--codex"*"--glm"*) echo "✓ setup-harness: help documents all flags";; *) echo "✗ setup-harness: help missing flags"; FAIL=1;; esac
   "$RGSH" --bogus >/dev/null 2>&1; RC=$?
   [ "$RC" -ne 0 ] && echo "✓ setup-harness: unknown flag fails closed" || { echo "✗ setup-harness: unknown flag accepted"; FAIL=1; }
-  if command -v python3 >/dev/null 2>&1 && [ -f "$KIT/../setup-harness-glm.py" ]; then
-    RGH="$(mktemp -d)"; mkdir -p "$RGH/.claude"
-    printf '{"env":{"OTHER":"x"}}' > "$RGH/.claude/settings.json"
-    if printf 'testkey123' | HOME="$RGH" python3 "$KIT/../setup-harness-glm.py" >/dev/null 2>&1 \
-       && RGH="$RGH" python3 -c '
-import json, os, stat
-h = os.environ["RGH"]
-p = os.path.join(h, ".claude", "settings.json")
-cfg = json.load(open(p))
-assert cfg["env"]["ANTHROPIC_AUTH_TOKEN"] == "testkey123", "key not merged"
-assert cfg["env"]["OTHER"] == "x", "existing env clobbered"
-assert cfg["env"]["ANTHROPIC_BASE_URL"] == "https://api.z.ai/api/anthropic"
-assert stat.S_IMODE(os.stat(p).st_mode) == 0o600, "not 0600"
-' 2>/dev/null; then
-      echo "✓ setup-harness: glm merge writes key, preserves existing env, 0600"
-    else
-      echo "✗ setup-harness: glm merge contract broken"; FAIL=1
-    fi
-    printf 'not json{' > "$RGH/.claude/settings.json"
-    printf 'k2' | HOME="$RGH" python3 "$KIT/../setup-harness-glm.py" >/dev/null 2>&1
-    if ls "$RGH/.claude/" 2>/dev/null | grep -q 'bak-'; then
-      echo "✓ setup-harness: malformed settings.json backed up, never silently wiped"
-    else
-      echo "✗ setup-harness: malformed settings.json not backed up"; FAIL=1
-    fi
-    rm -rf "$RGH"
+  # glm path: dedicated launcher; ~/.claude/settings.json is NEVER touched
+  RGH="$(mktemp -d)"
+  if ( . "$RGSH"
+      glm_write_env "testkey123.0-X" "$RGH/.config/turbo-flow"
+      glm_write_wrapper "$RGH/.local/bin"
+    ) 2>/dev/null \
+     && [ -f "$RGH/.config/turbo-flow/glm.env" ] \
+     && grep -q '^ANTHROPIC_AUTH_TOKEN=testkey123.0-X$' "$RGH/.config/turbo-flow/glm.env" \
+     && grep -q '^ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic$' "$RGH/.config/turbo-flow/glm.env"; then
+    PERM="$(stat -f '%Lp' "$RGH/.config/turbo-flow/glm.env" 2>/dev/null || stat -c '%a' "$RGH/.config/turbo-flow/glm.env")"
+    [ "$PERM" = "600" ] && echo "✓ setup-harness: glm.env written 0600 with both vars" || { echo "✗ glm.env perms: $PERM"; FAIL=1; }
   else
-    echo "⚠ setup-harness: glm-merge checks SKIPPED (python3 or module unavailable)"
+    echo "✗ setup-harness: glm.env contract broken"; FAIL=1
   fi
+  if [ -x "$RGH/.local/bin/claude-glm" ] \
+     && grep -q 'glm.env' "$RGH/.local/bin/claude-glm" \
+     && grep -q 'exec claude' "$RGH/.local/bin/claude-glm"; then
+    echo "✓ setup-harness: claude-glm launcher written + executable"
+  else
+    echo "✗ setup-harness: claude-glm launcher broken"; FAIL=1
+  fi
+  [ ! -e "$RGH/.claude/settings.json" ] \
+    && echo "✓ setup-harness: --glm never touches ~/.claude/settings.json (reviewer family intact)" \
+    || { echo "✗ setup-harness: glm path wrote ~/.claude/settings.json"; FAIL=1; }
+  if ( . "$RGSH"; glm_write_env "bad;key\$(x)" "$RGH/x" ) >/dev/null 2>&1; then
+    echo "✗ setup-harness: charset gate accepted a hostile key"; FAIL=1
+  else
+    echo "✓ setup-harness: hostile key charset rejected (never written anywhere)"
+  fi
+  rm -rf "$RGH"
 else
   echo "⚠ setup-harness checks SKIPPED (script not present — kit running outside its home repo)"
 fi

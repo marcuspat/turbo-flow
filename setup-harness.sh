@@ -124,8 +124,31 @@ EOF
   fi
 }
 
+glm_write_env() { # glm_write_env <key> <dir> — 0600-from-birth, charset-gated
+  local key="$1" dir="$2"
+  [[ "$key" =~ ^[A-Za-z0-9._~-]+$ ]] || die "GLM key has unexpected characters — refusing to write it anywhere"
+  mkdir -p "$dir"
+  ( umask 077
+    printf 'ANTHROPIC_AUTH_TOKEN=%s\nANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic\n' "$key" \
+      > "$dir/glm.env" ) || die "writing glm.env failed"
+  [[ -f "$dir/glm.env" ]] || die "glm.env did not land"
+}
+
+glm_write_wrapper() { # glm_write_wrapper <bindir> — the claude-glm launcher
+  local bindir="$1"
+  mkdir -p "$bindir"
+  cat > "$bindir/claude-glm" <<'WRAP'
+#!/usr/bin/env bash
+# claude-glm — Claude Code on the GLM Coding Plan (builder family: zai).
+# Plain 'claude' stays your Anthropic reviewer — builder ≠ reviewer survives.
+set -a; . "$HOME/.config/turbo-flow/glm.env"; set +a
+exec claude "$@"
+WRAP
+  chmod 0700 "$bindir/claude-glm" || die "chmod wrapper failed"
+}
+
 setup_glm() {
-  say "[GLM Coding Plan via Claude Code — builder family: zai]"
+  say "[GLM Coding Plan via the claude-glm launcher — plain claude stays Anthropic]"
   ensure_node
   install_claude_cli
   if [[ -n "${GLM_API_KEY:-}" ]]; then
@@ -136,9 +159,13 @@ setup_glm() {
     printf '\n'
   fi
   [[ -n "$KEY" ]] || die "no key given — get one at https://docs.z.ai (GLM Coding Plan)"
-  printf '%s' "$KEY" | python3 "$HERE/setup-harness-glm.py" \
-    || die "GLM settings merge failed"
-  ok "claude now builds on GLM — the zai family, no Anthropic account"
+  glm_write_env "$KEY" "$HOME/.config/turbo-flow"
+  glm_write_wrapper "$HOME/.local/bin"
+  case ":$PATH:" in
+    *":$HOME/.local/bin:"*) : ;;
+    *) warn "~/.local/bin is not on your PATH — add it to use claude-glm" ;;
+  esac
+  ok "run: claude-glm  (GLM builder) · claude remains your Anthropic reviewer — Law 1 intact"
   install_ruflo_plugins
 }
 
@@ -168,14 +195,15 @@ EOF
   esac
 }
 
-case "${1:-}" in
-  --claude) setup_claude ;;
-  --codex)  setup_codex ;;
-  --glm)    setup_glm ;;
-  --help|-h) awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 && !/^#/ {exit}' "$0"; exit 0 ;;
-  "")       menu ;;
-  *) die "unknown flag '$1' (try --help)" ;;
-esac
-
-echo
-ok "done. next: open the repo README — the gate is the same for every harness."
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  case "${1:-}" in
+    --claude) setup_claude ;;
+    --codex)  setup_codex ;;
+    --glm)    setup_glm ;;
+    --help|-h) awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 && !/^#/ {exit}' "$0"; exit 0 ;;
+    "")       menu ;;
+    *) die "unknown flag '$1' (try --help)" ;;
+  esac
+  echo
+  ok "done. next: open the repo README — the gate is the same for every harness."
+fi

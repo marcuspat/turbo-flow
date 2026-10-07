@@ -61,7 +61,7 @@ The kit ships no harness. When you want one, [`setup-harness.sh`](setup-harness.
 |---|---|
 | **Claude Code** | Anthropic login · Ruflo installed as plugins (`marketplace add ruvnet/ruflo` + console/mods) |
 | **Codex** | OpenAI login · Ruflo wired through **MCP** (`~/.codex/config.toml`) |
-| **GLM** | Claude Code powered by your **GLM Coding Plan** key (docs.z.ai, Anthropic-protocol endpoint) — the `zai` builder family, no Anthropic account needed |
+| **GLM** | Claude Code on your **GLM Coding Plan** key (docs.z.ai, Anthropic-protocol endpoint) via a dedicated `claude-glm` launcher — plain `claude` stays your Anthropic reviewer, so builder ≠ reviewer survives by construction |
 
 Keys are read hidden and stored with `600` permissions, and everything installs user-space (nvm + npm global prefix). `--claude` / `--codex` / `--glm` flags run it non-interactively.
 
