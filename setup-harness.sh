@@ -32,10 +32,12 @@ ensure_node() {
     ok "node $(node -v) already present"
     return 0
   fi
-  say "installing node via nvm (no sudo)…"
-  curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh -o /tmp/nvm-install.sh \
+  say "installing node via nvm (no privileged install)…"
+  NVMI="$(mktemp)" || die "mktemp failed"
+  curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh -o "$NVMI" \
     || die "nvm installer download failed"
-  bash /tmp/nvm-install.sh >/dev/null 2>&1 || die "nvm install failed"
+  bash "$NVMI" >/dev/null 2>&1 || { rm -f "$NVMI"; die "nvm install failed"; }
+  rm -f "$NVMI"
   # shellcheck disable=SC1091
   . "$NVM_DIR/nvm.sh" || die "sourcing nvm failed"
   nvm install --lts >/dev/null 2>&1 || die "nvm node install failed"
@@ -44,7 +46,8 @@ ensure_node() {
 }
 
 npm_global() { # npm_global <pkg…> — installs quietly under the nvm/user prefix
-  npm install -g --silent "$@" >/dev/null 2>&1 || die "npm install failed: $*"
+  npm install -g --silent "$@" >/dev/null 2>&1 \
+    || die "npm install failed: $* (if node is a root-owned system install, switch to nvm and rerun)"
 }
 
 claude_logged_in() {
@@ -62,9 +65,15 @@ install_claude_cli() {
 install_ruflo_plugins() { # the four REPL commands, CLI-first with a paste-ready fallback
   say "wiring Ruflo into Claude Code…"
   if claude plugin marketplace add ruvnet/ruflo >/dev/null 2>&1; then
-    claude plugin install ruflo-console@ruflo >/dev/null 2>&1 || warn "ruflo-console install via CLI failed — use the paste block below"
-    claude plugin install ruflo-mods@ruflo   >/dev/null 2>&1 || warn "ruflo-mods install via CLI failed — use the paste block below"
-    ok "Ruflo marketplace + plugins installed (run /reload-plugins inside claude)"
+    PF=0
+    claude plugin install ruflo-console@ruflo >/dev/null 2>&1 || { warn "ruflo-console CLI install failed"; PF=1; }
+    claude plugin install ruflo-mods@ruflo   >/dev/null 2>&1 || { warn "ruflo-mods CLI install failed"; PF=1; }
+    if [[ "$PF" -eq 0 ]]; then
+      ok "Ruflo marketplace + console + mods installed (run /reload-plugins inside claude)"
+    else
+      warn "PARTIAL install — finish inside claude with the paste block below"
+      printf '%s\n' "$RUFLO_PLUGIN_CMDS" | sed 's/^/      /'
+    fi
     return 0
   fi
   cat <<'EOF'
@@ -98,21 +107,20 @@ setup_codex() {
     command -v codex >/dev/null 2>&1 || die "codex CLI did not land on PATH"
     ok "codex installed"
   fi
-  codex login >/dev/null 2>&1 || warn "codex not logged in — run:  codex login  (browser)"
+  codex login status >/dev/null 2>&1 || warn "codex not logged in — run:  codex login  (browser)"
   mkdir -p "$HOME/.codex"
   CFG="$HOME/.codex/config.toml"
   if grep -q 'mcp_servers.ruflo' "$CFG" 2>/dev/null; then
     ok "ruflo MCP already wired in $CFG"
   else
     say "wiring ruflo MCP into $CFG…"
-    npm_global ruflo@latest
     cat >> "$CFG" <<'EOF'
 
 [mcp_servers.ruflo]
 command = "npx"
 args = ["-y", "ruflo@latest", "mcp", "start"]
 EOF
-    ok "ruflo MCP wired — codex now reaches 314+ ruflo tools"
+    ok "ruflo MCP wired — codex reaches ruflo's tool fleet via npx on demand"
   fi
 }
 
@@ -128,23 +136,9 @@ setup_glm() {
     printf '\n'
   fi
   [[ -n "$KEY" ]] || die "no key given — get one at https://docs.z.ai (GLM Coding Plan)"
-  python3 - "$KEY" <<'EOF'
-import json, os, sys
-key = sys.argv[1]
-p = os.path.expanduser("~/.claude/settings.json")
-try:
-    cfg = json.load(open(p)) if os.path.exists(p) else {}
-except Exception:
-    cfg = {}
-cfg.setdefault("env", {})["ANTHROPIC_AUTH_TOKEN"] = key
-cfg["env"]["ANTHROPIC_BASE_URL"] = "https://api.z.ai/api/anthropic"
-os.makedirs(os.path.dirname(p), exist_ok=True)
-tmp = p + ".tmp"
-open(tmp, "w").write(json.dumps(cfg, indent=2))
-os.replace(tmp, p)
-os.chmod(p, 0o600)
-EOF
-  ok "GLM wired into ~/.claude/settings.json (600) — claude now builds on GLM"
+  printf '%s' "$KEY" | python3 "$HERE/setup-harness-glm.py" \
+    || die "GLM settings merge failed"
+  ok "claude now builds on GLM — the zai family, no Anthropic account"
   install_ruflo_plugins
 }
 
@@ -178,7 +172,7 @@ case "${1:-}" in
   --claude) setup_claude ;;
   --codex)  setup_codex ;;
   --glm)    setup_glm ;;
-  --help|-h) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  --help|-h) awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 && !/^#/ {exit}' "$0"; exit 0 ;;
   "")       menu ;;
   *) die "unknown flag '$1' (try --help)" ;;
 esac
