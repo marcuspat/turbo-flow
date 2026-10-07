@@ -1,6 +1,6 @@
 # Contributing to Turbo Flow
 
-Thank you for your interest in contributing to Turbo Flow — the advanced agentic development environment built by [Adventure Wave Labs](https://github.com/adventurewave-labs).
+Thank you for your interest in contributing to Turbo Flow — the portable governance kit ([`rig-lite/`](rig-lite/)) built by [Adventure Wave Labs](https://github.com/adventurewave-labs).
 
 ## Getting Started
 
@@ -10,38 +10,31 @@ Thank you for your interest in contributing to Turbo Flow — the advanced agent
    git clone https://github.com/<your-username>/turbo-flow.git
    cd turbo-flow
    ```
-3. Create a feature branch:
-   ```bash
-   git checkout -b feat/your-feature
-   ```
+3. Create a feature branch (or a worktree, the kit way: `rig-lite/wt.sh <name>`)
 4. Make your changes
-5. Test your changes (see below)
-6. Push and open a pull request against `main`
+5. Prove them: `bash rig-lite/self-test.sh` (fail-closed; must pass)
+6. Push and open a pull request against `main` — every PR gets a cross-family review from the gate (`rig-lite/gate.sh --pr <n> --builder <your-cli>`)
 
 ## Development Setup
 
 ### Prerequisites
 
-- Claude Code CLI installed
-- DevPod or GitHub Codespaces (recommended)
-- Node.js 20+
-- Python 3.8+
-- Docker (for DevPod-based testing)
+- Bash, git, python3 — that's it
+- Optional, each with a loud self-test skip when absent: `jq` (only for recording demos — the auth guard parses claude's JSON with it), `shellcheck` (full self-test coverage)
+- Any coding-agent CLI you like (ZCode, Claude Code, Codex) — none is bundled or required to run the kit
 
 ### Quick Setup
 
 ```bash
-chmod +x devpods/setup.sh
-./devpods/setup.sh
-source ~/.bashrc
-turbo-status
+bash rig-lite/self-test.sh          # proves the kit on your machine
+bash rig-lite/init-repo.sh          # optional: wire AGENTS.md into any repo you're testing against
 ```
 
 ### Verification
 
 ```bash
-./devpods/post-setup.sh   # Runs 13 automated checks
-turbo-help                 # Lists available commands
+bash rig-lite/self-test.sh          # the suite every PR must pass
+bash rig-lite/gate.sh --base main --builder <cli>   # branch mode: deterministic checks + review
 ```
 
 ## Pull Request Guidelines
@@ -57,7 +50,7 @@ Open a GitHub issue with:
 - A clear title and description
 - Steps to reproduce
 - Expected vs actual behavior
-- OS, DevPod/Codespaces version, and `turbo-status` output
+- OS and the output of `bash rig-lite/self-test.sh`
 
 ## Security Vulnerabilities
 

@@ -1,53 +1,23 @@
 {
-    "name": "Claude Dev Workspace",
+    "name": "Turbo Flow — the rig-lite kit",
     "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
     "remoteUser": "vscode",
     "features": {
-        "ghcr.io/devcontainers/features/rust:1": {
-            "version": "1.97.1"
-        },
-        "ghcr.io/devcontainers/features/docker-in-docker:2": {
-            "moby": false
-        },
-        "ghcr.io/devcontainers/features/node:1": {
-            "version": "26"
-        }
+        "ghcr.io/devcontainers/features/python:1": {}
     },
     "containerEnv": {
-        "WORKSPACE_FOLDER": "${containerWorkspaceFolder}",
-        "DEVPOD_WORKSPACE_FOLDER": "${containerWorkspaceFolder}",
-        "AGENTS_DIR": "${containerWorkspaceFolder}/agents",
-        "NPM_CONFIG_PREFIX": "/home/vscode/.npm-global",
-        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+        "KIT_DIR": "${containerWorkspaceFolder}/rig-lite"
     },
-    "postCreateCommand": "mkdir -p $HOME/.npm-global/bin $HOME/.npm-global/lib && echo 'export NPM_CONFIG_PREFIX=\"$HOME/.npm-global\"' >> $HOME/.bashrc && echo 'export PATH=\"$HOME/.npm-global/bin:$HOME/.local/bin:$HOME/.claude/bin:$PATH\"' >> $HOME/.bashrc && echo '# tf-tmux: auto-attach into the workspace session (detach returns to this shell)' >> $HOME/.bashrc && echo 'if [ -z \"$TMUX\" ] && [ -t 0 ] && [ -t 1 ] && command -v tmux >/dev/null 2>&1 && [ -f \"${containerWorkspaceFolder}/devpods/tmux-attach.sh\" ]; then bash \"${containerWorkspaceFolder}/devpods/tmux-attach.sh\" --inline; fi' >> $HOME/.bashrc && export NPM_CONFIG_PREFIX=$HOME/.npm-global && export PATH=$HOME/.npm-global/bin:$HOME/.local/bin:$HOME/.claude/bin:$PATH && if sudo apt-get update && sudo apt-get install -y tmux htop build-essential python3 python3-pip jq; then chmod +x ${containerWorkspaceFolder}/devpods/*.sh 2>/dev/null || true; if [ -f ${containerWorkspaceFolder}/devpods/setup.sh ]; then bash ${containerWorkspaceFolder}/devpods/setup.sh; fi; else echo '\u26a0 apt layer FAILED \u2014 devpods/setup.sh skipped (check tmux/htop/python3/pip manually)'; exit 1; fi",
-    "postStartCommand": "echo '\u2705 Container started, waiting for VS Code...'",
-    "postAttachCommand": "if [ -f ${containerWorkspaceFolder}/devpods/post-setup.sh ]; then chmod +x ${containerWorkspaceFolder}/devpods/post-setup.sh && bash ${containerWorkspaceFolder}/devpods/post-setup.sh; fi && if [ -f ${containerWorkspaceFolder}/devpods/tmux-workspace.sh ]; then chmod +x ${containerWorkspaceFolder}/devpods/tmux-workspace.sh && bash ${containerWorkspaceFolder}/devpods/tmux-workspace.sh --no-attach; fi",
+    "postCreateCommand": "chmod +x ${containerWorkspaceFolder}/rig-lite/*.sh 2>/dev/null || true; bash ${containerWorkspaceFolder}/rig-lite/self-test.sh",
     "hostRequirements": {
-        "memory": "8gb"
+        "memory": "4gb"
     },
     "customizations": {
         "vscode": {
-            "extensions": [
-                "rooveterinaryinc.roo-cline",
-                "vsls-contrib.gistfs",
-                "github.copilot",
-                "github.copilot-chat"
-            ],
             "settings": {
                 "terminal.integrated.cwd": "${containerWorkspaceFolder}",
                 "terminal.integrated.shellIntegration.enabled": true,
-                "workbench.startupEditor": "none",
-                "terminal.integrated.profiles.linux": {
-                    "tmux-workspace": {
-                        "path": "/bin/bash",
-                        "args": [
-                            "-c",
-                            "bash ${containerWorkspaceFolder}/devpods/tmux-attach.sh || exec bash"
-                        ]
-                    }
-                },
-                "terminal.integrated.defaultProfile.linux": "tmux-workspace"
+                "workbench.startupEditor": "none"
             }
         }
     }
