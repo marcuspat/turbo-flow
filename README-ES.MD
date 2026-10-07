@@ -1,7 +1,7 @@
 > **⚡ TURBO FLOW — LA CAPA DE REGLAS PARA CÓDIGO ESCRITO POR IA.**
 > Un solo producto vive aquí: [`rig-lite/`](rig-lite/) — un kit de gobernanza portátil. No empaqueta ningún harness, no instala nada, solo depende de bash. Suéltalo en cualquier repo y tus agentes obtienen leyes con dientes.
 
-![v5](https://img.shields.io/badge/versión-5.2.0-blue?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![estudio](https://img.shields.io/badge/revisión_entre_familias-71.6%25→89.7%25-c25550?style=flat-square)
+![v5](https://img.shields.io/badge/versión-5.2.0-blue?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![semana](https://img.shields.io/badge/semana_auditada-868_veredictos_%C2%B7_79%25_REVISE-c25550?style=flat-square)
 
 ## Trae tu propio harness
 
