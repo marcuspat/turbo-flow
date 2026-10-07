@@ -141,7 +141,12 @@ glm_write_wrapper() { # glm_write_wrapper <bindir> — the claude-glm launcher
 #!/usr/bin/env bash
 # claude-glm — Claude Code on the GLM Coding Plan (builder family: zai).
 # Plain 'claude' stays your Anthropic reviewer — builder ≠ reviewer survives.
-set -a; . "$HOME/.config/turbo-flow/glm.env"; set +a
+# Fails CLOSED: no GLM env -> refuse, never fall back to an Anthropic session.
+f="$HOME/.config/turbo-flow/glm.env"
+. "$f" || { echo "claude-glm: $f missing/unreadable — refusing to fall back to Anthropic" >&2; exit 1; }
+[ -n "$ANTHROPIC_AUTH_TOKEN" ] && [ "$ANTHROPIC_BASE_URL" = "https://api.z.ai/api/anthropic" ] \
+  || { echo "claude-glm: GLM env incomplete — refusing to run" >&2; exit 1; }
+unset ANTHROPIC_API_KEY  # never carry an Anthropic credential to a third-party endpoint
 exec claude "$@"
 WRAP
   chmod 0700 "$bindir/claude-glm" || die "chmod wrapper failed"

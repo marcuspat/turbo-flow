@@ -1067,14 +1067,16 @@ if [ -f "$RGSH" ]; then
   fi
   if [ -x "$RGH/.local/bin/claude-glm" ] \
      && grep -q 'glm.env' "$RGH/.local/bin/claude-glm" \
-     && grep -q 'exec claude' "$RGH/.local/bin/claude-glm"; then
-    echo "✓ setup-harness: claude-glm launcher written + executable"
+     && grep -q 'exec claude' "$RGH/.local/bin/claude-glm" \
+     && grep -q 'refusing to fall back to Anthropic' "$RGH/.local/bin/claude-glm" \
+     && grep -q 'unset ANTHROPIC_API_KEY' "$RGH/.local/bin/claude-glm"; then
+    echo "✓ setup-harness: claude-glm launcher executable, fail-closed, unsets ANTHROPIC_API_KEY"
   else
-    echo "✗ setup-harness: claude-glm launcher broken"; FAIL=1
+    echo "✗ setup-harness: claude-glm launcher broken (missing guard/unset)"; FAIL=1
   fi
   [ ! -e "$RGH/.claude/settings.json" ] \
-    && echo "✓ setup-harness: --glm never touches ~/.claude/settings.json (reviewer family intact)" \
-    || { echo "✗ setup-harness: glm path wrote ~/.claude/settings.json"; FAIL=1; }
+    && echo "✓ setup-harness: glm helpers write only glm.env + launcher (no ~/.claude/settings.json writes)" \
+    || { echo "✗ setup-harness: glm helpers wrote ~/.claude/settings.json"; FAIL=1; }
   if ( . "$RGSH"; glm_write_env "bad;key\$(x)" "$RGH/x" ) >/dev/null 2>&1; then
     echo "✗ setup-harness: charset gate accepted a hostile key"; FAIL=1
   else

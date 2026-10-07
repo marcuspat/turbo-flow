@@ -63,7 +63,7 @@ The kit ships no harness. When you want one, [`setup-harness.sh`](setup-harness.
 | **Codex** | OpenAI login · Ruflo wired through **MCP** (`~/.codex/config.toml`) |
 | **GLM** | Claude Code on your **GLM Coding Plan** key (docs.z.ai, Anthropic-protocol endpoint) via a dedicated `claude-glm` launcher — plain `claude` stays your Anthropic reviewer, so builder ≠ reviewer survives by construction |
 
-Keys are read hidden and stored with `600` permissions, and everything installs user-space (nvm + npm global prefix). `--claude` / `--codex` / `--glm` flags run it non-interactively.
+Keys are read hidden and stored with `600` permissions, and everything installs user-space (nvm + npm global prefix). The GLM path is fail-closed: a missing or incomplete `glm.env` makes `claude-glm` refuse to run rather than silently fall back to an Anthropic session. One shared surface, stated plainly: Ruflo plugins installed via the Claude/GLM paths load in **both** `claude` and `claude-glm` (they're tooling, not model — the reviewer's model stays Anthropic, so builder ≠ reviewer holds). `--claude` / `--codex` / `--glm` flags run it non-interactively.
 
 ## Where the v4 environment went
 
