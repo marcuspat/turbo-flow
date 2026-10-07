@@ -21,6 +21,12 @@ Turbo Flow bundles no agent and no orchestrator. It names harnesses by **role**,
 
 A clean Codespace boots this repo's devcontainer and the kit proves itself in-container — fail-closed self-test suite and a live gate run (reviewer CLI stubbed; no API keys on the recording box). Not a mockup. The recording predates the lean pivot (it shows the repo's earlier container); the current container's `postCreate` runs the self-test directly, and the recorder now walks that flow. Reproducible via [`demo/record-rig-lite-demo.sh`](demo/record-rig-lite-demo.sh).
 
+## 🎬 The boot demo — pick a harness, get a rig
+
+![harness boot demo](demo/harness-boot-demo.gif)
+
+A fresh Codespace, nothing preinstalled: [`setup-harness.sh`](setup-harness.sh) presents the harness menu, we pick **Claude Code**, and node + the CLI + the **Ruflo marketplace, console and mods** install for real on camera — ending on the honest "claude is logged out" nudge (keys never touch the recording). One take, reproducible via [`demo/record-harness-boot-demo.sh`](demo/record-harness-boot-demo.sh).
+
 ## The gate survived 17 rounds of review
 
 `rig-lite/gate.sh` was itself reviewed by a model family that didn't write it — and got **REVISE'd seventeen times** before earning APPROVED (counted from the gate's own JSONL log). The findings are exactly the class the gate exists to catch: a prompt-injection hole that let a diff approve itself, a fail-open path that skipped review entirely, a quoting bug that swallowed failing tests, a silent-reviewer misdiagnosis. Every fix became a self-test. **Builder ≠ reviewer isn't a slogan in this repo — it's the reason this script is trustworthy.**

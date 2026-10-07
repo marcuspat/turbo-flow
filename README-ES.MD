@@ -21,6 +21,12 @@ Turbo Flow no empaqueta ningún agente ni orquestador. Nombra los harnesses por 
 
 Un Codespace limpio arranca el devcontainer de este repo y el kit se prueba a sí mismo: suite de auto-tests fail-closed y una corrida del gate en vivo (CLI del revisor stubbeado; sin API keys en la máquina de grabación). La grabación es anterior al lean pivot (muestra el contenedor previo del repo); el contenedor actual corre el self-test directamente en su `postCreate`, y el grabador ahora recorre ese flujo. Reproducible con [`demo/record-rig-lite-demo.sh`](demo/record-rig-lite-demo.sh).
 
+## 🎬 El demo de arranque — elige un harness, obtén un rig
+
+![demo de arranque](demo/harness-boot-demo.gif)
+
+Un Codespace limpio, nada preinstalado: [`setup-harness.sh`](setup-harness.sh) presenta el menú de harnesses, elegimos **Claude Code**, y node + el CLI + el **marketplace de Ruflo, console y mods** se instalan de verdad en cámara — cerrando con el honesto aviso de "claude is logged out" (las keys nunca tocan la grabación). Una sola toma, reproducible con [`demo/record-harness-boot-demo.sh`](demo/record-harness-boot-demo.sh).
+
 ## El gate sobrevivió 17 rondas de revisión
 
 `rig-lite/gate.sh` fue revisado por una familia de modelos que no lo escribió — y recibió **REVISE diecisiete veces** antes de ganar su APPROVED (contado desde el propio log JSONL del gate). Los hallazgos son exactamente la clase que el gate existe para atrapar: un agujero de inyección de prompt que dejaba que un diff se aprobara solo, una ruta fail-open que saltaba la revisión, un bug de quoting que enterraba tests fallidos, un silent-reviewer mal diagnosticado. Cada fix se volvió un self-test.
