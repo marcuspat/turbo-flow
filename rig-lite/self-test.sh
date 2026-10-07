@@ -1049,11 +1049,17 @@ for RGREC in "$KIT/../demo/record-harness-boot-demo.sh" "$KIT/../demo/record-rig
   if [ -f "$RGREC" ]; then
     RGNAME="$(basename "$RGREC")"
     bash -n "$RGREC" 2>/dev/null && echo "✓ recorder $RGNAME: bash -n clean" || { echo "✗ recorder $RGNAME: syntax"; FAIL=1; }
-    grep -q "auth-guard" "$RGREC" \
-      && echo "✓ recorder $RGNAME: gates on auth-guard (never records a logged-in session)" \
-      || { echo "✗ recorder $RGNAME: no auth-guard call"; FAIL=1; }
-    OUT="$(grep -c "/workspaces/" "$RGREC")"
-    [ "$OUT" = "0" ] && echo "✓ recorder $RGNAME: no hardcoded workspace path" || { echo "✗ recorder $RGNAME: hardcodes /workspaces"; FAIL=1; }
+    # the guard must be ENFORCED: an explicit || exit, or the script runs under set -e
+    if grep -q 'auth-guard.sh || exit' "$RGREC" || { grep -q 'set -euo pipefail' "$RGREC" && grep -q 'auth-guard' "$RGREC"; }; then
+      echo "✓ recorder $RGNAME: auth-guard enforced (never records a logged-in session)"
+    else
+      echo "✗ recorder $RGNAME: auth-guard present but not enforced"; FAIL=1
+    fi
+    if grep -q "/workspaces/" "$RGREC"; then
+      echo "✗ recorder $RGNAME: hardcodes /workspaces"; FAIL=1
+    else
+      echo "✓ recorder $RGNAME: no hardcoded workspace path"
+    fi
   fi
 done
 

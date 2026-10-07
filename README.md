@@ -25,7 +25,7 @@ A clean Codespace boots this repo's devcontainer and the kit proves itself in-co
 
 ![harness boot demo](demo/harness-boot-demo.gif)
 
-A fresh Codespace, nothing preinstalled: [`setup-harness.sh`](setup-harness.sh) presents the harness menu, we pick **Claude Code**, and node + the CLI + the **Ruflo marketplace, console and mods** install for real on camera — ending on the honest "claude is logged out" nudge (keys never touch the recording). One take, reproducible via [`demo/record-harness-boot-demo.sh`](demo/record-harness-boot-demo.sh).
+A fresh Codespace, nothing preinstalled (the recorder's three prereqs — asciinema, pexpect, agg — are documented in its header): [`setup-harness.sh`](setup-harness.sh) presents the harness menu, we pick **Claude Code**, and node + the CLI + the **Ruflo marketplace, console and mods** install for real on camera — ending on the honest "claude is logged out" nudge (keys never touch the recording). One take, reproducible via [`demo/record-harness-boot-demo.sh`](demo/record-harness-boot-demo.sh).
 
 ## The gate survived 17 rounds of review
 

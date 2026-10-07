@@ -25,7 +25,7 @@ Un Codespace limpio arranca el devcontainer de este repo y el kit se prueba a s�
 
 ![demo de arranque](demo/harness-boot-demo.gif)
 
-Un Codespace limpio, nada preinstalado: [`setup-harness.sh`](setup-harness.sh) presenta el menú de harnesses, elegimos **Claude Code**, y node + el CLI + el **marketplace de Ruflo, console y mods** se instalan de verdad en cámara — cerrando con el honesto aviso de "claude is logged out" (las keys nunca tocan la grabación). Una sola toma, reproducible con [`demo/record-harness-boot-demo.sh`](demo/record-harness-boot-demo.sh).
+Un Codespace limpio, nada preinstalado (los tres prerequisitos del grabador — asciinema, pexpect, agg — están documentados en su encabezado): [`setup-harness.sh`](setup-harness.sh) presenta el menú de harnesses, elegimos **Claude Code**, y node + el CLI + el **marketplace de Ruflo, console y mods** se instalan de verdad en cámara — cerrando con el honesto aviso de "claude is logged out" (las keys nunca tocan la grabación). Una sola toma, reproducible con [`demo/record-harness-boot-demo.sh`](demo/record-harness-boot-demo.sh).
 
 ## El gate sobrevivió 17 rondas de revisión
 

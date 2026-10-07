@@ -6,7 +6,7 @@ TF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
 cd "$TF" || exit 1
 
 # refuse to record an authenticated session — keys never touch the demo
-bash demo/auth-guard.sh
+bash demo/auth-guard.sh || exit 1
 
 t() { # type a command char-by-char, then run it
   local cmd="$1"; local i=0

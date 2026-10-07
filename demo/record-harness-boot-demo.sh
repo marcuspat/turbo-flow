@@ -26,9 +26,9 @@ time.sleep(0.8)
 for ch in "1":                                     # typed like a human
     child.send(ch); time.sleep(0.25)
 child.send("\r")
-i = child.expect(["done. next: open the repo README", pexpect.EOF], timeout=780)
+i = child.expect(["done. next: open the repo README", pexpect.EOF, pexpect.TIMEOUT], timeout=780)
 if i != 0:
-    print("recorder: take FAILED (session ended before the script completed)", file=sys.stderr)
+    print("recorder: take FAILED (session ended or timed out before the script completed)", file=sys.stderr)
     sys.exit(1)
 time.sleep(1.0)
 try:
