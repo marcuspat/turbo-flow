@@ -1,517 +1,82 @@
-> **⚡ TURBO FLOW v5.0-PREVIEW — THE RIG ERA. PRIVATE BETA OPEN.**
-> Turbo Flow continues as **Turbo Rig** — a thin agentic coding rig. The full rig runs in private beta; this repo is its public home: the drop-in governance kit for your v4 install, the evidence, and the beta funnel.
+> **⚡ TURBO FLOW — THE RULES LAYER FOR AI-WRITTEN CODE.**
+> One product lives here: [`rig-lite/`](rig-lite/) — a portable governance kit. It ships no harness, installs nothing, and depends only on bash. Drop it into any repo and your agents get laws with teeth.
 
-![v5](https://img.shields.io/badge/version-5.1.0-blue?style=flat-square) ![beta](https://img.shields.io/badge/private_beta-OPEN-2ea88f?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![study](https://img.shields.io/badge/cross--family_review-71.6%25→89.7%25-c25550?style=flat-square)
+![v5](https://img.shields.io/badge/version-5.2.0-blue?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![study](https://img.shields.io/badge/cross--family_review-71.6%25→89.7%25-c25550?style=flat-square)
 
-## Two things live here — pick your door
+## Bring your own harness
 
-This repo holds **two different products**. They pair well but stand alone:
+Turbo Flow bundles no agent and no orchestrator. It names harnesses by **role**, and works with any tool that reads `AGENTS.md` and can run bash:
 
-| You want… | Your door | What it is |
+| Role | Who | How the kit uses it |
 |---|---|---|
-| an **agentic dev environment** — Claude in tmux windows, orchestration, memory, live token monitor | **Turbo Flow v4** | Open this repo in a Codespace — `postCreate` installs everything ([setup guide](github_codespaces_setup.md)). Full docs below the fold. |
-| **governance for AI-written code** — a review gate that says no | **[`rig-lite/`](rig-lite/)** | A standalone extract of Turbo Rig: `gate.sh` (cross-model review, PR verdicts, sweep), `wt.sh` (isolated worktrees), `secret.sh` (encrypted secrets), the constitution, spec templates, the memory pattern + scaffold, `digest.sh` (repo health), and a 9-task automation pack. Works in **any** repo or environment — including the v4 install above. |
-| the **integrated rig** both of these come from | **[private beta](https://turbo-rig-beta.vercel.app)** | Turbo Rig: gate + constitution + memory + automations, running as one system. |
+| **Builder** | ZCode (GLM), Claude Code, Codex, Gemini, Grok | `gate.sh --builder <cli>` knows the family; anyone can build |
+| **Reviewer** | Claude Code or Codex CLI — never the builder's family | the gate auto-detects and refuses same-family review |
+| **Orchestration** (optional) | Ruflo, as a Claude Code mod | bring it if you want swarms — the kit doesn't care |
 
-New here? The 60-second version: **v4 below is the environment you install; rig-lite is the rules you drop into it (or anywhere); the beta is both, integrated and growing.**
+**ZCode builds · Claude Code reviews (Ruflo mod installed when you want orchestration) · Codex backs up the review.** That loop runs in production on this repo today: every PR here was built by one family, reviewed by another, merged by a human.
 
-## 🎬 The new demo — recorded in a fresh Codespace, nothing preinstalled
+## 🎬 The demo — recorded in a fresh Codespace, nothing preinstalled
 
 ![rig-lite demo](demo/rig-lite-demo.gif)
 
-A clean Codespace boots this repo's devcontainer and the install chain runs end-to-end; then rig-lite proves itself in-container — **fail-closed self-test suite** (30+ checks; says so when shellcheck-gated coverage is skipped) and a live gate run (reviewer CLI stubbed; no API keys on the recording box, same rules as the v4 demo). Not a mockup.
+A clean Codespace boots this repo's devcontainer and the kit proves itself in-container — fail-closed self-test suite and a live gate run (reviewer CLI stubbed; no API keys on the recording box). Not a mockup. Reproducible via [`demo/record-rig-lite-demo.sh`](demo/record-rig-lite-demo.sh).
 
-## The gate in this kit survived 16 rounds of review
+## The gate survived 17 rounds of review
 
-`rig-lite/gate.sh` was itself reviewed by a model family that didn't write it — and got **REVISE'd sixteen times** before earning APPROVED. The findings are exactly the class the gate exists to catch: a prompt-injection hole that let a diff approve itself, a fail-open path that skipped review entirely, a quoting bug that swallowed failing tests, a silent-reviewer misdiagnosis. Every fix became a self-test. **Builder ≠ reviewer isn't a slogan in this repo — it's the reason this script is trustworthy.**
+`rig-lite/gate.sh` was itself reviewed by a model family that didn't write it — and got **REVISE'd seventeen times** before earning APPROVED (counted from the gate's own JSONL log). The findings are exactly the class the gate exists to catch: a prompt-injection hole that let a diff approve itself, a fail-open path that skipped review entirely, a quoting bug that swallowed failing tests, a silent-reviewer misdiagnosis. Every fix became a self-test. **Builder ≠ reviewer isn't a slogan in this repo — it's the reason this script is trustworthy.**
 
-## rig-lite — the complete portable rig (still the missing half of your v4 install)
-
-Your Ruflo swarm has 215+ tools and 60+ agents. Nothing in it says **no**. [`rig-lite/`](rig-lite/) is a portable governance layer — twelve files, ten minutes, no new dependencies:
+## rig-lite — one kit, ten minutes, no new dependencies
 
 | file | what it gives you |
 |---|---|
-| [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. `--pr <n>` gates a GitHub PR and posts the verdict as a comment (GitHub becomes the state machine); `--sweep` gates every open PR that has no verdict yet; `-C <repo>` gates another checkout. Every verdict also lands in a local JSONL log the digest joins. |
-| [`wt.sh`](rig-lite/wt.sh) | an isolated worktree per parallel writer (Law 3 made executable): `wt <name>` creates `.worktrees/<name>` + branch, `--clean` tidies up after merge. |
+| [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. `--pr <n>` gates a GitHub PR and posts the verdict as a comment; `--sweep` gates every open PR that has no verdict yet; `-C <repo>` gates another checkout. Every verdict lands in a local JSONL log the digest joins. |
+| [`wt.sh`](rig-lite/wt.sh) | an isolated worktree per parallel writer: `wt <name>` creates `.worktrees/<name>` + branch, `--clean` tidies up after merge. |
 | [`init-repo.sh`](rig-lite/init-repo.sh) | one-command onboarding for any repo: a thin `AGENTS.md` (constitution pointer + project cheat-sheet) and the `CLAUDE.md → AGENTS.md` symlink. Never clobbers existing files. |
-| [`specs/`](rig-lite/specs/) | the spec + UAT contract templates the constitution's "state on disk" points at: plan before build, verify behavior against the deployed app. |
-| [`digest.sh`](rig-lite/digest.sh) | one command, one file: repo health for your whole fleet — merge queue joined with gate verdicts, merged PRs, dirty/behind working copies, site liveness, stale codespaces, repo-hygiene gaps. Fixture-tested via `--selftest`. |
+| [`specs/`](rig-lite/specs/) | the spec + UAT contract templates: plan before build, verify behavior against the deployed app. |
+| [`digest.sh`](rig-lite/digest.sh) | one command, one file: repo health for your whole fleet — merge queue joined with gate verdicts, merged PRs, dirty/behind working copies, site liveness, stale codespaces, repo-hygiene gaps. |
 | [`automations/`](rig-lite/automations/README.md) | the background tier as a portable prompt pack: 9 scheduled tasks (morning digest, security scan, memory consolidation, weekly retro, repo-hygiene pass, site sentinel, gate canary, portability canary, nightly sweep) plus two ways to schedule them. |
-| [`secret.sh`](rig-lite/secret.sh) | Law 4 made executable: encrypted-at-rest secrets, backend auto-detected (macOS Keychain → libsecret → age → loudly-warned chmod-600 plaintext). `set`/`get`/`rm`/`list` — listing shows names, never values. |
-| [`hooks/`](rig-lite/hooks/) | the deletion-guard pre-commit (warn-only, fail-open): staged deletions get loud before a blanket `git add -A` eats a file. `init-repo.sh` installs it; existing hooks are never clobbered. |
-| [`constitution.md`](rig-lite/constitution.md) | the four laws your agents can read: builder ≠ reviewer · agents never merge · parallel writers get isolated worktrees · secrets never in git. |
-| [`memory.md`](rig-lite/memory.md) | git-versioned cross-session memory — one fact per file + an index, sync rules, lifecycle (diagrams included). |
-| [`memory/`](rig-lite/memory/) | the scaffold itself: decisions / gotchas / project-index / inbox, with entry templates — the structure `memory.md` documents and `digest.sh` feeds. |
-| [`self-test.sh`](rig-lite/self-test.sh) | proves the kit's fail-closed behavior — injected `VERDICT` strings, silent/crashed/absent reviewers, deterministic-stage ordering, cross-family exclusion, plus `wt.sh`, `init-repo.sh`, PR/sweep, and digest lifecycle checks. Run it before you trust it. |
+| [`secret.sh`](rig-lite/secret.sh) | encrypted-at-rest secrets, backend auto-detected (macOS Keychain → libsecret → age → loudly-warned chmod-600 plaintext). `set/get/rm/list` — listing shows names, never values; values never appear in `ps`. |
+| [`memory.md`](rig-lite/memory.md) + [`memory/`](rig-lite/memory/) | the git-versioned memory pattern: index, decisions, gotchas, project index, inbox — agents forget, git doesn't. |
+| [`tokens.py`](rig-lite/tokens.py) | live token-burn dashboard across **zcode + claude + codex** — reads each CLI's local usage data read-only; `--watch` live view, `--json`, built-in self-test. |
+| [`hooks/pre-commit`](rig-lite/hooks/pre-commit) | deletion guard: staged deletions print loudly instead of silently vanishing. Warn-only, fail-open. |
+| [`constitution.md`](rig-lite/constitution.md) | the laws — builder ≠ reviewer, agents never merge, worktrees for parallel writers, secrets encrypted, state on disk. |
+| [`self-test.sh`](rig-lite/self-test.sh) | the kit's own fail-closed test suite (hundreds of checks); says so when shellcheck-gated coverage is skipped. |
 
-**Everything here was extracted from the running private beta** — not designed in the abstract, but lifted from a rig that gates its own PRs daily (the kit's gate survived 16 review rounds; the v5.1 waves survived their own gates too, findings and all). And now **every law ships with its tool**: Law 1 → `gate.sh`, Law 2 → the gate's own design (it never merges), Law 3 → `wt.sh`, Law 4 → `secret.sh`. The beta builds continuously; periodically a matured batch kicks down here as one versioned sync point. **v5.1 was the first.**
+## Ten-minute install
 
-**Standalone-first**: drop them into any environment — turbo-flow v4 (below), a plain git repo, or CI. No dependency on the v4 stack; the two products are complements, not prerequisites.
+```bash
+# from any repo you want to govern:
+bash /path/to/turbo-flow/rig-lite/init-repo.sh   # writes AGENTS.md + symlink, never clobbers
+bash /path/to/turbo-flow/rig-lite/self-test.sh   # prove the kit on your machine
+/path/to/turbo-flow/rig-lite/gate.sh --pr 1 --builder <your-cli>
+```
 
-## Does builder ≠ reviewer actually matter?
+No Codespace? Fine — it's bash. Want the 30-second container tour anyway? Open this repo in a Codespace; `postCreate` runs the self-test. That's the whole install surface.
 
-In a controlled 116-task study, cross-family review lifted pass rates from **71.6% → 89.7%**, while same-family self-review barely moved. One recent week of building Turbo Rig with Turbo Rig: **141 PRs · 868 gate runs · 104 parallel lanes** — every merge held by a human.
+## Where the v4 environment went
+
+Turbo Flow v4 packaged and wired a Claude Code + Ruflo environment. Ruflo grew its own onboarding (`npx ruflo@latest init wizard`, plugin marketplace, built-in memory and console), which retired the reason a wrapper repo existed. The v4 install chain lives on in the `v1.0.1 → v4.0` tags; the v5 line is governance-first and orchestration-agnostic.
 
 ## Join the private beta
 
-The full rig — integrated gate, constitution, git-versioned memory, automations — is running in private beta.
+The kit is the portable extract of **Turbo Rig** — gate + constitution + memory + automations running as one integrated system, on your machine, across your repos.
 
-- **Request access** → [turbo-rig-beta.vercel.app](https://turbo-rig-beta.vercel.app)
-- **Product page** → [turbo-rig.vercel.app](https://turbo-rig.vercel.app) (EN/ES)
+- **Apply / product page** → [turbo-rig.vercel.app](https://turbo-rig.vercel.app) (EN/ES)
 - **Deep dive** → [turbo-rig-deep-dive.vercel.app](https://turbo-rig-deep-dive.vercel.app) · **3D scene** → [turbo-rig-deep-dive-3d.vercel.app](https://turbo-rig-deep-dive-3d.vercel.app)
 
 **Beta feedback:** open an issue or start a discussion here — this repo is the beta's public tracker.
 
-**This repo's active job** is unchanged: the Codespaces-first devcontainer that boots the remote execution plane — **open this repo in a Codespace and `postCreate` runs the whole install chain** (see `github_codespaces_setup.md`).
+## Does builder ≠ reviewer actually matter?
 
----
-
-## 📦 Turbo Flow v4.0 — the Ruflo era (legacy, kept working)
-
-*The previous release. It still installs and still powers the devcontainer seed this repo actively maintains — it's history you can run, not dead code.*
-
-<div align="center">
-
-![Version](https://img.shields.io/badge/version-4.0.0-blue?style=for-the-badge)
-![Ruflo](https://img.shields.io/badge/Ruflo-v3.5-purple?style=for-the-badge)
-![MCP Tools](https://img.shields.io/badge/MCP_Tools-215+-green?style=for-the-badge)
-![Plugins](https://img.shields.io/badge/Plugins-6-critical?style=for-the-badge)
-![License](https://img.shields.io/badge/license-MIT-orange?style=for-the-badge)
-![Adventure Wave Labs](https://img.shields.io/badge/Adventure_Wave_Labs-Builder-ff6b6b?style=for-the-badge)
-
-**Complete Agentic Development Environment — Ruflo v3.5 + Beads + Worktrees + Agent Teams**
-
-*Built & Presented by [Adventure Wave Labs](https://www.adventureonthewave.com/#projects)*
-
-[Quick Start](#-quick-start) • [Installation](#-what-gets-installed) • [Plugins](#-plugins-6) • [Commands](#️-key-commands) • [Migration](#-migrating-from-v3x) • [Resources](#-resources)
-
-</div>
-
----
-
-## 🎬 Demo
-
-![Turbo Flow v4 onboarding demo](demo/v4-onboarding-demo.gif)
-
-Recorded **in a fresh Codespace on `main`, nothing preinstalled** — the install chain runs for real, then a real tmux attach tours all four workspace windows (two Claude panes, the live **token monitor**, `htop`), and the `claude` CLI is launched in **both** Claude windows through to its genuine first-run screen. No API key on the recording box — `demo/auth-guard.sh` refuses to record an authenticated session — so that's the real first-run experience, not a mockup. Reproducible via [`demo/record-v4-onboarding-demo.sh`](demo/record-v4-onboarding-demo.sh) (asciinema + agg).
-
----
+In a controlled 116-task study, cross-family review lifted pass rates from **71.6% → 89.7%**, while same-family self-review barely moved. One recent week of building Turbo Rig with Turbo Rig: **141 PRs · 868 gate runs · 104 parallel lanes** — every merge held by a human. The badge at the top is the receipt.
 
 ## About Adventure Wave Labs
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/adventurewave-labs/.github/main/profile/AWLabs.webp" alt="Adventure Wave Labs" width="600">
-</div>
-
-**Adventure Wave Labs** is the team behind Turbo Flow, a complete agentic development environment built for the Claude ecosystem. We design, build, and maintain the packaging, setup automation, plugin curation, and workflow integration that brings together orchestration, memory, codebase intelligence, and agent isolation into a single streamlined install. The orchestration core itself — the 215+ MCP tools and 60+ agents referenced throughout this README — is [Ruflo](https://github.com/ruvnet/ruflo) v3.5, built by [ruvnet](https://github.com/ruvnet) ("rUv"); Turbo Flow integrates and configures it rather than building it from scratch.
-
----
-
-## What's New in v4.0.0
-
-| Metric | v3.4.1 | v4.0.0 | Change |
-|--------|--------|--------|--------|
-| Installation Steps | 15 | **10** | -5 (consolidated) |
-| Core Packages | 4 separate | **1 (Ruflo)** | -75% |
-| MCP Tools | 175+ | **215+** | +23% |
-| Agents | 60+ | **60+** | — |
-| Plugins | 15 | **6** | -9 (redundant removed) |
-| Cross-session Memory | None | **Beads** | New |
-| Agent Isolation | None | **Git Worktrees** | New |
-| Codebase Graph | None | **GitNexus** | New |
-| UI/UX Skill | Yes | **Yes** | Kept |
-| Statusline | Yes | **Yes** | Updated to 4.0 |
-
-### Major Changes
-
-- **claude-flow → Ruflo v3.5** — Single `npx ruflo@latest init` replaces 4 separate installs
-- **Beads** — Cross-session project memory via git-native JSONL
-- **GitNexus** — Codebase knowledge graph with MCP server and blast-radius detection
-- **Native Git Worktrees** — Per-agent isolation with auto PG Vector schema namespacing
-- **Native Agent Teams** — Anthropic's experimental multi-agent spawning
-- **6 focused plugins** — 9 redundant/domain-specific plugins removed
-- **OpenSpec** — Spec-driven development kept
-- **UI UX Pro Max** — Design skill kept
-- **Statusline Pro v4.0** — Updated with TF 4.0 branding
-
-### Removed (redundant with Ruflo v3.5 or out of scope)
-
-- `claude-flow@alpha`, `@ruvector/cli`, `@ruvector/sona`, `@claude-flow/browser` → bundled in Ruflo
-- 9 plugins: healthcare-clinical, financial-risk, legal-contracts, cognitive-kernel, hyperbolic-reasoning, quantum-optimizer, neural-coordination, prime-radiant, ruvector-upstream
-- Claudish, Agentic Jujutsu, Spec-Kit, agtrace, PAL MCP → bundled or redundant
-- HeroUI + Tailwind + TypeScript scaffold → out of scope
-- Ars Contexta, OpenClaw Secure Stack → out of scope
-
----
-
-## Architecture
-
-```
-+------------------------------------------------------------------+
-|               TURBO FLOW v4.0 — Adventure Wave Labs               |
-+------------------------------------------------------------------+
-|  INTERFACE                                                        |
-|  +---------------+  +---------------+  +---------------+          |
-|  | Claude Code   |  |  Open WebUI   |  |  Statusline   |          |
-|  |     CLI       |  |  (4 instances)|  |   Pro v4.0    |          |
-|  +---------------+  +---------------+  +---------------+          |
-+------------------------------------------------------------------+
-|  ORCHESTRATION: Ruflo v3.5                                        |
-|  60+ Agents | 215+ MCP Tools | Auto-activated Skills              |
-|  AgentDB v3 | RuVector WASM | SONA | 3-Tier Model Routing        |
-|  59 MCP Browser Tools | Observability | Gating                    |
-+------------------------------------------------------------------+
-|  PLUGINS (6)                                                      |
-|  +--------------------------------------------------------------+ |
-|  | Agentic QE | Code Intel | Test Intel | Perf | Teammate | Gas | |
-|  +--------------------------------------------------------------+ |
-+------------------------------------------------------------------+
-|  CODEBASE INTELLIGENCE: GitNexus                                  |
-|  Knowledge Graph | Blast Radius Detection | MCP Server            |
-+------------------------------------------------------------------+
-|  MEMORY (Three-Tier)                                              |
-|  +---------------+  +---------------+  +---------------+          |
-|  |    Beads      |  | Native Tasks  |  |   AgentDB     |          |
-|  |  project/git  |  |   session     |  |  + RuVector   |          |
-|  |    JSONL      |  |  ~/.claude/   |  |  WASM accel   |          |
-|  +---------------+  +---------------+  +---------------+          |
-+------------------------------------------------------------------+
-|  ISOLATION                                                        |
-|  Git Worktrees per Agent | PG Vector Schema per Worktree          |
-|  Auto GitNexus Indexing | Agent Teams (experimental)              |
-+------------------------------------------------------------------+
-|  SKILLS                                                           |
-|  UI UX Pro Max | OpenSpec | 36+ Ruflo Auto-activated Skills       |
-+------------------------------------------------------------------+
-|  INFRASTRUCTURE                                                  |
-|  Codespaces (primary) · local Linux/macOS · legacy k8s           |
-+------------------------------------------------------------------+
-```
-
----
-
-## Quick Start
-
-### Codespaces (primary — nothing to install locally)
-
-1. Click the green **Code** button on this repo → **Create codespace** (or `gh codespace create -R marcuspat/turbo-flow`).
-2. Wait for `postCreate` — it installs the full stack automatically (Claude Code, Ruflo, Dolt + Beads, GitNexus, OpenSpec, the token monitor). ~15 minutes on the free 2-core tier.
-3. On first attach, the four-window tmux workspace builds itself: two Claude panes, the live **token monitor**, and `htop`. The default terminal profile attaches straight into it.
-4. Verify: `turbo-status` · `turbo-help` · `bash devpods/tf-verify.sh`
-
-That's it — the demo GIF above is exactly this path, recorded unedited.
-
-### Local (Linux / macOS)
-
-```bash
-git clone https://github.com/marcuspat/turbo-flow -b main
-cd turbo-flow
-bash devpods/setup.sh && source ~/.bashrc
-bash devpods/tmux-workspace.sh        # builds the same 4-window workspace
-turbo-status
-```
-
-### DevPod & Kubernetes
-
-DevPod still works (`devpod up https://github.com/marcuspat/turbo-flow --ide vscode`) against this repo's devcontainer. The k8s/Rackspace plane guides and boot scripts have been removed (unverified since v4) — the `v4.0` tag keeps them.
-
----
-
-## What Gets Installed
-
-The `devpods/setup.sh` script installs the complete stack in **10 automated steps**:
-
-### Step 1: System Prerequisites
-
-| Package | Purpose |
-|:--------|:--------|
-| `build-essential` | C/C++ compiler (gcc, g++, make) |
-| `python3` | Python runtime |
-| `git` | Version control |
-| `curl` | HTTP client |
-| `jq` | JSON processor (required for statusline) |
-| `Node.js 20+` | JavaScript runtime (required by Ruflo v3.5) |
-
-### Step 2: Claude Code + Ruflo v3.5
-
-| Component | Purpose |
-|:----------|:--------|
-| `Claude Code` | Anthropic's agentic coding CLI |
-| `Ruflo v3.5` | Orchestration engine — replaces claude-flow@alpha |
-| Ruflo MCP | Registered as MCP server in Claude Code |
-| Ruflo Doctor | Auto-diagnostic and fix pass |
-
-> Ruflo v3.5 bundles: AgentDB v3, RuVector WASM, SONA, 215 MCP tools, 60+ agents, skills system, 3-tier model routing, 59 browser automation MCP tools, observability, gating
-
-### Step 3: Ruflo Plugins (6) + OpenSpec
-
-| Plugin | Purpose |
-|:-------|:--------|
-| **Agentic QE** | 58 QE agents — TDD, coverage, security scanning, chaos engineering |
-| **Code Intelligence** | Code analysis, pattern detection, refactoring suggestions |
-| **Test Intelligence** | Test generation, gap analysis, flaky test detection |
-| **Perf Optimizer** | Performance profiling, bottleneck detection |
-| **Teammate Plugin** | Bridges Native Agent Teams with Ruflo swarms (21 MCP tools) |
-| **Gastown Bridge** | WASM-accelerated orchestration, Beads sync (20 MCP tools) |
-| **OpenSpec** | Spec-driven development (independent npm package) |
-
-### Step 4: UI UX Pro Max Skill
-
-| Component | Purpose |
-|:----------|:--------|
-| `uipro-cli` | Design system skill — component patterns, accessibility, responsive layouts, design tokens |
-
-### Step 5: GitNexus (Codebase Knowledge Graph)
-
-| Component | Purpose |
-|:----------|:--------|
-| `GitNexus` | Indexes dependencies, call chains, execution flows |
-| GitNexus MCP | Registered as MCP server — blast-radius detection |
-
-### Step 6: Beads (Cross-Session Memory)
-
-| Component | Purpose |
-|:----------|:--------|
-| `@beads/bd` | Git-native JSONL project memory — issues, decisions, blockers |
-
-### Step 7: Workspace + Agent Teams
-
-| Component | Purpose |
-|:----------|:--------|
-| Directories | `src/` `tests/` `docs/` `scripts/` `config/` `plans/` |
-| Agent Teams | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` enabled |
-
-### Step 8: Statusline Pro v4.0
-
-3-line statusline with 15 components:
-
-```
-LINE 1: [Project] name | [Model] Sonnet | [Git] branch | [TF] 4.0 | [SID] abc123
-LINE 2: [Tokens] 50k/200k | [Ctx] #######--- 65% | [Cache] 42% | [Cost] $1.23 | [Time] 5m
-LINE 3: [+150] [-50] | [READY]
-```
-
-### Step 9: CLAUDE.md Generation
-
-Generates workspace context file with:
-- 3-tier memory protocol (Beads → Native Tasks → AgentDB)
-- Isolation rules (one worktree per agent)
-- Agent Teams rules (max 3 teammates, recursion depth 2)
-- Model routing tiers (Opus/Sonnet/Haiku)
-- Plugin reference
-- Cost guardrails ($15/hr)
-
-### Step 10: Aliases + Environment + MCP Registration
-
-50+ aliases across families: `rf-*`, `ruv-*`, `mem-*`, `bd-*`, `wt-*`, `gnx-*`, `aqe-*`, `os-*`, `hooks-*`, `neural-*`, `turbo-status`, `turbo-help`
-
----
-
-## Plugins (6)
-
-| Plugin | MCP Tools | Purpose |
-|:-------|:----------|:--------|
-| **Agentic QE** | 16 | 58 QE agents, TDD, coverage, security, chaos engineering |
-| **Code Intelligence** | — | Code analysis, patterns, refactoring |
-| **Test Intelligence** | — | Test generation, gaps, flaky tests |
-| **Perf Optimizer** | — | Profiling, bottlenecks, optimization |
-| **Teammate Plugin** | 21 | Agent Teams ↔ Ruflo swarms bridge, semantic routing |
-| **Gastown Bridge** | 20 | WASM orchestration, Beads sync, convoys |
-
-### Removed Plugins (9)
-
-| Plugin | Reason |
-|:-------|:-------|
-| healthcare-clinical | Domain-specific (HIPAA/FHIR) — not needed |
-| financial-risk | Domain-specific (PCI-DSS/SOX) — not needed |
-| legal-contracts | Domain-specific — not needed |
-| cognitive-kernel | Redundant with Ruflo's neural system |
-| hyperbolic-reasoning | Redundant with RuVector WASM hyperbolic embeddings |
-| quantum-optimizer | Redundant with Ruflo's EWC++ and RVFOptimizer |
-| neural-coordination | Redundant with Ruflo's swarm coordination |
-| prime-radiant | Niche — mathematical interpretability |
-| ruvector-upstream | Redundant — RuVector bundled in Ruflo v3.5 |
-
----
-
-## Key Commands
-
-<details>
-<summary><b>Status & Help</b></summary>
-
-```bash
-turbo-status         # Check all components
-turbo-help           # Complete command reference
-rf-doctor            # Ruflo health check
-rf-plugins           # List installed plugins
-```
-</details>
-
-<details>
-<summary><b>Orchestration (Ruflo)</b></summary>
-
-```bash
-rf-wizard            # Interactive setup
-rf-swarm             # Hierarchical swarm (8 agents max)
-rf-mesh              # Mesh swarm
-rf-ring              # Ring swarm
-rf-star              # Star swarm
-rf-spawn coder       # Spawn a coder agent
-rf-daemon            # Start background workers
-rf-status            # Ruflo status
-```
-</details>
-
-<details>
-<summary><b>Memory</b></summary>
-
-```bash
-bd-ready             # Check project state (session start)
-bd-add               # Record issue/decision/blocker
-bd-list              # List beads
-ruv-remember K V     # Store in AgentDB
-ruv-recall Q         # Query AgentDB
-mem-search Q         # Search ruflo memory
-mem-stats            # Memory statistics
-```
-</details>
-
-<details>
-<summary><b>Isolation</b></summary>
-
-```bash
-wt-add agent-1       # Create worktree for agent
-wt-remove agent-1    # Clean up worktree
-wt-list              # Show all worktrees
-wt-clean             # Prune stale worktrees
-```
-</details>
-
-<details>
-<summary><b>Quality & Testing</b></summary>
-
-```bash
-aqe-generate         # Generate tests (Agentic QE plugin)
-aqe-gate             # Quality gate
-os-init              # Initialize OpenSpec in project
-os                   # Run OpenSpec
-```
-</details>
-
-<details>
-<summary><b>Intelligence</b></summary>
-
-```bash
-hooks-train          # Deep pretrain on codebase
-hooks-route          # Route task to optimal agent
-neural-train         # Train neural patterns
-neural-patterns      # View learned patterns
-gnx-analyze          # Index repo into knowledge graph
-gnx-serve            # Start local server for web UI
-gnx-wiki             # Generate repo wiki from graph
-```
-</details>
-
----
-
-## Migrating from v3.x
-
-1. Your old `cf-*` aliases are gone — use `rf-*` instead
-2. Slash commands (`/sparc`, etc.) are gone — Ruflo auto-activates skills
-3. Run `bd init` in your project repos to enable Beads memory
-4. Run `npx gitnexus analyze` in your repos to build the knowledge graph
-5. The `v3/` directory preserves everything — nothing was deleted
-
-| v3.4.1 | v4.0.0 |
-|:-------|:-------|
-| `cf-init` | `rf-init` |
-| `cf-swarm` | `rf-swarm` |
-| `cf-doctor` | `rf-doctor` |
-| `cf-mcp` | Automatic via `rf-wizard` |
-| `mem-search` | `mem-search` (unchanged) |
-| `cfb-open` | Via Ruflo's bundled browser MCP tools |
-| No cross-session memory | `bd-ready`, `bd-add` |
-| No isolation | `wt-add`, `wt-remove` |
-| No codebase graph | `gnx-analyze` |
-
----
-
-## Repository Structure
-
-```
-turbo-flow/
-├── rig-lite/                    ← governance kit (gate.sh, wt.sh, init-repo.sh, specs, digest.sh, automations, constitution, memory pattern)
-├── devpods/
-│   ├── setup.sh                 ← main setup script (runs itself via Codespaces postCreate)
-│   ├── post-setup.sh            ← post-setup verification
-│   ├── tmux-workspace.sh        ← the 4-window workspace (token monitor self-heals)
-│   ├── scripts/token-monitor.py ← live Claude token dashboard
-│   ├── tests/                   ← behavioral tests (tmux policy)
-│   └── tf-verify.sh             ← the verifier
-├── demo/                        ← demo GIF + reproducible recorder + auth guard
-├── CLAUDE.md                    ← workspace context (active)
-└── README.md
-```
-
----
-
-## Post-Setup
-
-```bash
-# 1. Reload shell
-source ~/.bashrc
-
-# 2. Verify installation
-turbo-status
-
-# 3. Get help
-turbo-help
-
-# 4. Run post-setup verification (13 checks)
-# ./devpods/post-setup.sh
-```
-
----
-
-## Version History
-
-| Version | Date | Changes |
-|:--------|:-----|:--------|
-| **v4.0.0** | Mar 2026 | **Ruflo Migration**: Ruflo v3.5, Beads, GitNexus, Worktrees, Agent Teams, 6 plugins, UI UX Pro Max, OpenSpec |
-| v3.4.1 | Feb 2025 | Fixes: skill install removed, plugins command, npm fallback |
-| v3.4.0 | Feb 2025 | Complete + Plugins: 36 skills, 15 plugins |
-| v3.3.0 | Feb 2025 | Complete installation: 41 skills, memory, MCP |
-| v3.0.0 | Feb 2025 | Initial release with Claude Flow V3 |
-
----
-
-## Resources
-
-| Resource | Link |
-|:---------|:-----|
-| Adventure Wave Labs | [GitHub: adventurewave-labs](https://github.com/adventurewave-labs) |
-| Turbo Flow | [GitHub: marcuspat/turbo-flow](https://github.com/marcuspat/turbo-flow) |
-| Ruflo | [GitHub: ruvnet/ruflo](https://github.com/ruvnet/ruflo) |
-| RuVector | [GitHub: ruvnet/RuVector](https://github.com/ruvnet/RuVector) |
-| ruVLLM | [crates.io: ruvllm](https://crates.io/crates/ruvllm) |
-| MetaHarness | [GitHub: ruvnet/agent-harness-generator](https://github.com/ruvnet/agent-harness-generator) |
-| Skygraph (optional) | [GitHub: ruvnet/skygraph](https://github.com/ruvnet/skygraph) |
-| OpenSpec | [npm: @fission-ai/openspec](https://npmjs.com/package/@fission-ai/openspec) |
-| Agentic QE | [npm: agentic-qe](https://npmjs.com/package/agentic-qe) |
-
----
-
-## License
-
-MIT — Copyright (c) 2025-2026 Adventure Wave Labs
-
----
+**Adventure Wave Labs** builds Turbo Flow and Turbo Rig — packaging, setup automation, and the governance layer that holds when the agents get fast. The orchestration core referenced by v4 was [Ruflo](https://github.com/ruvnet/ruflo) by rUv; Turbo Flow integrates, and now points at it, rather than rebuilding it.
 
 <div align="center">
 
-**Built & Presented by Adventure Wave Labs**
-
-*Turbo Flow v4.0 — Ruflo v3.5. 215+ MCP tools. 6 plugins. Beads. GitNexus. Worktrees. One command.*
+**Turbo Flow v5.2 — the rules layer. One kit, any harness, humans merge.**
 
 </div>
 
@@ -526,10 +91,14 @@ Built with and powers these tools — star the ones you use:
 | [**Sentinel**](https://github.com/marcuspat/Sentinel) | Deny-by-default agentic sysadmin: Investigate → Plan → Approve → Act in Rust |
 | [**netrain**](https://github.com/marcuspat/netrain) | Matrix-style network monitor in Rust |
 
+Orchestration, when you want it: [Ruflo](https://github.com/ruvnet/ruflo) as a Claude Code mod.
+
 ## Stay Connected
 
 If Turbo Flow ships value for you, follow [@marcuspat](https://github.com/marcuspat) on GitHub — agentic tooling, Rust crates, and open-source infra drop regularly.
 
 [![Follow @marcuspat](https://img.shields.io/github/followers/marcuspat?label=Follow%20%40marcuspat&style=social)](https://github.com/marcuspat)
 
-[![MCPVault: claimed](https://mcpvault.io/badge/turbo-flow.svg?theme=dark)](https://mcpvault.io/servers/turbo-flow/health?utm_source=external_badge&utm_medium=referral&utm_campaign=mcp_health_report)
+## License
+
+MIT — Copyright (c) 2025-2026 Adventure Wave Labs
