@@ -1029,6 +1029,8 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
   if bash -n <<<"$RGPC" 2>/dev/null; then echo "✓ devcontainer: postCreateCommand parses as bash"; else echo "✗ devcontainer: postCreateCommand is not valid bash"; FAIL=1; fi
   [[ "$RGPC" == *"rig-lite/self-test.sh"* ]] && echo "✓ devcontainer: postCreate runs the kit self-test" || { echo "✗ devcontainer: postCreate lost the self-test"; FAIL=1; }
   [[ "$RGPC" != *"devpods"* ]] && echo "✓ devcontainer: no references to the removed devpods/ chain" || { echo "✗ devcontainer: devpods reference survived"; FAIL=1; }
+  RGDJ="$(cat "$RGDC" 2>/dev/null)"
+  [[ "$RGDJ" == *"devcontainers/features/sshd"* ]] && echo "✓ devcontainer: sshd feature present (gh cs ssh/cp depend on it)" || { echo "✗ devcontainer: sshd feature missing — gh cs ssh/cp break"; FAIL=1; }
 else
   echo "⚠ devcontainer checks SKIPPED (python3 or .devcontainer/devcontainer.json unavailable)"
 fi

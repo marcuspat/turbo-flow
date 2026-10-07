@@ -3,7 +3,8 @@
     "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
     "remoteUser": "vscode",
     "features": {
-        "ghcr.io/devcontainers/features/python:1": {}
+        "ghcr.io/devcontainers/features/python:1": {},
+        "ghcr.io/devcontainers/features/sshd:1": {}
     },
     "containerEnv": {
         "KIT_DIR": "${containerWorkspaceFolder}/rig-lite"
