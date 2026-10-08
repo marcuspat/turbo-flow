@@ -68,7 +68,7 @@ El kit es el extracto portable de **Turbo Rig** — gate + constitución + memor
 
 ## ¿Importa realmente que constructor ≠ revisor?
 
-El constructor nunca es su propio revisor — una decisión de diseño, no algo que midiera la semana auditada. Lo que midió una semana reciente construyendo Turbo Rig con Turbo Rig es la severidad del gate: **141 PRs · 868 veredictos · 687 REVISE (79%) · 104 lanes en paralelo** — los veredictos cubren la ventana del gate (16–21 de septiembre), los merges la semana completa, y cada merge fue sostenido por un humano. Cada número re-derivado de los registros primarios en el dossier público: https://www.turbo-rig.com/evidence (un estudio de 116 tareas citado aquí antes fue retirado — no existe el conjunto de datos).
+El constructor nunca es su propio revisor — una decisión de diseño, no algo que midiera la semana auditada. Lo que midió una semana reciente construyendo Turbo Rig con Turbo Rig es la severidad del gate: **141 PRs · 868 veredictos · 687 REVISE (79%) · 104 lanes en paralelo** — los veredictos cubren la ventana del gate (16–21 de septiembre), los merges la semana completa, y cada merge fue sostenido por un humano. Cada número re-derivado de los registros primarios en el dossier público: https://www.turbo-rig.com/evidence (la cifra de 116 tareas citada aquí antes sin atribución es un resultado externo publicado — Xiang et al., “Cross-Model LLM Code Review,” Agentic SE @ KDD’26, arXiv:2607.21656 — no son nuestros datos; se cita con atribución desde ahora).
 
 ## Sobre Adventure Wave Labs
 

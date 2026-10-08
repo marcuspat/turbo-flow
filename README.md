@@ -82,7 +82,7 @@ The kit is the portable extract of **Turbo Rig** — gate + constitution + memor
 
 ## Does builder ≠ reviewer actually matter?
 
-The builder is never its own reviewer — a design choice, not something the audited week measured. What one recent week of building Turbo Rig with Turbo Rig measured is the gate's strictness: **141 PRs · 868 gate verdicts · 687 REVISE (79%) · 104 parallel lanes** — verdicts cover the gate-live window (Sept 16–21), merges the full week, and every merge was held by a human. Every number re-derived from the primary logs in the public verification dossier: https://www.turbo-rig.com/evidence (a 116-task study previously cited here was withdrawn — no underlying dataset exists). The badge at the top is the receipt.
+The builder is never its own reviewer — a design choice, not something the audited week measured. What one recent week of building Turbo Rig with Turbo Rig measured is the gate's strictness: **141 PRs · 868 gate verdicts · 687 REVISE (79%) · 104 parallel lanes** — verdicts cover the gate-live window (Sept 16–21), merges the full week, and every merge was held by a human. Every number re-derived from the primary logs in the public verification dossier: https://www.turbo-rig.com/evidence (the 116-task figure previously cited here without attribution is a published external result — Xiang et al., “Cross-Model LLM Code Review,” Agentic SE @ KDD’26, arXiv:2607.21656 — not our data; cited as such now). The badge at the top is the receipt.
 
 ## About Adventure Wave Labs
 
