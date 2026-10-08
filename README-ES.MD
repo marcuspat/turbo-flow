@@ -1,7 +1,7 @@
 > **⚡ TURBO FLOW — LA CAPA DE REGLAS PARA CÓDIGO ESCRITO POR IA.**
 > Un solo producto vive aquí: [`rig-lite/`](rig-lite/) — un kit de gobernanza portátil. No empaqueta ningún harness, no instala nada, solo depende de bash. Suéltalo en cualquier repo y tus agentes obtienen leyes con dientes.
 
-![v5](https://img.shields.io/badge/versión-5.2.0-blue?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![estudio](https://img.shields.io/badge/revisión_entre_familias-71.6%25→89.7%25-c25550?style=flat-square)
+![v5](https://img.shields.io/badge/versión-5.2.0-blue?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![semana](https://img.shields.io/badge/semana_auditada-868_veredictos_%C2%B7_79%25_REVISE-c25550?style=flat-square)
 
 ## Trae tu propio harness
 
@@ -68,7 +68,7 @@ El kit es el extracto portable de **Turbo Rig** — gate + constitución + memor
 
 ## ¿Importa realmente que constructor ≠ revisor?
 
-En un estudio controlado de 116 tareas, la revisión entre familias subió los pass rates de **71.6% → 89.7%**, mientras que la auto-revisión de la misma familia apenas se movió. Una semana reciente construyendo Turbo Rig con Turbo Rig: **141 PRs · 868 corridas del gate · 104 lanes en paralelo** — cada merge sostenido por un humano.
+El constructor nunca es su propio revisor — una decisión de diseño, no algo que midiera la semana auditada. Lo que midió una semana reciente construyendo Turbo Rig con Turbo Rig es la severidad del gate: **141 PRs · 868 veredictos · 687 REVISE (79%) · 104 lanes en paralelo** — los veredictos cubren la ventana del gate (16–21 de septiembre), los merges la semana completa, y cada merge fue sostenido por un humano. Cada número re-derivado de los registros primarios en el dossier público: https://www.turbo-rig.com/evidence (un estudio de 116 tareas citado aquí antes fue retirado — no existe el conjunto de datos).
 
 ## Sobre Adventure Wave Labs
 
