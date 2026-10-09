@@ -1044,7 +1044,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
     HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
     RGBRC="$RGBT/.bashrc"
-    if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot: hand the user' "$RGBRC")" = "1" ] \
+    if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot' "$RGBRC")" = "1" ] \
        && bash -n "$RGBRC" 2>/dev/null \
        && grep -q '\$HOME/.config/turbo-flow/harness-booted' "$RGBRC" \
        && ! grep -qE '/home/[a-z]|/root/' "$RGBRC"; then
@@ -1052,17 +1052,32 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     else
       echo "✗ devcontainer: generated .bashrc hook failed its behavioral check"; FAIL=1
     fi
-    # atomic winner: the stub is built FROM the generated hook (tty guards stripped,
+    # hook upgrade path: a v1 block is REPLACED by v2, user content kept, no debris
+  RGUP="$(mktemp -d)"
+  printf '# user content stays\n# tf-boot: hand the user the menu\nif [[ -t 0 ]]; then\n  ( cd x && y )\nfi\n' > "$RGUP/.bashrc"
+  for _ in 1 2; do HOME="$RGUP" bash -c "$RGTAIL" >/dev/null 2>&1; done
+  RGUPB="$(cat "$RGUP/.bashrc" 2>/dev/null)"
+  if [ "$(printf '%s' "$RGUPB" | grep -c 'tf-boot v2:')" = "1" ] \
+     && ! printf '%s' "$RGUPB" | grep -q 'hand the user' \
+     && printf '%s' "$RGUPB" | grep -q '^# user content stays$' \
+     && [ ! -e "$RGUP/.bashrc.tfboot-bak" ] \
+     && bash -n "$RGUP/.bashrc" 2>/dev/null; then
+    echo "✓ devcontainer: v1 hook upgraded to v2 — replaced, idempotent, user content kept, no debris"
+  else
+    echo "✗ devcontainer: hook upgrade path broken"; FAIL=1
+  fi
+  rm -rf "$RGUP"
+  # atomic winner: the stub is built FROM the generated hook (tty guards stripped,
     # body swapped for echo) so a non-atomic flag line in the real hook FAILS here
     RGBT2="$(mktemp -d)"
     RGSTUB="$(sed -n '/^if \[\[ -t 0/,/^fi$/p' "$RGBRC" \
-      | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh )|echo TOOK|')"
+      | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh )|echo TOOK|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
     if bash -n <<<"$RGSTUB" 2>/dev/null; then
       printf '#!/usr/bin/env bash\nexit 0\n' > "$RGBT2/setup-harness.sh"   # the hook's -f guard needs it present
-      ( HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w1" 2>/dev/null ) \
-        & ( HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w2" 2>/dev/null ) & wait
+      ( env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w1" 2>/dev/null ) \
+        & ( env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w2" 2>/dev/null ) & wait
       RGW=$(cat "$RGBT2/w1" "$RGBT2/w2" 2>/dev/null | grep -c TOOK)
-      RG3=$(HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" 2>/dev/null | grep -c TOOK)
+      RG3=$(env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" 2>/dev/null | grep -c TOOK)
       if [ "$RGW" = "1" ] && [ "$RG3" = "0" ]; then
         echo "✓ devcontainer: real hook's flag is atomic — exactly 1 of 2 concurrent shells wins, 3rd run silent"
       else
@@ -1112,6 +1127,64 @@ for RGREC in "$KIT/../demo/record-harness-boot-demo.sh" "$KIT/../demo/record-rig
     echo "⚠ recorder checks SKIPPED ($RGREC missing — coverage gap, not a pass)"
   fi
 done
+
+# ── workspace contract (the 5-window tmux rig) ──────────────────────────────
+RGWSH="$KIT/../workspace.sh"
+if [ -f "$RGWSH" ]; then
+  bash -n "$RGWSH" 2>/dev/null && echo "✓ workspace: bash -n clean" || { echo "✗ workspace: syntax"; FAIL=1; }
+  RGWP="$("$RGWSH" --plan 2>/dev/null)"
+  RGWOK=1
+  # window 2's expected name = the same condition the script itself uses
+  RGW2="claude+ruflo"; command -v claude-glm >/dev/null 2>&1 && RGW2="builder"
+  for wn in claude "$RGW2" codex tokens shell; do
+    case "$RGWP" in *"$wn"*) : ;; *) echo "✗ workspace: window '$wn' missing from plan"; RGWOK=0; FAIL=1 ;; esac
+  done
+  [ "$RGWOK" = "1" ] && echo "✓ workspace: plan lists all five windows (w2 name = live name: $RGW2)"
+  RGBDP="$(mktemp -d)"; RGBD="$RGBDP/bin"; mkdir -p "$RGBD"
+  printf '#!/bin/bash\nexit 0\n' > "$RGBD/claude-glm"; chmod +x "$RGBD/claude-glm"
+  if PATH="$RGBD:$PATH" "$RGWSH" --plan 2>/dev/null | sed -n '2p' | grep -q 'claude-glm'; then
+    echo "✓ workspace: builder window switches to claude-glm when wired"
+  else
+    echo "✗ workspace: builder label did not switch with claude-glm present"; FAIL=1
+  fi
+  rm -rf "$RGBDP"
+  # w_env must actually export: nvm-resident CLI invisible on PATH becomes visible
+  RGWE="$(mktemp -d)"; mkdir -p "$RGWE/.nvm/versions/node/vT/bin"
+  printf '#!/bin/sh\n' > "$RGWE/.nvm/versions/node/vT/bin/claude"; chmod +x "$RGWE/.nvm/versions/node/vT/bin/claude"
+  printf 'export PATH="%s/.nvm/versions/node/vT/bin:$PATH"\n' "$RGWE" > "$RGWE/.nvm/nvm.sh"
+  RGWER="$( HOME="$RGWE" PATH="/usr/bin:/bin" bash -c '. "$1"; w_env >/dev/null 2>&1; command -v claude' _ "$RGWSH" 2>/dev/null )"
+  if [ "$RGWER" = "$RGWE/.nvm/versions/node/vT/bin/claude" ]; then
+    echo "✓ workspace: w_env exports nvm's PATH into the calling shell (dead-code regression covered)"
+  else
+    echo "✗ workspace: w_env did not surface the nvm CLI (got: '$RGWER')"; FAIL=1
+  fi
+  rm -rf "$RGWE"
+  if command -v tmux >/dev/null 2>&1; then
+    RGTM="$(mktemp -d)"; mkdir -p "$RGTM/bin" "$RGTM/home/rig-lite"
+    # stub CLIs: interactive loop for the windows, instant exit for `auth` (no orphan)
+    for c in claude codex; do printf '#!/bin/bash\n[ "$1" = auth ] && exit 1\nwhile :; do sleep 5; done\n' > "$RGTM/bin/$c"; chmod +x "$RGTM/bin/$c"; done
+    printf 'print("tokens-stub")\nimport time\nwhile True: time.sleep(5)\n' > "$RGTM/home/rig-lite/tokens.py"
+    cp "$RGWSH" "$RGTM/home/workspace.sh"; chmod +x "$RGTM/home/workspace.sh"
+    # isolated: own socket dir, $TMUX unset (works even when the suite runs INSIDE tmux),
+    # PATH = stubs + core tools only (host CLIs can't leak in), proof beat off
+    rgiso() { env -u TMUX -u TF_NO_TMUX HOME="$RGTM/home" TMUX_TMPDIR="$RGTM" PATH="$RGTM/bin:$(dirname "$(command -v tmux)"):/usr/bin:/bin" "$@"; }
+    if ( cd "$RGTM" && rgiso env TF_HOME="$RGTM/home" bash "$RGTM/home/workspace.sh" --build >/dev/null 2>&1 \
+         && sleep 2 \
+         && [ "$(rgiso tmux list-windows -t turboflow -F '#W' 2>/dev/null | grep -c .)" = "5" ] \
+         && [ "$(rgiso tmux list-windows -t turboflow -F '#W' 2>/dev/null | tr '\n' ' ')" = "claude claude+ruflo codex tokens shell " ] \
+         && rgiso env TF_HOME="$RGTM/home" bash "$RGTM/home/workspace.sh" --build 2>/dev/null | grep -q "left untouched" ); then
+      echo "✓ workspace: live build makes the 5 named windows; rebuild leaves a live session untouched (isolated server, no orphans)"
+    else
+      echo "✗ workspace: live tmux build contract broken"; FAIL=1
+    fi
+    rgiso tmux kill-session -t turboflow 2>/dev/null
+    rm -rf "$RGTM"
+  else
+    echo "⚠ workspace: live tmux checks SKIPPED (tmux not installed here)"
+  fi
+else
+  echo "⚠ workspace checks SKIPPED (script not present — kit outside its home repo)"
+fi
 
 # ── setup-harness contract (the repo-root harness installer) ─────────────────
 RGSH="$KIT/../setup-harness.sh"

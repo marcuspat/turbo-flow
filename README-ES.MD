@@ -48,6 +48,8 @@ Un Codespace limpio, nada preinstalado (los tres prerequisitos del grabador — 
 | [`constitution.md`](rig-lite/constitution.md) | las leyes — constructor ≠ revisor, los agentes nunca fusionan, secretos cifrados, estado en disco. |
 | [`self-test.sh`](rig-lite/self-test.sh) | la suite fail-closed del kit; avisa cuando el coverage de shellcheck se omite. |
 
+Tras tu elección, el arranque te deja **dentro de un rig tmux de 5 ventanas**: `claude` (el revisor Anthropic) · la **ventana constructora** — `claude-glm` si elegiste la ruta GLM (un par entre familias real con la ventana 1), si no `claude` simple y honestamente etiquetada de la misma familia, con los plugins de ruflo ya cargados (los comandos slash se ejecutaron al instalar — verifícalo cuando quieras con `/plugin`) · `codex` · el **dashboard de tokens** en vivo (`rig-lite/tokens.py --watch`) · un shell libre. Desconéctate cuando quieras; la sesión sobrevive (cada terminal nuevo se auto-conecta al mismo rig — es el diseño). `TF_NO_TMUX=1` lo desactiva todo: sin menú de arranque ni auto-attach.
+
 ## Instalación en diez minutos
 
 ```bash
