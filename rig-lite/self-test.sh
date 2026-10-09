@@ -1052,7 +1052,22 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     else
       echo "✗ devcontainer: generated .bashrc hook failed its behavioral check"; FAIL=1
     fi
-    # atomic winner: the stub is built FROM the generated hook (tty guards stripped,
+    # hook upgrade path: a v1 block is REPLACED by v2, user content kept, no debris
+  RGUP="$(mktemp -d)"
+  printf '# user content stays\n# tf-boot: hand the user the menu\nif [[ -t 0 ]]; then\n  ( cd x && y )\nfi\n' > "$RGUP/.bashrc"
+  for _ in 1 2; do HOME="$RGUP" bash -c "$RGTAIL" >/dev/null 2>&1; done
+  RGUPB="$(cat "$RGUP/.bashrc" 2>/dev/null)"
+  if [ "$(printf '%s' "$RGUPB" | grep -c 'tf-boot v2:')" = "1" ] \
+     && ! printf '%s' "$RGUPB" | grep -q 'hand the user' \
+     && printf '%s' "$RGUPB" | grep -q '^# user content stays$' \
+     && [ ! -e "$RGUP/.bashrc.tfboot-bak" ] \
+     && bash -n "$RGUP/.bashrc" 2>/dev/null; then
+    echo "✓ devcontainer: v1 hook upgraded to v2 — replaced, idempotent, user content kept, no debris"
+  else
+    echo "✗ devcontainer: hook upgrade path broken"; FAIL=1
+  fi
+  rm -rf "$RGUP"
+  # atomic winner: the stub is built FROM the generated hook (tty guards stripped,
     # body swapped for echo) so a non-atomic flag line in the real hook FAILS here
     RGBT2="$(mktemp -d)"
     RGSTUB="$(sed -n '/^if \[\[ -t 0/,/^fi$/p' "$RGBRC" \
@@ -1125,14 +1140,14 @@ if [ -f "$RGWSH" ]; then
     case "$RGWP" in *"$wn"*) : ;; *) echo "✗ workspace: window '$wn' missing from plan"; RGWOK=0; FAIL=1 ;; esac
   done
   [ "$RGWOK" = "1" ] && echo "✓ workspace: plan lists all five windows (w2 name = live name: $RGW2)"
-  RGBD="$(mktemp -d)/bin"; mkdir -p "$RGBD"
+  RGBDP="$(mktemp -d)"; RGBD="$RGBDP/bin"; mkdir -p "$RGBD"
   printf '#!/bin/bash\nexit 0\n' > "$RGBD/claude-glm"; chmod +x "$RGBD/claude-glm"
   if PATH="$RGBD:$PATH" "$RGWSH" --plan 2>/dev/null | sed -n '2p' | grep -q 'claude-glm'; then
     echo "✓ workspace: builder window switches to claude-glm when wired"
   else
     echo "✗ workspace: builder label did not switch with claude-glm present"; FAIL=1
   fi
-  rm -rf "$RGBD"
+  rm -rf "$RGBDP"
   if command -v tmux >/dev/null 2>&1; then
     RGTM="$(mktemp -d)"; mkdir -p "$RGTM/bin" "$RGTM/home/rig-lite"
     # stub CLIs: interactive loop for the windows, instant exit for `auth` (no orphan)
@@ -1141,7 +1156,7 @@ if [ -f "$RGWSH" ]; then
     cp "$RGWSH" "$RGTM/home/workspace.sh"; chmod +x "$RGTM/home/workspace.sh"
     # isolated: own socket dir, $TMUX unset (works even when the suite runs INSIDE tmux),
     # PATH = stubs + core tools only (host CLIs can't leak in), proof beat off
-    rgiso() { env -u TMUX -u TF_NO_TMUX HOME="$RGTM/home" TMUX_TMPDIR="$RGTM" PATH="$RGTM/bin:$(dirname "$(command -v tmux)"):/usr/bin:/bin" TF_WORKSPACE_PROOF=0 "$@"; }
+    rgiso() { env -u TMUX -u TF_NO_TMUX HOME="$RGTM/home" TMUX_TMPDIR="$RGTM" PATH="$RGTM/bin:$(dirname "$(command -v tmux)"):/usr/bin:/bin" "$@"; }
     if ( cd "$RGTM" && rgiso env TF_HOME="$RGTM/home" bash "$RGTM/home/workspace.sh" --build >/dev/null 2>&1 \
          && sleep 2 \
          && [ "$(rgiso tmux list-windows -t turboflow -F '#W' 2>/dev/null | grep -c .)" = "5" ] \

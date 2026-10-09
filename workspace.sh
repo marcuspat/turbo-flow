@@ -11,18 +11,20 @@
 #
 # Usage:
 #   workspace.sh            build the session if absent, then attach (interactive)
-#   workspace.sh --build    build only (no attach) — used by tests and postCreate
+#   workspace.sh --build    build only (no attach) — used by the suite's live test;
+#                           the boot hook and humans use the bare form
 #   workspace.sh --plan     print the window plan (test/inspection hook)
 #
 # Opt out entirely: TF_NO_TMUX=1 disables the boot menu AND the auto-attach (the
 # hook checks it before anything runs; attach() and the bare invocation check too).
 # Idempotent and non-destructive: a live session is NEVER mutated; missing CLIs
 # degrade their window to a hint shell; every tmux call is checked (fail-closed).
+# Note: window commands assume a POSIX-ish default-shell with bash available; very
+# exotic TF_HOME paths (which %q would $'...'-quote) are out of scope.
 set -u
 
 TF_HOME="${TF_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 SESSION="turboflow"
-TFQ="$(printf '%q' "$TF_HOME")"
 
 w2_name() { # window 2's REAL session name — the single source plan and build share
   if command -v claude-glm >/dev/null 2>&1; then printf 'builder'; else printf 'claude+ruflo'; fi
@@ -43,8 +45,10 @@ hint() { exec bash; }  # window bodies print their own guidance before settling
 
 w_env() { # always load nvm when it exists — windows run `bash -c` (no bashrc) and
   # may inherit neither the installer's PATH nor nvm; a system node on PATH is NOT
-  # proof the CLIs are reachable (they may live in the user's nvm prefix)
-  [[ -s "$HOME/.nvm/nvm.sh" ]] && . "$HOME/.nvm/nvm.sh" 2>/dev/null
+  # proof the CLIs are reachable (they may live in the user's nvm prefix).
+  # nvm.sh is not set-u safe: sourced with -u relaxed inside a subshell.
+  [[ -s "$HOME/.nvm/nvm.sh" ]] || return 0
+  ( set +u; . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1 )
   return 0
 }
 
@@ -73,24 +77,6 @@ w_tokens() {
 }
 w_shell()  { exec bash; }
 
-type_plugin_proof() { # wait for the REPL, never answer prompts, then type /plugin
-  local i pane
-  for i in $(seq 1 30); do
-    sleep 1
-    pane="$(tmux capture-pane -p -t "$SESSION:claude+ruflo" 2>/dev/null || true)"
-    [[ -z "$pane" ]] && continue
-    case "$pane" in
-      *"Do you trust"*|*"trust the files"*) return 0 ;;  # never touch a trust prompt
-    esac
-    # positive READY marker: an actual input ROW — box border and > prompt on the SAME line
-    if printf '%s' "$pane" | tail -4 | grep -qE '^│.*>'; then
-      tmux send-keys -t "$SESSION:claude+ruflo" -l '/plugin'
-      sleep 0.5
-      tmux send-keys -t "$SESSION:claude+ruflo" Enter
-      return 0
-    fi
-  done
-}
 
 build() {
   command -v tmux >/dev/null 2>&1 || { echo "workspace: tmux not installed — the 5-window rig needs it (container postCreate installs it)" >&2; return 1; }
@@ -110,13 +96,6 @@ build() {
   tmux new-window  -t "$SESSION:" -n tokens    "$w" || { echo "workspace: window tokens failed" >&2; return 1; }
   printf -v w 'TF_HOME=%q bash -c '"'"'source "$TF_HOME/workspace.sh"; w_%s'"'"'' "$TF_HOME" shell
   tmux new-window  -t "$SESSION:" -n shell     "$w" || { echo "workspace: window shell failed" >&2; return 1; }
-  # proof beat: only for the plain-claude builder window (claude-glm has its own
-  # readiness shape), only when that claude is authenticated, only when the REPL
-  # shows its READY input box — never on trust prompts or any other dialog
-  if [[ "$w2n" = "claude+ruflo" && "${TF_WORKSPACE_PROOF:-1}" = "1" ]] \
-     && claude auth status >/dev/null 2>&1; then
-    ( type_plugin_proof ) >/dev/null 2>&1 &
-  fi
   echo "workspace: session '$SESSION' built — 5 windows (w2: $w2n)"
   return 0
 }
@@ -131,9 +110,9 @@ attach() {
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then  # dispatch only when executed; windows source the helpers
   case "${1:-}" in
-    --build) TF_WORKSPACE_PROOF=0 build ;;
+    --build) build ;;
     --plan)  plan ;;
-    --help|-h) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' ;;
+    --help|-h) awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 && !/^#/ {exit}' "$0" ;;
     "")      if [[ "${TF_NO_TMUX:-}" = "1" ]]; then echo "workspace: TF_NO_TMUX set — nothing to do"; exit 0; fi; build >/dev/null; attach ;;
     *) echo "workspace: unknown flag '$1' (try --help)" >&2; exit 1 ;;
   esac
