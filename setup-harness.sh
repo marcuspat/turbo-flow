@@ -53,59 +53,92 @@ npm_global() { # npm_global <pkg…> — installs under the nvm/user prefix, vis
 
 SETUP_INCOMPLETE=0
 path_verdict() { # path_verdict <cli>… — link the CLIs (+node/npm/npx from the ACTIVE
-  # node) into ~/.local/bin so they work in ANY shell immediately: no source, no new
-  # terminal, no dependence on .bashrc ordering or an interrupted boot.
-  # Resolution runs through a PATH that EXCLUDES ~/.local/bin, so a link can never
-  # resolve to itself (reruns, second calls, reordered PATH). Real files in
-  # ~/.local/bin are never clobbered; stale links re-point; ln failures are loud.
-  local c RGNEW RGOLD RGBIN RGSRCH RGANY=0
+  # node) into ~/.local/bin. Resolution runs through a normalized PATH with our bin
+  # stripped (trailing-slash-safe), so a link can never resolve to itself; links are
+  # only refreshed when they already point into an nvm root (foreign links/files are
+  # left alone and called out); a native install already in ~/.local/bin is
+  # recognized, not reported missing; "works now" is only claimed when ~/.local/bin
+  # is genuinely on the user's PATH; dangling node links are re-pointed on rerun.
+  local c b RGNEW RGOLD RGBIN RGSRCH RGENTRY RGTGT ONUSERSPATH OLDIFS
   mkdir -p "$HOME/.local/bin" || { warn "cannot create ~/.local/bin"; SETUP_INCOMPLETE=1; return 0; }
-  # a PATH without our own bin — the source of truth for "what did we just install"
-  RGSRCH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -vx "$HOME/.local/bin" | paste -sd: -)"
-  RGLOOKUP() { PATH="$RGSRCH" command -v "$1" 2>/dev/null; }
-  RGBIN="$(dirname "$(RGLOOKUP node)")"
+  RGSRCH=""
+  OLDIFS="$IFS"; IFS=":"
+  for RGENTRY in $PATH; do
+    RGENTRY="${RGENTRY%/}"
+    [ "$RGENTRY" = "$HOME/.local/bin" ] && continue
+    RGSRCH="${RGSRCH:+$RGSRCH:}$RGENTRY"
+  done
+  IFS="$OLDIFS"
+  ONUSERSPATH=0
+  case ":$PATH:" in *":$HOME/.local/bin:"*|*":$HOME/.local/bin/:"*) ONUSERSPATH=1 ;; esac
+  RGBIN="$(PATH="$RGSRCH" command -v node 2>/dev/null)"; RGBIN="${RGBIN%/node}"
   case "$RGBIN" in
     "$HOME"/.nvm/versions/node/*/bin|/usr/local/share/nvm/*/bin) ;;
-    *) RGBIN="" ;;   # system or absent node: nothing to shadow-link
+    *) RGBIN="" ;;
   esac
   if [ -n "$RGBIN" ]; then
     for b in node npm npx; do
       [ -x "$RGBIN/$b" ] || continue
       RGOLD="$HOME/.local/bin/$b"
       if [ -L "$RGOLD" ]; then
-        case "$(readlink "$RGOLD")" in "$HOME"/.nvm/*|/usr/local/share/nvm/*) ln -sf "$RGBIN/$b" "$RGOLD" || warn "relink $b failed" ;; esac
+        RGTGT="$(readlink "$RGOLD")"
+        case "$RGTGT" in
+          "$HOME"/.nvm/*|/usr/local/share/nvm/*)
+            ln -sf "$RGBIN/$b" "$RGOLD" || warn "relink $b failed" ;;
+        esac
+        if [ ! -x "$RGOLD" ]; then
+          ln -sf "$RGBIN/$b" "$RGOLD"; warn "re-pointed dangling $b link"
+        fi
       elif [ ! -e "$RGOLD" ]; then
         ln -s "$RGBIN/$b" "$RGOLD" || warn "link $b failed"
       fi
     done
   fi
   for c in "$@"; do
-    RGNEW="$(RGLOOKUP "$c")"
+    RGNEW="$(PATH="$RGSRCH" command -v "$c" 2>/dev/null)"
     RGOLD="$HOME/.local/bin/$c"
     if [ -z "$RGNEW" ]; then
-      warn "$c not found after install — rerun ./setup-harness.sh"
-      SETUP_INCOMPLETE=1
+      if [ -x "$RGOLD" ]; then
+        ok "$c already present at $RGOLD (native install — left as-is)"
+      else
+        warn "$c not found after install — rerun ./setup-harness.sh"
+        SETUP_INCOMPLETE=1
+      fi
       continue
     fi
-    if [ "$RGNEW" = "$RGOLD" ]; then          # already our link (paranoia: stripped PATH makes this near-impossible)
-      ok "$c installed — works now: $RGOLD"
-    elif [ -L "$RGOLD" ] || [ ! -e "$RGOLD" ]; then
-      ln -sf "$RGNEW" "$RGOLD" \
-        && ok "$c installed — works now: $RGOLD" \
-        || { warn "linking $c failed"; SETUP_INCOMPLETE=1; }
-    elif [ -x "$RGOLD" ]; then
-      warn "$RGOLD already exists (not ours) and may shadow $RGNEW"
-      ok "$c installed at $RGNEW"
+    case "$RGNEW" in
+      "$HOME"/.local/bin/*) warn "resolution landed inside ~/.local/bin — refusing to link $c"; SETUP_INCOMPLETE=1; continue ;;
+    esac
+    if [ -L "$RGOLD" ]; then
+      RGTGT="$(readlink "$RGOLD")"
+      case "$RGTGT" in
+        "$HOME"/.nvm/*|/usr/local/share/nvm/*)
+          ln -sf "$RGNEW" "$RGOLD" || { warn "relink $c failed"; SETUP_INCOMPLETE=1; continue; } ;;
+        *)
+          warn "$RGOLD is a foreign link (not ours) — left alone; may shadow $RGNEW"
+          ok "$c installed at $RGNEW"
+          continue ;;
+      esac
+    elif [ -e "$RGOLD" ]; then
+      if [ -x "$RGOLD" ]; then
+        warn "$RGOLD exists (not ours) and may shadow $RGNEW"
+        ok "$c installed at $RGNEW"
+      else
+        warn "$RGOLD exists, is not executable, and is not ours — move it aside and rerun"
+        SETUP_INCOMPLETE=1
+      fi
+      continue
     else
-      warn "$RGOLD exists, is NOT executable and is NOT ours — remove it and rerun"
-      SETUP_INCOMPLETE=1
+      ln -s "$RGNEW" "$RGOLD" || { warn "linking $c failed"; SETUP_INCOMPLETE=1; continue; }
     fi
-    RGANY=1
+    if [ "$ONUSERSPATH" = "1" ]; then
+      ok "$c installed — works now: $RGOLD"
+    else
+      ok "$c installed at $RGOLD"
+      warn "~/.local/bin is not on your PATH — add: export PATH="$HOME/.local/bin:$PATH""
+    fi
   done
-  case ":$PATH:" in
-    *":$HOME/.local/bin:"*) : ;;
-    *) export PATH="$HOME/.local/bin:$PATH" ;;
-  esac
+  case ":$PATH:" in *":$HOME/.local/bin:"*) : ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
   return 0
 }
 

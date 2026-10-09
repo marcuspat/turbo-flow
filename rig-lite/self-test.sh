@@ -1162,6 +1162,19 @@ echo real-user-node" ]; then
   else
     echo "✗ setup-harness: path_verdict self-linked or lost the target"; FAIL=1
   fi
+  # foreign symlink (native-installer layout): survives untouched, warned loudly
+  ln -sf "/usr/local/bin/claude" "$RGPV/.local/bin/claude"
+  printf '#!/bin/sh\n' > "$RGPV/.local/bin/codex"; chmod +x "$RGPV/.local/bin/codex"
+  RGF2="$( HOME="$RGPV" PATH="$RGPV/.nvm/versions/node/vB/bin:/usr/bin:/bin" bash -c \
+    '. "$1"; SETUP_INCOMPLETE=0; path_verdict claude codex 2>&1; echo "FLAG=$SETUP_INCOMPLETE"' _ "$RGSH" )"
+  if [ "$(readlink "$RGPV/.local/bin/claude")" = "/usr/local/bin/claude" ] \
+     && grep -q "foreign link" <<<"$RGF2" \
+     && grep -q "native install" <<<"$RGF2" \
+     && grep -q "FLAG=0" <<<"$RGF2"; then
+    echo "✓ setup-harness: foreign links survive untouched; native-only installs recognized, no false miss"
+  else
+    echo "✗ setup-harness: foreign/native handling regressed"; FAIL=1
+  fi
   # missing CLI: the call still succeeds, the flag carries the gap
   RGF="$( HOME="$RGPV" PATH="$RGPV/.nvm/versions/node/vB/bin:/usr/bin:/bin" bash -c \
     '. "$1"; SETUP_INCOMPLETE=0; path_verdict definitely-missing-cli >/dev/null 2>&1; echo "$SETUP_INCOMPLETE"' _ "$RGSH" )"
