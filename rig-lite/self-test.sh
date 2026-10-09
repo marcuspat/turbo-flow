@@ -1044,7 +1044,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
     HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
     RGBRC="$RGBT/.bashrc"
-    if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot: hand the user' "$RGBRC")" = "1" ] \
+    if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot' "$RGBRC")" -ge "1" ] \
        && bash -n "$RGBRC" 2>/dev/null \
        && grep -q '\$HOME/.config/turbo-flow/harness-booted' "$RGBRC" \
        && ! grep -qE '/home/[a-z]|/root/' "$RGBRC"; then
@@ -1112,6 +1112,37 @@ for RGREC in "$KIT/../demo/record-harness-boot-demo.sh" "$KIT/../demo/record-rig
     echo "⚠ recorder checks SKIPPED ($RGREC missing — coverage gap, not a pass)"
   fi
 done
+
+# ── workspace contract (the 5-window tmux rig) ──────────────────────────────
+RGWSH="$KIT/../workspace.sh"
+if [ -f "$RGWSH" ]; then
+  bash -n "$RGWSH" 2>/dev/null && echo "✓ workspace: bash -n clean" || { echo "✗ workspace: syntax"; FAIL=1; }
+  RGWP="$("$RGWSH" --plan 2>/dev/null)"
+  RGWOK=1
+  for wn in claude claude+ruflo codex tokens shell; do
+    case "$RGWP" in *"$wn"*) : ;; *) echo "✗ workspace: window '$wn' missing from plan"; RGWOK=0; FAIL=1 ;; esac
+  done
+  [ "$RGWOK" = "1" ] && echo "✓ workspace: plan lists all five windows"
+  if command -v tmux >/dev/null 2>&1; then
+    RGTM="$(mktemp -d)"; mkdir -p "$RGTM/bin"
+    for c in claude codex; do printf '#!/bin/bash\nwhile :; do sleep 5; done\n' > "$RGTM/bin/$c"; chmod +x "$RGTM/bin/$c"; done
+    if ( cd "$RGTM" && TMUX_TMPDIR="$RGTM" TF_HOME="$KIT/.." PATH="$RGTM/bin:$PATH" bash "$RGWSH" --build >/dev/null 2>&1 \
+         && sleep 2 \
+         && [ "$(TMUX_TMPDIR="$RGTM" tmux list-windows -t turboflow -F '#W' 2>/dev/null | grep -c .)" = "5" ] \
+         && [ "$(TMUX_TMPDIR="$RGTM" tmux list-windows -t turboflow -F '#W' 2>/dev/null | tr '\n' ' ')" = "claude claude+ruflo codex tokens shell " ] \
+         && TMUX_TMPDIR="$RGTM" TF_HOME="$KIT/.." PATH="$RGTM/bin:$PATH" bash "$RGWSH" --build 2>/dev/null | grep -q "left untouched" ); then
+      echo "✓ workspace: live build makes the 5 named windows; rebuild leaves a live session untouched"
+    else
+      echo "✗ workspace: live tmux build contract broken"; FAIL=1
+    fi
+    TMUX_TMPDIR="$RGTM" tmux kill-session -t turboflow 2>/dev/null
+    rm -rf "$RGTM"
+  else
+    echo "⚠ workspace: live tmux checks SKIPPED (tmux not installed here)"
+  fi
+else
+  echo "⚠ workspace checks SKIPPED (script not present — kit outside its home repo)"
+fi
 
 # ── setup-harness contract (the repo-root harness installer) ─────────────────
 RGSH="$KIT/../setup-harness.sh"

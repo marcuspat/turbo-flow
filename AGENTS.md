@@ -21,7 +21,8 @@ The full law set lives in [`rig-lite/constitution.md`](rig-lite/constitution.md)
 |---|---|
 | `rig-lite/` | the kit: gate, worktrees, secrets, digest, token dashboard, memory pattern, spec templates, automation prompts, self-test |
 | `demo/` | the recorded demo + its recorder + auth-guard (refuses to record logged-in sessions) |
-| `.devcontainer/` | minimal container whose postCreate runs the kit self-test — the 30-second tour |
+| `.devcontainer/` | kit container: postCreate runs the self-test, installs tmux, wires the boot hook |
+| `workspace.sh` | the 5-window tmux rig: claude · claude+ruflo · codex · tokens dashboard · shell |
 
 ## Working in this repo
 
