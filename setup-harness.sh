@@ -51,30 +51,52 @@ npm_global() { # npm_global <pkg…> — installs under the nvm/user prefix, vis
     || die "npm install failed: $* (if node is a root-owned system install, switch to nvm and rerun)"
 }
 
-path_verdict() { # path_verdict <cli>… — after install: link into ~/.local/bin (always on
-  # PATH in codespace shells) so the commands WORK immediately — no source, no new
-  # terminal, no dependence on .bashrc ordering or an interrupted boot — then report.
-  local first_missing=1
-  mkdir -p "$HOME/.local/bin" 2>/dev/null
-  local NVMBIN
-  NVMBIN="$(find "$HOME/.nvm/versions/node" -maxdepth 3 -type d -name bin 2>/dev/null | head -1)"
-  if [ -n "$NVMBIN" ]; then
+SETUP_INCOMPLETE=0
+path_verdict() { # path_verdict <cli>… — link the CLIs (+node/npm/npx from the ACTIVE
+  # nvm node) into ~/.local/bin so they work in ANY shell immediately: no source, no
+  # new terminal, no dependence on .bashrc ordering or an interrupted boot.
+  # Honest by construction: links come from the node/npm that just ran (not a random
+  # nvm dir); real files in ~/.local/bin are never clobbered; stale links are
+  # re-pointed; a shadowing foreign binary is called out; misses set SETUP_INCOMPLETE.
+  local c RGNEW RGOLD RGBIN
+  mkdir -p "$HOME/.local/bin" || { warn "cannot create ~/.local/bin"; SETUP_INCOMPLETE=1; return 1; }
+  # the ACTIVE node's bin (the one npm just installed into) — never a find|head guess
+  RGBIN="$(dirname "$(command -v node 2>/dev/null)" 2>/dev/null)"
+  case "$RGBIN" in
+    "$HOME"/.nvm/versions/node/*/bin) ;;
+    *) RGBIN="" ;;   # system or absent node: nothing to shadow-link
+  esac
+  if [ -n "$RGBIN" ]; then
     # node/npm/npx ride along: the CLIs are node scripts (#!/usr/bin/env node)
-    for b in node npm npx npx-cli; do
-      [ -x "$NVMBIN/$b" ] && ln -sf "$NVMBIN/$b" "$HOME/.local/bin/$b" 2>/dev/null
+    for b in node npm npx; do
+      [ -x "$RGBIN/$b" ] || continue
+      RGOLD="$HOME/.local/bin/$b"
+      if [ -L "$RGOLD" ]; then
+        # refresh only links that already point into ~/.nvm; leave anything else alone
+        case "$(readlink "$RGOLD")" in "$HOME"/.nvm/*) ln -sf "$RGBIN/$b" "$RGOLD" ;; esac
+      elif [ ! -e "$RGOLD" ]; then
+        ln -s "$RGBIN/$b" "$RGOLD"
+      fi
     done
   fi
-  export PATH="$HOME/.local/bin:$PATH"
   for c in "$@"; do
-    if [ -x "$HOME/.local/bin/$c" ] || ln -sf "$(command -v "$c" 2>/dev/null)" "$HOME/.local/bin/$c" 2>/dev/null && [ -x "$HOME/.local/bin/$c" ]; then
-      ok "$c installed — works now: $(command -v "$c")"
-    elif command -v "$c" >/dev/null 2>&1; then
-      ok "$c installed at $(command -v "$c")"
-    else
+    RGNEW="$(command -v "$c" 2>/dev/null)"
+    RGOLD="$HOME/.local/bin/$c"
+    if [ -z "$RGNEW" ]; then
       warn "$c not found after install — rerun ./setup-harness.sh"
-      first_missing=0
+      SETUP_INCOMPLETE=1
+      continue
+    fi
+    if [ -L "$RGOLD" ] || [ ! -e "$RGOLD" ]; then
+      ln -sf "$RGNEW" "$RGOLD"          # fresh link, or stale link re-pointed to the fresh binary
+      ok "$c installed — works now: $RGOLD"
+    elif [ -x "$RGOLD" ]; then
+      warn "$RGOLD already exists (not ours) and may shadow $RGNEW"
+      ok "$c installed at $RGNEW"
     fi
   done
+  export PATH="$HOME/.local/bin:$PATH"
+  return "$SETUP_INCOMPLETE"
 }
 
 claude_logged_in() {
@@ -240,5 +262,9 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     *) die "unknown flag '$1' (try --help)" ;;
   esac
   echo
-  ok "done. next: open the repo README — the gate is the same for every harness."
+  if [[ "$SETUP_INCOMPLETE" = "1" ]]; then
+    warn "done WITH GAPS — see the warnings above; rerun ./setup-harness.sh"
+  else
+    ok "done. next: open the repo README — the gate is the same for every harness."
+  fi
 fi

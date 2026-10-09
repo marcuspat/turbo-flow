@@ -1124,12 +1124,37 @@ if [ -f "$RGSH" ]; then
     && echo "✓ setup-harness: boot-recorder success marker present in its real output" \
     || { echo "✗ setup-harness: recorder waits on a marker the script no longer prints"; FAIL=1; }
   RGSHD="$(cat "$RGSH")"
-  [[ "$RGSHD" == *"path_verdict"* && "$RGSHD" == *"source ~/.bashrc"* ]] \
-    && echo "✓ setup-harness: install verdict + PATH guidance present" \
-    || { echo "✗ setup-harness: missing path verdict/guidance"; FAIL=1; }
-  [[ "$RGSHD" != *"install -g --silent"* ]] \
-    && echo "✓ setup-harness: installs are visible (no silent npm)" \
-    || { echo "✗ setup-harness: npm installs still silent"; FAIL=1; }
+  [[ "$RGSHD" == *"path_verdict"* && "$RGSHD" == *".local/bin"* && "$RGSHD" == *"works now"* ]] \
+    && echo "✓ setup-harness: install verdict + immediate-PATH mechanism present" \
+    || { echo "✗ setup-harness: missing path verdict / immediate-PATH mechanism"; FAIL=1; }
+  if grep -q -- '--silent' <<<"$RGSHD" || grep -Eq 'install -g [^|]*>[^|]*/dev/null' <<<"$RGSHD"; then
+    echo "✗ setup-harness: an install path is still silent"; FAIL=1
+  else
+    echo "✓ setup-harness: installs are visible (no silent npm)"
+  fi
+  # behavioral: path_verdict in a sandbox HOME — two nvm versions, active = vB;
+  # an old claude link must re-point to vB; a REAL ~/.local/bin/node file must be left alone
+  RGPV="$(mktemp -d)"
+  mkdir -p "$RGPV/.nvm/versions/node/vA/bin" "$RGPV/.nvm/versions/node/vB/bin" "$RGPV/.local/bin"
+  printf '#!/bin/sh\necho old-node\n' > "$RGPV/.nvm/versions/node/vA/bin/node"
+  printf '#!/bin/sh\necho new-node\n' > "$RGPV/.nvm/versions/node/vB/bin/node"
+  printf '#!/bin/sh\necho new-claude\n' > "$RGPV/.nvm/versions/node/vB/bin/claude"
+  chmod +x "$RGPV/.nvm/versions/node/"v*/bin/*
+  ln -s "$RGPV/.nvm/versions/node/vA/bin/claude-old-missing" "$RGPV/.local/bin/claude" 2>/dev/null || ln -s "$RGPV/.nvm/versions/node/vA/bin/node" "$RGPV/.local/bin/claude"
+  printf '#!/bin/sh\necho real-user-node\n' > "$RGPV/.local/bin/node" && chmod +x "$RGPV/.local/bin/node"
+  if ( HOME="$RGPV" PATH="$RGPV/.nvm/versions/node/vB/bin:$PATH" bash -c '. "$1"; path_verdict claude >/dev/null 2>&1' _ "$RGSH" ); then
+    RGL="$(readlink "$RGPV/.local/bin/claude" 2>/dev/null)"
+    RGN="$(cat "$RGPV/.local/bin/node" 2>/dev/null)"
+    if [ "$RGL" = "$RGPV/.nvm/versions/node/vB/bin/claude" ] && [ "$RGN" = "#!/bin/sh
+echo real-user-node" ]; then
+      echo "✓ setup-harness: path_verdict links the ACTIVE nvm's CLI and never clobbers a real file"
+    else
+      echo "✗ setup-harness: path_verdict linked wrong target (claude→$RGL) or clobbered real node"; FAIL=1
+    fi
+  else
+    echo "✗ setup-harness: path_verdict sandbox run failed"; FAIL=1
+  fi
+  rm -rf "$RGPV"
   "$RGSH" --bogus >/dev/null 2>&1; RC=$?
   [ "$RC" -ne 0 ] && echo "✓ setup-harness: unknown flag fails closed" || { echo "✗ setup-harness: unknown flag accepted"; FAIL=1; }
   # glm path: dedicated launcher; ~/.claude/settings.json is NEVER touched
