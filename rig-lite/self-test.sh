@@ -1124,18 +1124,24 @@ if [ -f "$RGWSH" ]; then
   done
   [ "$RGWOK" = "1" ] && echo "✓ workspace: plan lists all five windows"
   if command -v tmux >/dev/null 2>&1; then
-    RGTM="$(mktemp -d)"; mkdir -p "$RGTM/bin"
-    for c in claude codex; do printf '#!/bin/bash\nwhile :; do sleep 5; done\n' > "$RGTM/bin/$c"; chmod +x "$RGTM/bin/$c"; done
-    if ( cd "$RGTM" && TMUX_TMPDIR="$RGTM" TF_HOME="$KIT/.." PATH="$RGTM/bin:$PATH" bash "$RGWSH" --build >/dev/null 2>&1 \
+    RGTM="$(mktemp -d)"; mkdir -p "$RGTM/bin" "$RGTM/home/rig-lite"
+    # stub CLIs: interactive loop for the windows, instant exit for `auth` (no orphan)
+    for c in claude codex; do printf '#!/bin/bash\n[ "$1" = auth ] && exit 1\nwhile :; do sleep 5; done\n' > "$RGTM/bin/$c"; chmod +x "$RGTM/bin/$c"; done
+    printf 'print("tokens-stub")\nimport time\nwhile True: time.sleep(5)\n' > "$RGTM/home/rig-lite/tokens.py"
+    cp "$RGWSH" "$RGTM/home/workspace.sh"; chmod +x "$RGTM/home/workspace.sh"
+    # isolated: own socket dir, $TMUX unset (works even when the suite runs INSIDE tmux),
+    # PATH = stubs + core tools only (host CLIs can't leak in), proof beat off
+    rgiso() { env -u TMUX TMUX_TMPDIR="$RGTM" PATH="$RGTM/bin:$(dirname "$(command -v tmux)"):/usr/bin:/bin" TF_WORKSPACE_PROOF=0 "$@"; }
+    if ( cd "$RGTM" && rgiso env TF_HOME="$RGTM/home" bash "$RGTM/home/workspace.sh" --build >/dev/null 2>&1 \
          && sleep 2 \
-         && [ "$(TMUX_TMPDIR="$RGTM" tmux list-windows -t turboflow -F '#W' 2>/dev/null | grep -c .)" = "5" ] \
-         && [ "$(TMUX_TMPDIR="$RGTM" tmux list-windows -t turboflow -F '#W' 2>/dev/null | tr '\n' ' ')" = "claude claude+ruflo codex tokens shell " ] \
-         && TMUX_TMPDIR="$RGTM" TF_HOME="$KIT/.." PATH="$RGTM/bin:$PATH" bash "$RGWSH" --build 2>/dev/null | grep -q "left untouched" ); then
-      echo "✓ workspace: live build makes the 5 named windows; rebuild leaves a live session untouched"
+         && [ "$(rgiso tmux list-windows -t turboflow -F '#W' 2>/dev/null | grep -c .)" = "5" ] \
+         && [ "$(rgiso tmux list-windows -t turboflow -F '#W' 2>/dev/null | tr '\n' ' ')" = "claude claude+ruflo codex tokens shell " ] \
+         && rgiso env TF_HOME="$RGTM/home" bash "$RGTM/home/workspace.sh" --build 2>/dev/null | grep -q "left untouched" ); then
+      echo "✓ workspace: live build makes the 5 named windows; rebuild leaves a live session untouched (isolated server, no orphans)"
     else
       echo "✗ workspace: live tmux build contract broken"; FAIL=1
     fi
-    TMUX_TMPDIR="$RGTM" tmux kill-session -t turboflow 2>/dev/null
+    rgiso tmux kill-session -t turboflow 2>/dev/null
     rm -rf "$RGTM"
   else
     echo "⚠ workspace: live tmux checks SKIPPED (tmux not installed here)"

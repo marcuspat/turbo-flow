@@ -55,22 +55,26 @@ w_codex() {
   command -v codex >/dev/null 2>&1 || { echo "codex not installed — run: ./setup-harness.sh"; hint; }
   exec codex
 }
-w_tokens() { exec python3 "$TF_HOME/rig-lite/tokens.py" --watch; }
+w_tokens() {
+  command -v python3 >/dev/null 2>&1 || { echo "python3 missing — the tokens dashboard needs it"; hint; }
+  exec python3 "$TF_HOME/rig-lite/tokens.py" --watch
+}
 w_shell()  { exec bash; }
 
 type_plugin_proof() { # wait for the REPL, never answer prompts, then type /plugin
   local i pane
   for i in $(seq 1 30); do
     sleep 1
-    pane="$(tmux capture-pane -p -t "$SESSION:builder" 2>/dev/null || true)"
+    pane="$(tmux capture-pane -p -t "$SESSION:claude+ruflo" 2>/dev/null || true)"
     [[ -z "$pane" ]] && continue
     case "$pane" in
-      *"Do you trust"*|*"trust the files"*) return 0 ;;  # never answer a trust prompt unattended
+      *"Do you trust"*|*"trust the files"*) return 0 ;;  # never touch a trust prompt
     esac
-    if printf '%s' "$pane" | tail -3 | grep -q '│\|>'; then
-      tmux send-keys -t "$SESSION:builder" -l '/plugin'
+    # positive READY marker: the input box border AND the help hint in the status area
+    if printf '%s' "$pane" | tail -4 | grep -q '^│' && printf '%s' "$pane" | grep -q 'help'; then
+      tmux send-keys -t "$SESSION:claude+ruflo" -l '/plugin'
       sleep 0.5
-      tmux send-keys -t "$SESSION:builder" Enter
+      tmux send-keys -t "$SESSION:claude+ruflo" Enter
       return 0
     fi
   done
@@ -83,15 +87,24 @@ build() {
   fi
   local w2n="claude+ruflo"
   command -v claude-glm >/dev/null 2>&1 && w2n="builder"
-  local win='bash -c "source '"$TFQ"'/workspace.sh; %s"'
-  tmux new-session -d -s "$SESSION" -n claude  "$(printf "$win" w_claude)"  || { echo "workspace: new-session failed" >&2; return 1; }
-  tmux new-window  -t "$SESSION:" -n "$w2n"    "$(printf "$win" w_builder)" || { echo "workspace: window $w2n failed" >&2; return 1; }
-  tmux new-window  -t "$SESSION:" -n codex     "$(printf "$win" w_codex)"   || { echo "workspace: window codex failed" >&2; return 1; }
-  tmux new-window  -t "$SESSION:" -n tokens    "$(printf "$win" w_tokens)"  || { echo "workspace: window tokens failed" >&2; return 1; }
-  tmux new-window  -t "$SESSION:" -n shell     "$(printf "$win" w_shell)"   || { echo "workspace: window shell failed" >&2; return 1; }
-  # proof beats: wait for the builder REPL, then show the loaded plugins — but only
-  # when authenticated, and never when a trust prompt is on screen
-  ( claude auth status >/dev/null 2>&1 && type_plugin_proof ) >/dev/null 2>&1 &
+  local w
+  printf -v w 'TF_HOME=%q bash -c '"'"'source "$TF_HOME/workspace.sh"; w_%s'"'"'' "$TF_HOME" claude
+  tmux new-session -d -s "$SESSION" -n claude  "$w" || { echo "workspace: new-session failed" >&2; return 1; }
+  printf -v w 'TF_HOME=%q bash -c '"'"'source "$TF_HOME/workspace.sh"; w_%s'"'"'' "$TF_HOME" builder
+  tmux new-window  -t "$SESSION:" -n "$w2n"    "$w" || { echo "workspace: window $w2n failed" >&2; return 1; }
+  printf -v w 'TF_HOME=%q bash -c '"'"'source "$TF_HOME/workspace.sh"; w_%s'"'"'' "$TF_HOME" codex
+  tmux new-window  -t "$SESSION:" -n codex     "$w" || { echo "workspace: window codex failed" >&2; return 1; }
+  printf -v w 'TF_HOME=%q bash -c '"'"'source "$TF_HOME/workspace.sh"; w_%s'"'"'' "$TF_HOME" tokens
+  tmux new-window  -t "$SESSION:" -n tokens    "$w" || { echo "workspace: window tokens failed" >&2; return 1; }
+  printf -v w 'TF_HOME=%q bash -c '"'"'source "$TF_HOME/workspace.sh"; w_%s'"'"'' "$TF_HOME" shell
+  tmux new-window  -t "$SESSION:" -n shell     "$w" || { echo "workspace: window shell failed" >&2; return 1; }
+  # proof beat: only for the plain-claude builder window (claude-glm has its own
+  # readiness shape), only when that claude is authenticated, only when the REPL
+  # shows its READY input box — never on trust prompts or any other dialog
+  if [[ "$w2n" = "claude+ruflo" && "${TF_WORKSPACE_PROOF:-1}" = "1" ]] \
+     && claude auth status >/dev/null 2>&1; then
+    ( type_plugin_proof ) >/dev/null 2>&1 &
+  fi
   echo "workspace: session '$SESSION' built — 5 windows (w2: $w2n)"
   return 0
 }
@@ -106,7 +119,7 @@ attach() {
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then  # dispatch only when executed; windows source the helpers
   case "${1:-}" in
-    --build) build ;;
+    --build) TF_WORKSPACE_PROOF=0 build ;;
     --plan)  plan ;;
     --help|-h) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' ;;
     "")      build >/dev/null; attach ;;
