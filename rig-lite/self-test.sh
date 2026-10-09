@@ -1044,7 +1044,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
     HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
     RGBRC="$RGBT/.bashrc"
-    if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot' "$RGBRC")" -ge "1" ] \
+    if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot' "$RGBRC")" = "1" ] \
        && bash -n "$RGBRC" 2>/dev/null \
        && grep -q '\$HOME/.config/turbo-flow/harness-booted' "$RGBRC" \
        && ! grep -qE '/home/[a-z]|/root/' "$RGBRC"; then
@@ -1123,6 +1123,14 @@ if [ -f "$RGWSH" ]; then
     case "$RGWP" in *"$wn"*) : ;; *) echo "✗ workspace: window '$wn' missing from plan"; RGWOK=0; FAIL=1 ;; esac
   done
   [ "$RGWOK" = "1" ] && echo "✓ workspace: plan lists all five windows"
+  RGBD="$(mktemp -d)/bin"; mkdir -p "$RGBD"
+  printf '#!/bin/bash\nexit 0\n' > "$RGBD/claude-glm"; chmod +x "$RGBD/claude-glm"
+  if PATH="$RGBD:$PATH" "$RGWSH" --plan 2>/dev/null | sed -n '2p' | grep -q 'claude-glm'; then
+    echo "✓ workspace: builder window switches to claude-glm when wired"
+  else
+    echo "✗ workspace: builder label did not switch with claude-glm present"; FAIL=1
+  fi
+  rm -rf "$RGBD"
   if command -v tmux >/dev/null 2>&1; then
     RGTM="$(mktemp -d)"; mkdir -p "$RGTM/bin" "$RGTM/home/rig-lite"
     # stub CLIs: interactive loop for the windows, instant exit for `auth` (no orphan)

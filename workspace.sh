@@ -14,7 +14,8 @@
 #   workspace.sh --build    build only (no attach) — used by tests and postCreate
 #   workspace.sh --plan     print the window plan (test/inspection hook)
 #
-# Opt out of auto-attach: TF_NO_TMUX=1 (the boot hook and attach() both honor it).
+# Opt out entirely: TF_NO_TMUX=1 disables the boot menu AND the auto-attach (the
+# hook checks it before anything runs; attach() and the bare invocation check too).
 # Idempotent and non-destructive: a live session is NEVER mutated; missing CLIs
 # degrade their window to a hint shell; every tmux call is checked (fail-closed).
 set -u
@@ -41,17 +42,29 @@ plan() {
 
 hint() { exec bash; }  # window bodies print their own guidance before settling
 
+w_env() { # load nvm if present — windows run `bash -c` (no bashrc) and may not
+  # inherit the PATH the installer built; they must find the CLIs themselves
+  command -v node >/dev/null 2>&1 && return 0
+  [[ -s "$HOME/.nvm/nvm.sh" ]] && . "$HOME/.nvm/nvm.sh" 2>/dev/null
+  return 0
+}
+
 w_claude() {
+  w_env
   command -v claude >/dev/null 2>&1 || { echo "claude not installed — run: ./setup-harness.sh"; hint; }
   exec claude
 }
-w_builder() {
-  if command -v claude-glm >/dev/null 2>&1 && exec claude-glm; then :; fi
+w_builder() { # claude-glm when wired (its exec fails closed by design); else plain claude
+  w_env
+  if command -v claude-glm >/dev/null 2>&1; then
+    exec claude-glm
+  fi
   command -v claude >/dev/null 2>&1 || { echo "no harness CLI installed — run: ./setup-harness.sh"; hint; }
   echo "(same family as window 1 — choose the GLM path in ./setup-harness.sh for a cross-family builder)"
   exec claude
 }
 w_codex() {
+  w_env
   command -v codex >/dev/null 2>&1 || { echo "codex not installed — run: ./setup-harness.sh"; hint; }
   exec codex
 }
@@ -122,7 +135,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then  # dispatch only when executed; windo
     --build) TF_WORKSPACE_PROOF=0 build ;;
     --plan)  plan ;;
     --help|-h) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' ;;
-    "")      build >/dev/null; attach ;;
+    "")      if [[ "${TF_NO_TMUX:-}" = "1" ]]; then echo "workspace: TF_NO_TMUX set — nothing to do"; exit 0; fi; build >/dev/null; attach ;;
     *) echo "workspace: unknown flag '$1' (try --help)" >&2; exit 1 ;;
   esac
 fi
