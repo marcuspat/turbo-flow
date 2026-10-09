@@ -7,9 +7,10 @@
         "ghcr.io/devcontainers/features/sshd:1": {}
     },
     "containerEnv": {
-        "KIT_DIR": "${containerWorkspaceFolder}/rig-lite"
+        "KIT_DIR": "${containerWorkspaceFolder}/rig-lite",
+        "TF_HOME": "${containerWorkspaceFolder}"
     },
-    "postCreateCommand": "chmod +x ${containerWorkspaceFolder}/rig-lite/*.sh ${containerWorkspaceFolder}/setup-harness.sh 2>/dev/null || true; bash ${containerWorkspaceFolder}/rig-lite/self-test.sh; echo 'next: ./setup-harness.sh adds a harness - Claude, Codex, or GLM (coding plan)'",
+    "postCreateCommand": "chmod +x ${containerWorkspaceFolder}/rig-lite/*.sh ${containerWorkspaceFolder}/setup-harness.sh 2>/dev/null || true; bash ${containerWorkspaceFolder}/rig-lite/self-test.sh; grep -q 'tf-boot' $HOME/.bashrc 2>/dev/null || printf '\\n# tf-boot: hand the user the harness menu on their first interactive shell (once)\\nif [[ -t 0 && -t 1 && ! -f \"$HOME/.config/turbo-flow/harness-booted\" && -n \"${TF_HOME:-}\" && -f \"$TF_HOME/setup-harness.sh\" ]]; then\\n  ( cd \"$TF_HOME\" && ./setup-harness.sh )\\n  mkdir -p \"$HOME/.config/turbo-flow\" && touch \"$HOME/.config/turbo-flow/harness-booted\"\\nfi\\n' >> $HOME/.bashrc",
     "hostRequirements": {
         "memory": "4gb"
     },

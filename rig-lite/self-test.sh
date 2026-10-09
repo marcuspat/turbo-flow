@@ -1031,6 +1031,10 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
   [[ "$RGPC" != *"devpods"* ]] && echo "✓ devcontainer: no references to the removed devpods/ chain" || { echo "✗ devcontainer: devpods reference survived"; FAIL=1; }
   RGDJ="$(cat "$RGDC" 2>/dev/null)"
   [[ "$RGDJ" == *"devcontainers/features/sshd"* ]] && echo "✓ devcontainer: sshd feature present (gh cs ssh/cp depend on it)" || { echo "✗ devcontainer: sshd feature missing — gh cs ssh/cp break"; FAIL=1; }
+  [[ "$RGDJ" == *"tf-boot"* && "$RGDJ" == *"harness-booted"* && "$RGDJ" == *"TF_HOME"* ]] \
+    && echo "✓ devcontainer: first-boot harness menu hook installed (once-flag + TF_HOME)" \
+    || { echo "✗ devcontainer: boot menu hook missing"; FAIL=1; }
+  [[ "$RGPC" != *"$HOME"* ]] && echo "✓ devcontainer: hook uses runtime HOME, no baked-in user paths" || { echo "✗ devcontainer: suspicious baked path"; FAIL=1; }
 else
   echo "⚠ devcontainer checks SKIPPED (python3 or .devcontainer/devcontainer.json unavailable)"
 fi
