@@ -24,27 +24,26 @@ TF_HOME="${TF_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 SESSION="turboflow"
 TFQ="$(printf '%q' "$TF_HOME")"
 
-builder_cmd() { # window 2: claude-glm when the GLM path was wired; else plain claude
-  if command -v claude-glm >/dev/null 2>&1; then
-    printf 'claude-glm'
-  else
-    printf 'claude'
-  fi
+w2_name() { # window 2's REAL session name — the single source plan and build share
+  if command -v claude-glm >/dev/null 2>&1; then printf 'builder'; else printf 'claude+ruflo'; fi
+}
+builder_cmd() { # what window 2 runs: claude-glm when the GLM path was wired; else claude
+  if command -v claude-glm >/dev/null 2>&1; then printf 'claude-glm'; else printf 'claude'; fi
 }
 
 plan() {
-  printf '1  claude      claude (Anthropic reviewer)\n'
-  printf '2  builder     %s (claude-glm when the GLM path was chosen; ruflo plugins loaded)\n' "$(builder_cmd)"
-  printf '3  codex       codex (ruflo via MCP)\n'
-  printf '4  tokens      rig-lite/tokens.py --watch (live multi-harness dashboard)\n'
-  printf '5  shell       bash\n'
+  printf '1  claude        claude (Anthropic reviewer)\n'
+  printf '2  %-12s %s (claude-glm when the GLM path was chosen; ruflo plugins loaded)\n' "$(w2_name)" "$(builder_cmd)"
+  printf '3  codex         codex (ruflo via MCP)\n'
+  printf '4  tokens        rig-lite/tokens.py --watch (live multi-harness dashboard)\n'
+  printf '5  shell         bash\n'
 }
 
 hint() { exec bash; }  # window bodies print their own guidance before settling
 
-w_env() { # load nvm if present — windows run `bash -c` (no bashrc) and may not
-  # inherit the PATH the installer built; they must find the CLIs themselves
-  command -v node >/dev/null 2>&1 && return 0
+w_env() { # always load nvm when it exists — windows run `bash -c` (no bashrc) and
+  # may inherit neither the installer's PATH nor nvm; a system node on PATH is NOT
+  # proof the CLIs are reachable (they may live in the user's nvm prefix)
   [[ -s "$HOME/.nvm/nvm.sh" ]] && . "$HOME/.nvm/nvm.sh" 2>/dev/null
   return 0
 }
@@ -83,8 +82,8 @@ type_plugin_proof() { # wait for the REPL, never answer prompts, then type /plug
     case "$pane" in
       *"Do you trust"*|*"trust the files"*) return 0 ;;  # never touch a trust prompt
     esac
-    # positive READY marker: the input box border AND the help hint in the status area
-    if printf '%s' "$pane" | tail -4 | grep -q '^│' && printf '%s' "$pane" | grep -q 'help'; then
+    # positive READY marker: an actual input ROW — box border and > prompt on the SAME line
+    if printf '%s' "$pane" | tail -4 | grep -qE '^│.*>'; then
       tmux send-keys -t "$SESSION:claude+ruflo" -l '/plugin'
       sleep 0.5
       tmux send-keys -t "$SESSION:claude+ruflo" Enter
@@ -98,8 +97,8 @@ build() {
   if tmux has-session -t "$SESSION" 2>/dev/null; then
     echo "workspace: session '$SESSION' already live — left untouched"; return 0
   fi
-  local w2n="claude+ruflo"
-  command -v claude-glm >/dev/null 2>&1 && w2n="builder"
+  local w2n
+  w2n="$(w2_name)"
   local w
   printf -v w 'TF_HOME=%q bash -c '"'"'source "$TF_HOME/workspace.sh"; w_%s'"'"'' "$TF_HOME" claude
   tmux new-session -d -s "$SESSION" -n claude  "$w" || { echo "workspace: new-session failed" >&2; return 1; }

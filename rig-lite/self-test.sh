@@ -1059,10 +1059,10 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
       | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh )|echo TOOK|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
     if bash -n <<<"$RGSTUB" 2>/dev/null; then
       printf '#!/usr/bin/env bash\nexit 0\n' > "$RGBT2/setup-harness.sh"   # the hook's -f guard needs it present
-      ( HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w1" 2>/dev/null ) \
-        & ( HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w2" 2>/dev/null ) & wait
+      ( env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w1" 2>/dev/null ) \
+        & ( env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w2" 2>/dev/null ) & wait
       RGW=$(cat "$RGBT2/w1" "$RGBT2/w2" 2>/dev/null | grep -c TOOK)
-      RG3=$(HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" 2>/dev/null | grep -c TOOK)
+      RG3=$(env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" 2>/dev/null | grep -c TOOK)
       if [ "$RGW" = "1" ] && [ "$RG3" = "0" ]; then
         echo "✓ devcontainer: real hook's flag is atomic — exactly 1 of 2 concurrent shells wins, 3rd run silent"
       else
@@ -1119,10 +1119,12 @@ if [ -f "$RGWSH" ]; then
   bash -n "$RGWSH" 2>/dev/null && echo "✓ workspace: bash -n clean" || { echo "✗ workspace: syntax"; FAIL=1; }
   RGWP="$("$RGWSH" --plan 2>/dev/null)"
   RGWOK=1
-  for wn in claude builder codex tokens shell; do
+  # window 2's expected name = the same condition the script itself uses
+  RGW2="claude+ruflo"; command -v claude-glm >/dev/null 2>&1 && RGW2="builder"
+  for wn in claude "$RGW2" codex tokens shell; do
     case "$RGWP" in *"$wn"*) : ;; *) echo "✗ workspace: window '$wn' missing from plan"; RGWOK=0; FAIL=1 ;; esac
   done
-  [ "$RGWOK" = "1" ] && echo "✓ workspace: plan lists all five windows"
+  [ "$RGWOK" = "1" ] && echo "✓ workspace: plan lists all five windows (w2 name = live name: $RGW2)"
   RGBD="$(mktemp -d)/bin"; mkdir -p "$RGBD"
   printf '#!/bin/bash\nexit 0\n' > "$RGBD/claude-glm"; chmod +x "$RGBD/claude-glm"
   if PATH="$RGBD:$PATH" "$RGWSH" --plan 2>/dev/null | sed -n '2p' | grep -q 'claude-glm'; then
@@ -1139,7 +1141,7 @@ if [ -f "$RGWSH" ]; then
     cp "$RGWSH" "$RGTM/home/workspace.sh"; chmod +x "$RGTM/home/workspace.sh"
     # isolated: own socket dir, $TMUX unset (works even when the suite runs INSIDE tmux),
     # PATH = stubs + core tools only (host CLIs can't leak in), proof beat off
-    rgiso() { env -u TMUX TMUX_TMPDIR="$RGTM" PATH="$RGTM/bin:$(dirname "$(command -v tmux)"):/usr/bin:/bin" TF_WORKSPACE_PROOF=0 "$@"; }
+    rgiso() { env -u TMUX -u TF_NO_TMUX HOME="$RGTM/home" TMUX_TMPDIR="$RGTM" PATH="$RGTM/bin:$(dirname "$(command -v tmux)"):/usr/bin:/bin" TF_WORKSPACE_PROOF=0 "$@"; }
     if ( cd "$RGTM" && rgiso env TF_HOME="$RGTM/home" bash "$RGTM/home/workspace.sh" --build >/dev/null 2>&1 \
          && sleep 2 \
          && [ "$(rgiso tmux list-windows -t turboflow -F '#W' 2>/dev/null | grep -c .)" = "5" ] \
