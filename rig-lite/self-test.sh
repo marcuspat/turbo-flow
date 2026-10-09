@@ -1127,8 +1127,8 @@ if [ -f "$RGSH" ]; then
   [[ "$RGSHD" == *"path_verdict"* && "$RGSHD" == *".local/bin"* && "$RGSHD" == *"works now"* ]] \
     && echo "✓ setup-harness: install verdict + immediate-PATH mechanism present" \
     || { echo "✗ setup-harness: missing path verdict / immediate-PATH mechanism"; FAIL=1; }
-  if grep -q -- '--silent' <<<"$RGSHD" || grep -Eq 'install -g [^|]*>[^|]*/dev/null' <<<"$RGSHD"; then
-    echo "✗ setup-harness: an install path is still silent"; FAIL=1
+  if grep -Eq 'npm[^|]*--silent|install -g [^|]*>[^|]*/dev/null' <<<"$RGSHD"; then
+    echo "✗ setup-harness: an npm install path is still silent"; FAIL=1
   else
     echo "✓ setup-harness: installs are visible (no silent npm)"
   fi
@@ -1140,7 +1140,7 @@ if [ -f "$RGSH" ]; then
   printf '#!/bin/sh\necho new-node\n' > "$RGPV/.nvm/versions/node/vB/bin/node"
   printf '#!/bin/sh\necho new-claude\n' > "$RGPV/.nvm/versions/node/vB/bin/claude"
   chmod +x "$RGPV/.nvm/versions/node/"v*/bin/*
-  ln -s "$RGPV/.nvm/versions/node/vA/bin/claude-old-missing" "$RGPV/.local/bin/claude" 2>/dev/null || ln -s "$RGPV/.nvm/versions/node/vA/bin/node" "$RGPV/.local/bin/claude"
+  ln -s "$RGPV/.nvm/versions/node/vA/bin/node" "$RGPV/.local/bin/claude"
   printf '#!/bin/sh\necho real-user-node\n' > "$RGPV/.local/bin/node" && chmod +x "$RGPV/.local/bin/node"
   if ( HOME="$RGPV" PATH="$RGPV/.nvm/versions/node/vB/bin:$PATH" bash -c '. "$1"; path_verdict claude >/dev/null 2>&1' _ "$RGSH" ); then
     RGL="$(readlink "$RGPV/.local/bin/claude" 2>/dev/null)"
@@ -1153,6 +1153,22 @@ echo real-user-node" ]; then
     fi
   else
     echo "✗ setup-harness: path_verdict sandbox run failed"; FAIL=1
+  fi
+  # local-bin-first PATH + a second call in the same process: must never self-link
+  if ( HOME="$RGPV" PATH="$RGPV/.local/bin:$RGPV/.nvm/versions/node/vB/bin:/usr/bin:/bin" \
+       bash -c '. "$1"; path_verdict claude >/dev/null 2>&1; path_verdict claude >/dev/null 2>&1; echo "link=$(readlink ~/.local/bin/claude)"' _ "$RGSH" ) \
+     | grep -q "link=$RGPV/.nvm/versions/node/vB/bin/claude$"; then
+    echo "✓ setup-harness: no self-linking when ~/.local/bin leads PATH (incl. second call)"
+  else
+    echo "✗ setup-harness: path_verdict self-linked or lost the target"; FAIL=1
+  fi
+  # missing CLI: the call still succeeds, the flag carries the gap
+  RGF="$( HOME="$RGPV" PATH="$RGPV/.nvm/versions/node/vB/bin:/usr/bin:/bin" bash -c \
+    '. "$1"; SETUP_INCOMPLETE=0; path_verdict definitely-missing-cli >/dev/null 2>&1; echo "$SETUP_INCOMPLETE"' _ "$RGSH" )"
+  if [ "$RGF" = "1" ]; then
+    echo "✓ setup-harness: missing CLI sets SETUP_INCOMPLETE (final line goes honest), call returns clean"
+  else
+    echo "✗ setup-harness: missing CLI did not set SETUP_INCOMPLETE"; FAIL=1
   fi
   rm -rf "$RGPV"
   "$RGSH" --bogus >/dev/null 2>&1; RC=$?
