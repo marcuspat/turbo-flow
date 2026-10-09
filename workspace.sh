@@ -1,67 +1,103 @@
 #!/usr/bin/env bash
-# workspace.sh — the 5-window agentic workspace: boot, and tmux fires with the rig live.
+# workspace.sh — the 5-window tmux rig: boot, and tmux fires with the rig live.
 #
-#   1  claude        plain Anthropic reviewer
-#   2  claude+ruflo  ruflo plugins pre-installed (setup-harness's CLI path — the
-#                    slash commands were already executed non-interactively at
-#                    install time, so the REPL opens with ruflo loaded; a /plugin
-#                    proof is typed in once the REPL is up and authenticated)
-#   3  codex         OpenAI lane (ruflo reachable via its MCP wiring)
-#   4  tokens        rig-lite/tokens.py --watch — live burn across the harnesses
-#   5  shell         free pane for whatever comes next
+#   1  claude      the Anthropic reviewer (plain claude)
+#   2  builder     claude-glm when the GLM path was chosen (the zai family — a real
+#                  cross-family pair with window 1); otherwise plain claude with the
+#                  ruflo plugins loaded, labeled honestly (same family as w1)
+#   3  codex       the OpenAI lane (ruflo reachable via its MCP wiring)
+#   4  tokens      rig-lite/tokens.py --watch — live burn across the harnesses
+#   5  shell       a free pane
 #
 # Usage:
 #   workspace.sh            build the session if absent, then attach (interactive)
 #   workspace.sh --build    build only (no attach) — used by tests and postCreate
 #   workspace.sh --plan     print the window plan (test/inspection hook)
 #
-# Idempotent and non-destructive: an existing session is NEVER mutated (your live
-# windows are yours); missing CLIs degrade their window to a hint shell.
+# Opt out of auto-attach: TF_NO_TMUX=1 (the boot hook and attach() both honor it).
+# Idempotent and non-destructive: a live session is NEVER mutated; missing CLIs
+# degrade their window to a hint shell; every tmux call is checked (fail-closed).
 set -u
 
 TF_HOME="${TF_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 SESSION="turboflow"
+TFQ="$(printf '%q' "$TF_HOME")"
+
+builder_cmd() { # window 2: claude-glm when the GLM path was wired; else plain claude
+  if command -v claude-glm >/dev/null 2>&1; then
+    printf 'claude-glm'
+  else
+    printf 'claude'
+  fi
+}
 
 plan() {
-  cat <<'EOF'
-1  claude        claude (Anthropic reviewer)
-2  claude+ruflo  claude with ruflo plugins pre-installed (+ /plugin proof when authed)
-3  codex         codex (ruflo via MCP)
-4  tokens        rig-lite/tokens.py --watch (live multi-harness dashboard)
-5  shell         bash
-EOF
+  printf '1  claude      claude (Anthropic reviewer)\n'
+  printf '2  builder     %s (claude-glm when the GLM path was chosen; ruflo plugins loaded)\n' "$(builder_cmd)"
+  printf '3  codex       codex (ruflo via MCP)\n'
+  printf '4  tokens      rig-lite/tokens.py --watch (live multi-harness dashboard)\n'
+  printf '5  shell       bash\n'
 }
 
-hint() { # <msg> — keeps a window open with guidance when its CLI is missing
-  printf '%s\n\n' "$1"; exec bash
-}
+hint() { exec bash; }  # window bodies print their own guidance before settling
 
-w_claude()      { command -v claude  >/dev/null 2>&1 && exec claude  || hint "claude not installed — run: ./setup-harness.sh"; }
-w_codex()       { command -v codex   >/dev/null 2>&1 && exec codex   || hint "codex not installed — run: ./setup-harness.sh"; }
-w_tokens()      { exec python3 "$TF_HOME/rig-lite/tokens.py" --watch; }
-w_shell()       { exec bash; }
+w_claude() {
+  command -v claude >/dev/null 2>&1 || { echo "claude not installed — run: ./setup-harness.sh"; hint; }
+  exec claude
+}
+w_builder() {
+  if command -v claude-glm >/dev/null 2>&1 && exec claude-glm; then :; fi
+  command -v claude >/dev/null 2>&1 || { echo "no harness CLI installed — run: ./setup-harness.sh"; hint; }
+  echo "(same family as window 1 — choose the GLM path in ./setup-harness.sh for a cross-family builder)"
+  exec claude
+}
+w_codex() {
+  command -v codex >/dev/null 2>&1 || { echo "codex not installed — run: ./setup-harness.sh"; hint; }
+  exec codex
+}
+w_tokens() { exec python3 "$TF_HOME/rig-lite/tokens.py" --watch; }
+w_shell()  { exec bash; }
+
+type_plugin_proof() { # wait for the REPL, never answer prompts, then type /plugin
+  local i pane
+  for i in $(seq 1 30); do
+    sleep 1
+    pane="$(tmux capture-pane -p -t "$SESSION:builder" 2>/dev/null || true)"
+    [[ -z "$pane" ]] && continue
+    case "$pane" in
+      *"Do you trust"*|*"trust the files"*) return 0 ;;  # never answer a trust prompt unattended
+    esac
+    if printf '%s' "$pane" | tail -3 | grep -q '│\|>'; then
+      tmux send-keys -t "$SESSION:builder" -l '/plugin'
+      sleep 0.5
+      tmux send-keys -t "$SESSION:builder" Enter
+      return 0
+    fi
+  done
+}
 
 build() {
   command -v tmux >/dev/null 2>&1 || { echo "workspace: tmux not installed — the 5-window rig needs it (container postCreate installs it)" >&2; return 1; }
-  tmux has-session -t "$SESSION" 2>/dev/null && { echo "workspace: session '$SESSION' already live — left untouched"; return 0; }
-  tmux new-session -d -s "$SESSION" -n claude        "TF_HOME='$TF_HOME' bash -c 'source \"$TF_HOME/workspace.sh\"; w_claude'"
-  tmux new-window  -t "$SESSION:" -n claude+ruflo    "TF_HOME='$TF_HOME' bash -c 'source \"$TF_HOME/workspace.sh\"; w_claude'"
-  tmux new-window  -t "$SESSION:" -n codex           "TF_HOME='$TF_HOME' bash -c 'source \"$TF_HOME/workspace.sh\"; w_codex'"
-  tmux new-window  -t "$SESSION:" -n tokens          "TF_HOME='$TF_HOME' bash -c 'source \"$TF_HOME/workspace.sh\"; w_tokens'"
-  tmux new-window  -t "$SESSION:" -n shell           "TF_HOME='$TF_HOME' bash -c 'source \"$TF_HOME/workspace.sh\"; w_shell'"
-  # window 2: once the REPL is up AND authenticated, type the /plugin proof
-  ( sleep 10
-    if claude auth status >/dev/null 2>&1; then
-      tmux send-keys -t "$SESSION:claude+ruflo" -l '/plugin'
-      sleep 0.4
-      tmux send-keys -t "$SESSION:claude+ruflo" Enter
-    fi
-  ) >/dev/null 2>&1 &
-  echo "workspace: session '$SESSION' built — 5 windows"
+  if tmux has-session -t "$SESSION" 2>/dev/null; then
+    echo "workspace: session '$SESSION' already live — left untouched"; return 0
+  fi
+  local w2n="claude+ruflo"
+  command -v claude-glm >/dev/null 2>&1 && w2n="builder"
+  local win='bash -c "source '"$TFQ"'/workspace.sh; %s"'
+  tmux new-session -d -s "$SESSION" -n claude  "$(printf "$win" w_claude)"  || { echo "workspace: new-session failed" >&2; return 1; }
+  tmux new-window  -t "$SESSION:" -n "$w2n"    "$(printf "$win" w_builder)" || { echo "workspace: window $w2n failed" >&2; return 1; }
+  tmux new-window  -t "$SESSION:" -n codex     "$(printf "$win" w_codex)"   || { echo "workspace: window codex failed" >&2; return 1; }
+  tmux new-window  -t "$SESSION:" -n tokens    "$(printf "$win" w_tokens)"  || { echo "workspace: window tokens failed" >&2; return 1; }
+  tmux new-window  -t "$SESSION:" -n shell     "$(printf "$win" w_shell)"   || { echo "workspace: window shell failed" >&2; return 1; }
+  # proof beats: wait for the builder REPL, then show the loaded plugins — but only
+  # when authenticated, and never when a trust prompt is on screen
+  ( claude auth status >/dev/null 2>&1 && type_plugin_proof ) >/dev/null 2>&1 &
+  echo "workspace: session '$SESSION' built — 5 windows (w2: $w2n)"
   return 0
 }
 
 attach() {
+  [[ "${TF_NO_TMUX:-}" = "1" ]] && { echo "workspace: TF_NO_TMUX set — staying out of tmux"; return 0; }
   [[ -t 0 && -t 1 ]] || { echo "workspace: not interactive — build only"; return 0; }
   [[ -n "${TMUX:-}" ]] && { echo "workspace: already inside tmux"; return 0; }
   tmux has-session -t "$SESSION" 2>/dev/null || build >/dev/null || return 1
@@ -72,7 +108,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then  # dispatch only when executed; windo
   case "${1:-}" in
     --build) build ;;
     --plan)  plan ;;
-    --help|-h) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//' ;;
+    --help|-h) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' ;;
     "")      build >/dev/null; attach ;;
     *) echo "workspace: unknown flag '$1' (try --help)" >&2; exit 1 ;;
   esac

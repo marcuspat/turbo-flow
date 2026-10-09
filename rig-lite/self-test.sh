@@ -1056,7 +1056,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     # body swapped for echo) so a non-atomic flag line in the real hook FAILS here
     RGBT2="$(mktemp -d)"
     RGSTUB="$(sed -n '/^if \[\[ -t 0/,/^fi$/p' "$RGBRC" \
-      | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh )|echo TOOK|')"
+      | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh )|echo TOOK|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
     if bash -n <<<"$RGSTUB" 2>/dev/null; then
       printf '#!/usr/bin/env bash\nexit 0\n' > "$RGBT2/setup-harness.sh"   # the hook's -f guard needs it present
       ( HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w1" 2>/dev/null ) \
@@ -1119,7 +1119,7 @@ if [ -f "$RGWSH" ]; then
   bash -n "$RGWSH" 2>/dev/null && echo "✓ workspace: bash -n clean" || { echo "✗ workspace: syntax"; FAIL=1; }
   RGWP="$("$RGWSH" --plan 2>/dev/null)"
   RGWOK=1
-  for wn in claude claude+ruflo codex tokens shell; do
+  for wn in claude builder codex tokens shell; do
     case "$RGWP" in *"$wn"*) : ;; *) echo "✗ workspace: window '$wn' missing from plan"; RGWOK=0; FAIL=1 ;; esac
   done
   [ "$RGWOK" = "1" ] && echo "✓ workspace: plan lists all five windows"
