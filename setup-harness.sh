@@ -64,11 +64,17 @@ path_verdict() { # path_verdict <cli>… — link the CLIs (+node/npm/npx from t
   RG_SRCPATH="${RG_SRCPATH:-$PATH}"   # the USER's original PATH, captured once, immune to our own exports
   RGSRCH=""
   OLDIFS="$IFS"; IFS=":"
+  set -f  # no glob expansion while splitting PATH
   for RGENTRY in $RG_SRCPATH; do
     RGENTRY="${RGENTRY%/}"
-    [ "$RGENTRY" = "$HOME/.local/bin" ] && continue
+    case "$RGENTRY" in
+      "$HOME/.local/bin") continue ;;
+      /*) : ;;
+      *) continue ;;  # relative/empty entries (., bin, ::) would resolve to cwd and make relative links
+    esac
     RGSRCH="${RGSRCH:+$RGSRCH:}$RGENTRY"
   done
+  set +f
   IFS="$OLDIFS"
   ONUSERSPATH=0
   case ":$RG_SRCPATH:" in *":$HOME/.local/bin:"*|*":$HOME/.local/bin/:"*) ONUSERSPATH=1 ;; esac
@@ -320,6 +326,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   echo
   if [[ "$SETUP_INCOMPLETE" = "1" ]]; then
     warn "done WITH GAPS — see the warnings above; rerun ./setup-harness.sh"
+    exit 1
   else
     ok "done. next: open the repo README — the gate is the same for every harness."
   fi
