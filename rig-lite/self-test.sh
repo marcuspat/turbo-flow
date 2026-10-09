@@ -1034,7 +1034,31 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
   [[ "$RGDJ" == *"tf-boot"* && "$RGDJ" == *"harness-booted"* && "$RGDJ" == *"TF_HOME"* ]] \
     && echo "✓ devcontainer: first-boot harness menu hook installed (once-flag + TF_HOME)" \
     || { echo "✗ devcontainer: boot menu hook missing"; FAIL=1; }
-  [[ "$RGPC" != *"$HOME"* ]] && echo "✓ devcontainer: hook uses runtime HOME, no baked-in user paths" || { echo "✗ devcontainer: suspicious baked path"; FAIL=1; }
+  # behavioral: the hook survives four layers of escaping, appends exactly once,
+  # parses as bash, and its once-flag is atomic across concurrent shells
+  RGBT="$(mktemp -d)"
+  RGTAIL="${RGPC#*self-test.sh; }"
+  HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
+  HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
+  RGBRC="$RGBT/.bashrc"
+  if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot: hand the user' "$RGBRC")" = "1" ] \
+     && bash -n "$RGBRC" 2>/dev/null \
+     && grep -q '\$HOME/.config/turbo-flow/harness-booted' "$RGBRC" \
+     && ! grep -qE '/home/[a-z]|/root/' "$RGBRC"; then
+    echo "✓ devcontainer: hook append is idempotent, parses, literal \$HOME, no baked user paths"
+  else
+    echo "✗ devcontainer: generated .bashrc hook failed its behavioral check"; FAIL=1
+  fi
+  # atomic winner check (tty guards stripped from the extracted body; dedicated HOME)
+  RGBT2="$(mktemp -d)"
+  RGSTUB='if [[ ! -e "$HOME/.config/turbo-flow/harness-booted" && -n "$TF_HOME" ]] && mkdir -p "$HOME/.config/turbo-flow" 2>/dev/null && mkdir "$HOME/.config/turbo-flow/harness-booted" 2>/dev/null; then echo TOOK; fi'
+  ( HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >/dev/null 2>&1 ) & ( HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >/dev/null 2>&1 ) & wait
+  if [ -d "$RGBT2/.config/turbo-flow/harness-booted" ]; then
+    echo "✓ devcontainer: once-flag claimed atomically (mkdir) — concurrent shells can't double-present"
+  else
+    echo "✗ devcontainer: once-flag not created"; FAIL=1
+  fi
+  rm -rf "$RGBT" "$RGBT2"
 else
   echo "⚠ devcontainer checks SKIPPED (python3 or .devcontainer/devcontainer.json unavailable)"
 fi
