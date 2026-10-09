@@ -71,14 +71,14 @@
 
 <g transform="translate(600,308)">
 
-<rect x="-470" y="-78" width="940" height="150" rx="14" fill="#060a0e" stroke="#1b2b33"/>
+<rect x="-470" y="-78" width="940" height="150" rx="14" fill="#060a0e" fill-opacity="0.9" stroke="#1b2b33"/>
 <line x1="-470" y1="-52" x2="470" y2="-52" stroke="#14212a"/>
 <circle cx="-446" cy="-65" r="5" fill="#f85149"/><circle cx="-428" cy="-65" r="5" fill="#d29922"/><circle cx="-410" cy="-65" r="5" fill="#3fb950"/>
 <text x="-388" y="-60" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="13" fill="#6e7681">turbo-flow — rig-lite</text>
 <g font-family="ui-monospace,Menlo,Consolas,monospace" font-size="16">
-<text x="-440" y="-24" fill="#22d3ee" opacity="0">$ turbo-flow install rig-lite<animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.06" dur="7s" repeatCount="indefinite"/></text>
-<text x="-440" y="8" fill="#3fb950" opacity="0">✓ laws with teeth — gate ready<animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.3" dur="7s" repeatCount="indefinite"/></text>
-<text x="-440" y="40" fill="#3fb950" opacity="0">✓ bash only · drop-in · no harness<animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.54" dur="7s" repeatCount="indefinite"/></text>
+<text x="-440" y="-24" fill="#22d3ee">$ ls rig-lite/</text>
+<text x="-440" y="8" fill="#3fb950" opacity="0">✓ laws with teeth — gate.sh + review.sh<animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.3" dur="7s" repeatCount="indefinite"/></text>
+<text x="-440" y="40" fill="#3fb950" opacity="0">✓ installs nothing · bash only · drop-in<animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.54" dur="7s" repeatCount="indefinite"/></text>
 <text x="-440" y="66" fill="#c9d1d9" opacity="0">$ ▮<animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.78" dur="7s" repeatCount="indefinite"/></text>
 </g>
 <g stroke="#22d3ee" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
