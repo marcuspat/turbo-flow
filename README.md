@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/banner.svg" alt="turbo-flow — animated banner" width="100%"></p>
+
 > **⚡ TURBO FLOW — THE RULES LAYER FOR AI-WRITTEN CODE.**
 > One product lives here: [`rig-lite/`](rig-lite/) — a portable governance kit. It ships no harness, installs nothing, and depends only on bash. Drop it into any repo and your agents get laws with teeth.
 

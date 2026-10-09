@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-label="turbo-flow: The rules layer for AI-written code — rig-lite. Portable governance: laws with teeth, bash only, harness-agnostic.">
+<title>turbo-flow</title>
+<defs>
+<radialGradient id="aur1"><stop offset="0" stop-color="#22d3ee" stop-opacity="0.50"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
+<radialGradient id="aur2"><stop offset="0" stop-color="#7c3aed" stop-opacity="0.45"/><stop offset="1" stop-color="#7c3aed" stop-opacity="0"/></radialGradient>
+<radialGradient id="orb"><stop offset="0" stop-color="#22d3ee" stop-opacity="0.9"/><stop offset="0.55" stop-color="#22d3ee" stop-opacity="0.25"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
+<linearGradient id="tgrad" x1="0" x2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="0.6" stop-color="#ffffff"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
+<linearGradient id="beam" x1="0" x2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.45"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+<linearGradient id="hglow" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#22d3ee" stop-opacity="0.30"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></linearGradient>
+<filter id="soft" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="30"/></filter>
+<filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="5"/></filter>
+<filter id="glow2" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="10"/></filter>
+</defs>
+<rect width="1200" height="400" fill="#04060c"/>
+<ellipse cx="250" cy="120" rx="360" ry="190" fill="url(#aur1)" filter="url(#soft)">
+<animateTransform attributeName="transform" type="translate" values="0 0; 70 24; -40 12; 0 0" dur="26s" repeatCount="indefinite"/>
+</ellipse>
+<ellipse cx="960" cy="150" rx="400" ry="210" fill="url(#aur2)" filter="url(#soft)">
+<animateTransform attributeName="transform" type="translate" values="0 0; -60 18; 34 -12; 0 0" dur="32s" repeatCount="indefinite"/>
+</ellipse>
+<g><circle cx="233" cy="37" r="1" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.98s" begin="-3.87s" repeatCount="indefinite"/></circle>
+<circle cx="1140" cy="128" r="2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="2.85s" begin="-0.00s" repeatCount="indefinite"/></circle>
+<circle cx="550" cy="64" r="1.2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="2.54s" begin="-3.20s" repeatCount="indefinite"/></circle>
+<circle cx="66" cy="169" r="1" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="4.46s" begin="-0.53s" repeatCount="indefinite"/></circle>
+<circle cx="426" cy="58" r="1.6" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="2.71s" begin="-0.55s" repeatCount="indefinite"/></circle>
+<circle cx="758" cy="153" r="1.2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.77s" begin="-1.88s" repeatCount="indefinite"/></circle>
+<circle cx="937" cy="154" r="1" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.07s" begin="-2.65s" repeatCount="indefinite"/></circle>
+<circle cx="721" cy="80" r="1.2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.99s" begin="-4.37s" repeatCount="indefinite"/></circle>
+<circle cx="577" cy="99" r="1.2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.44s" begin="-0.51s" repeatCount="indefinite"/></circle>
+<circle cx="1100" cy="162" r="2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="2.77s" begin="-3.76s" repeatCount="indefinite"/></circle>
+<circle cx="373" cy="40" r="1" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="4.14s" begin="-3.65s" repeatCount="indefinite"/></circle>
+<circle cx="317" cy="96" r="1" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="4.46s" begin="-2.63s" repeatCount="indefinite"/></circle>
+<circle cx="992" cy="144" r="2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="4.56s" begin="-0.09s" repeatCount="indefinite"/></circle>
+<circle cx="322" cy="105" r="1" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.87s" begin="-0.58s" repeatCount="indefinite"/></circle>
+<circle cx="870" cy="118" r="2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.20s" begin="-0.20s" repeatCount="indefinite"/></circle>
+<circle cx="888" cy="96" r="1" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="4.33s" begin="-2.92s" repeatCount="indefinite"/></circle>
+<circle cx="90" cy="25" r="2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="2.93s" begin="-0.89s" repeatCount="indefinite"/></circle>
+<circle cx="875" cy="142" r="1.6" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.66s" begin="-4.06s" repeatCount="indefinite"/></circle>
+<circle cx="104" cy="83" r="1.2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.99s" begin="-3.87s" repeatCount="indefinite"/></circle>
+<circle cx="658" cy="25" r="2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="2.87s" begin="-0.41s" repeatCount="indefinite"/></circle>
+<circle cx="269" cy="184" r="1.2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="4.45s" begin="-2.29s" repeatCount="indefinite"/></circle>
+<circle cx="42" cy="110" r="2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="2.94s" begin="-3.39s" repeatCount="indefinite"/></circle>
+<circle cx="400" cy="42" r="2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.84s" begin="-0.64s" repeatCount="indefinite"/></circle>
+<circle cx="258" cy="97" r="1.2" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.25s" begin="-3.71s" repeatCount="indefinite"/></circle>
+<circle cx="588" cy="117" r="1" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="3.84s" begin="-3.23s" repeatCount="indefinite"/></circle>
+<circle cx="862" cy="58" r="1.6" fill="#dbe7ff"><animate attributeName="opacity" values="0.08;0.85;0.08" dur="4.39s" begin="-3.32s" repeatCount="indefinite"/></circle></g>
+<rect x="0" y="236" width="1200" height="130" fill="url(#hglow)">
+<animate attributeName="opacity" values="0.45;0.9;0.45" dur="7s" repeatCount="indefinite"/>
+</rect>
+<circle cx="600" cy="242" r="90" fill="url(#orb)">
+<animate attributeName="r" values="78;110;78" dur="6s" repeatCount="indefinite"/>
+</circle>
+<path d="M600 240 L-150 400 M600 240 L0 400 M600 240 L150 400 M600 240 L300 400 M600 240 L450 400 M600 240 L600 400 M600 240 L750 400 M600 240 L900 400 M600 240 L1050 400 M600 240 L1200 400 M600 240 L1350 400" stroke="#155e75" stroke-width="1.3" opacity="0.55" fill="none" stroke-dasharray="12 16">
+<animate attributeName="stroke-dashoffset" values="0;-56" dur="0.9s" repeatCount="indefinite"/>
+</path>
+<path d="M0 252 H1200 M0 268 H1200 M0 290 H1200 M0 318 H1200 M0 352 H1200 M0 392 H1200" stroke="#155e75" stroke-width="1" opacity="0.35" fill="none"/>
+<circle cx="600" cy="241" r="4" fill="#22d3ee" filter="url(#glow2)">
+<animate attributeName="opacity" values="0.6;1;0.6" dur="2.6s" repeatCount="indefinite"/>
+</circle>
+<rect x="-260" y="-90" width="170" height="580" fill="url(#beam)" opacity="0.10" filter="url(#soft)" transform="rotate(14)">
+<animateTransform attributeName="transform" type="translate" additive="sum" values="-350 0;1750 0" dur="7s" repeatCount="indefinite"/>
+</rect>
+<rect x="-260" y="-90" width="170" height="580" fill="url(#beam)" opacity="0.07" filter="url(#soft)" transform="rotate(14)">
+<animateTransform attributeName="transform" type="translate" additive="sum" values="-350 0;1750 0" dur="7s" begin="-3.4s" repeatCount="indefinite"/>
+</rect>
+<text x="600" y="66" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="13" letter-spacing="6" fill="#22d3ee" opacity="0.85">MARCUSPAT · TURBO-FLOW</text>
+<text x="600" y="152" text-anchor="middle" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="74" font-weight="800" letter-spacing="1" fill="#22d3ee" opacity="0.55" filter="url(#glow2)">turbo-flow</text>
+<text x="600" y="152" text-anchor="middle" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="74" font-weight="800" letter-spacing="1" fill="url(#tgrad)">turbo-flow</text>
+<text x="600" y="198" text-anchor="middle" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="19" letter-spacing="0.4" fill="#a8b3c4">The rules layer for AI-written code — rig-lite.</text>
+<text x="600" y="224" text-anchor="middle" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="19" letter-spacing="0.4" fill="#a8b3c4">Portable governance: laws with teeth, bash only, harness-agnostic.</text>
+
+<g transform="translate(600,308)">
+
+<rect x="-470" y="-78" width="940" height="150" rx="14" fill="#060a0e" fill-opacity="0.9" stroke="#1b2b33"/>
+<line x1="-470" y1="-52" x2="470" y2="-52" stroke="#14212a"/>
+<circle cx="-446" cy="-65" r="5" fill="#f85149"/><circle cx="-428" cy="-65" r="5" fill="#d29922"/><circle cx="-410" cy="-65" r="5" fill="#3fb950"/>
+<text x="-388" y="-60" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="13" fill="#6e7681">turbo-flow — rig-lite</text>
+<g font-family="ui-monospace,Menlo,Consolas,monospace" font-size="16">
+<text x="-440" y="-24" fill="#22d3ee">$ ls rig-lite/</text>
+<text x="-440" y="8" fill="#3fb950" opacity="0">✓ laws with teeth — gate.sh + review.sh<animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.3" dur="7s" repeatCount="indefinite"/></text>
+<text x="-440" y="40" fill="#3fb950" opacity="0">✓ installs nothing · bash only · drop-in<animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.54" dur="7s" repeatCount="indefinite"/></text>
+<text x="-440" y="66" fill="#c9d1d9" opacity="0">$ ▮<animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.78" dur="7s" repeatCount="indefinite"/></text>
+</g>
+<g stroke="#22d3ee" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+<path d="M310 -26 l16 20 -16 20"><animate attributeName="opacity" values="0;1;0" dur="1.2s" begin="0s" repeatCount="indefinite"/></path>
+<path d="M346 -26 l16 20 -16 20"><animate attributeName="opacity" values="0;1;0" dur="1.2s" begin="-0.15s" repeatCount="indefinite"/></path>
+<path d="M382 -26 l16 20 -16 20"><animate attributeName="opacity" values="0;1;0" dur="1.2s" begin="-0.3s" repeatCount="indefinite"/></path>
+<path d="M418 -26 l16 20 -16 20"><animate attributeName="opacity" values="0;1;0" dur="1.2s" begin="-0.45s" repeatCount="indefinite"/></path>
+</g>
+
+</g>
+</svg>
