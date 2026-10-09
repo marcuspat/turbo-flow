@@ -45,9 +45,36 @@ ensure_node() {
   ok "node $(node -v) installed"
 }
 
-npm_global() { # npm_global <pkg…> — installs quietly under the nvm/user prefix
-  npm install -g --silent "$@" >/dev/null 2>&1 \
+npm_global() { # npm_global <pkg…> — installs under the nvm/user prefix, visibly
+  say "npm install -g $* — this can take up to a minute; progress follows…"
+  npm install -g "$@" \
     || die "npm install failed: $* (if node is a root-owned system install, switch to nvm and rerun)"
+}
+
+path_verdict() { # path_verdict <cli>… — after install: link into ~/.local/bin (always on
+  # PATH in codespace shells) so the commands WORK immediately — no source, no new
+  # terminal, no dependence on .bashrc ordering or an interrupted boot — then report.
+  local first_missing=1
+  mkdir -p "$HOME/.local/bin" 2>/dev/null
+  local NVMBIN
+  NVMBIN="$(find "$HOME/.nvm/versions/node" -maxdepth 3 -type d -name bin 2>/dev/null | head -1)"
+  if [ -n "$NVMBIN" ]; then
+    # node/npm/npx ride along: the CLIs are node scripts (#!/usr/bin/env node)
+    for b in node npm npx npx-cli; do
+      [ -x "$NVMBIN/$b" ] && ln -sf "$NVMBIN/$b" "$HOME/.local/bin/$b" 2>/dev/null
+    done
+  fi
+  export PATH="$HOME/.local/bin:$PATH"
+  for c in "$@"; do
+    if [ -x "$HOME/.local/bin/$c" ] || ln -sf "$(command -v "$c" 2>/dev/null)" "$HOME/.local/bin/$c" 2>/dev/null && [ -x "$HOME/.local/bin/$c" ]; then
+      ok "$c installed — works now: $(command -v "$c")"
+    elif command -v "$c" >/dev/null 2>&1; then
+      ok "$c installed at $(command -v "$c")"
+    else
+      warn "$c not found after install — rerun ./setup-harness.sh"
+      first_missing=0
+    fi
+  done
 }
 
 claude_logged_in() {
@@ -94,6 +121,7 @@ setup_claude() {
     warn "claude is logged out. Run:  claude   then  /login  (browser OAuth), then rerun or continue"
   fi
   install_ruflo_plugins
+  path_verdict claude
 }
 
 setup_codex() {
@@ -122,6 +150,7 @@ args = ["-y", "ruflo@latest", "mcp", "start"]
 EOF
     ok "ruflo MCP wired — codex reaches ruflo's tool fleet via npx on demand"
   fi
+  path_verdict codex
 }
 
 glm_write_env() { # glm_write_env <key> <dir> — 0600-from-birth, charset-gated
@@ -172,6 +201,7 @@ setup_glm() {
   esac
   ok "run: claude-glm  (GLM builder) · claude remains your Anthropic reviewer — Law 1 intact"
   install_ruflo_plugins
+  path_verdict claude
 }
 
 menu() {

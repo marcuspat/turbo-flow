@@ -1123,6 +1123,13 @@ if [ -f "$RGSH" ]; then
   grep -q 'done. next: open the repo README' "$RGSH" \
     && echo "✓ setup-harness: boot-recorder success marker present in its real output" \
     || { echo "✗ setup-harness: recorder waits on a marker the script no longer prints"; FAIL=1; }
+  RGSHD="$(cat "$RGSH")"
+  [[ "$RGSHD" == *"path_verdict"* && "$RGSHD" == *"source ~/.bashrc"* ]] \
+    && echo "✓ setup-harness: install verdict + PATH guidance present" \
+    || { echo "✗ setup-harness: missing path verdict/guidance"; FAIL=1; }
+  [[ "$RGSHD" != *"install -g --silent"* ]] \
+    && echo "✓ setup-harness: installs are visible (no silent npm)" \
+    || { echo "✗ setup-harness: npm installs still silent"; FAIL=1; }
   "$RGSH" --bogus >/dev/null 2>&1; RC=$?
   [ "$RC" -ne 0 ] && echo "✓ setup-harness: unknown flag fails closed" || { echo "✗ setup-harness: unknown flag accepted"; FAIL=1; }
   # glm path: dedicated launcher; ~/.claude/settings.json is NEVER touched
