@@ -1189,6 +1189,34 @@ echo real-user-node" ]; then
     echo "✗ setup-harness: false works-now claim or non-literal export line"; FAIL=1
   fi
   rm -rf "$RGH2"
+  # POSITIVE works-now: local-bin ON the user's PATH → the claim prints
+  RGH3="$(mktemp -d)"; mkdir -p "$RGH3/.nvm/versions/node/vC/bin" "$RGH3/.local/bin"
+  printf '#!/bin/sh\n' > "$RGH3/.nvm/versions/node/vC/bin/node"; printf '#!/bin/sh\n' > "$RGH3/.nvm/versions/node/vC/bin/claude"
+  chmod +x "$RGH3/.nvm/versions/node/vC/bin/"*
+  RGW3="$( HOME="$RGH3" PATH="$RGH3/.local/bin:$RGH3/.nvm/versions/node/vC/bin:/usr/bin:/bin" bash -c \
+    '. "$1"; SETUP_INCOMPLETE=0; path_verdict claude 2>&1' _ "$RGSH" )"
+  grep -q "works now: $RGH3/.local/bin/claude" <<<"$RGW3" \
+    && echo "✓ setup-harness: works-now claimed (correctly) when the bin is on the user's PATH" \
+    || { echo "✗ setup-harness: positive works-now case broken"; FAIL=1; }
+  rm -rf "$RGH3"
+  # brew/system case: non-nvm RGNEW gets NO link; reruns never cry foreign
+  RGH4="$(mktemp -d)"; mkdir -p "$RGH4/.local/bin" "$RGH4/brew/bin"
+  printf '#!/bin/sh\n' > "$RGH4/brew/bin/claude"; chmod +x "$RGH4/brew/bin/claude"
+  RGW4="$( HOME="$RGH4" PATH="$RGH4/brew/bin:/usr/bin:/bin" bash -c \
+    '. "$1"; SETUP_INCOMPLETE=0; path_verdict claude 2>&1; path_verdict claude 2>&1' _ "$RGSH" )"
+  [ ! -e "$RGH4/.local/bin/claude" ] && ! grep -q "foreign" <<<"$RGW4" && grep -q "installed at $RGH4/brew/bin/claude" <<<"$RGW4" \
+    && echo "✓ setup-harness: non-nvm binaries need no link — no shadow, no false-foreign on rerun" \
+    || { echo "✗ setup-harness: brew-case handling regressed"; FAIL=1; }
+  rm -rf "$RGH4"
+  # foreign DANGLING node link: warned, never overwritten
+  RGH5="$(mktemp -d)"; mkdir -p "$RGH5/.nvm/versions/node/vD/bin" "$RGH5/.local/bin"
+  printf '#!/bin/sh\n' > "$RGH5/.nvm/versions/node/vD/bin/node"; chmod +x "$RGH5/.nvm/versions/node/vD/bin/node"
+  ln -s "/nonexistent-foreign/bin/node" "$RGH5/.local/bin/node"
+  HOME="$RGH5" PATH="$RGH5/.nvm/versions/node/vD/bin:/usr/bin:/bin" bash -c '. "$1"; path_verdict claude >/dev/null 2>&1' _ "$RGSH"
+  [ "$(readlink "$RGH5/.local/bin/node" 2>/dev/null)" = "/nonexistent-foreign/bin/node" ] \
+    && echo "✓ setup-harness: a foreign dangling link is reported, not hijacked" \
+    || { echo "✗ setup-harness: foreign dangling link was overwritten"; FAIL=1; }
+  rm -rf "$RGH5"
   # missing CLI: the call still succeeds, the flag carries the gap
   RGF="$( HOME="$RGPV" PATH="$RGPV/.nvm/versions/node/vB/bin:/usr/bin:/bin" bash -c \
     '. "$1"; SETUP_INCOMPLETE=0; path_verdict definitely-missing-cli >/dev/null 2>&1; echo "$SETUP_INCOMPLETE"' _ "$RGSH" )"

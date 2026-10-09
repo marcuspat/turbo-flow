@@ -88,7 +88,12 @@ path_verdict() { # path_verdict <cli>… — link the CLIs (+node/npm/npx from t
             ln -sf "$RGBIN/$b" "$RGOLD" || warn "relink $b failed" ;;
         esac
         if [ ! -x "$RGOLD" ]; then
-          ln -sf "$RGBIN/$b" "$RGOLD"; warn "re-pointed dangling $b link"
+          case "$RGTGT" in
+            "$HOME"/.nvm/*|/usr/local/share/nvm/*)
+              ln -sf "$RGBIN/$b" "$RGOLD" && warn "re-pointed dangling $b link" || warn "re-point $b failed" ;;
+            *)
+              warn "$RGOLD dangles (target gone) but is not ours — remove it manually" ;;
+          esac
         fi
       elif [ ! -e "$RGOLD" ]; then
         ln -s "$RGBIN/$b" "$RGOLD" || warn "link $b failed"
@@ -110,27 +115,34 @@ path_verdict() { # path_verdict <cli>… — link the CLIs (+node/npm/npx from t
     case "$RGNEW" in
       "$HOME"/.local/bin/*) warn "resolution landed inside ~/.local/bin — refusing to link $c"; SETUP_INCOMPLETE=1; continue ;;
     esac
+    case "$RGNEW" in
+      "$HOME"/.nvm/*|/usr/local/share/nvm/*) : ;;
+      *)
+        # non-nvm binary (brew, system): already reachable on PATH — a link would
+        # only shadow it, and on rerun our own such link would read as "foreign"
+        ok "$c installed at $RGNEW"
+        continue ;;
+    esac
     if [ -L "$RGOLD" ]; then
       RGTGT="$(readlink "$RGOLD")"
       case "$RGTGT" in
-        "$HOME"/.nvm/*|/usr/local/share/nvm/*)
+        "$HOME"/.nvm/*|/usr/local/share/nvm/*|"$RGNEW")
           ln -sf "$RGNEW" "$RGOLD" || { warn "relink $c failed"; SETUP_INCOMPLETE=1; continue; } ;;
         *)
           warn "$RGOLD is a foreign link (not ours) — left alone; may shadow $RGNEW"
           ok "$c installed at $RGNEW"
           continue ;;
       esac
-    elif [ -e "$RGOLD" ]; then
-      if [ -x "$RGOLD" ]; then
-        warn "$RGOLD exists (not ours) and may shadow $RGNEW"
-        ok "$c installed at $RGNEW"
-      else
-        warn "$RGOLD exists, is not executable, and is not ours — move it aside and rerun"
-        SETUP_INCOMPLETE=1
-      fi
+    elif [ ! -e "$RGOLD" ]; then
+      ln -s "$RGNEW" "$RGOLD" || { warn "linking $c failed"; SETUP_INCOMPLETE=1; continue; }
+    elif [ -x "$RGOLD" ]; then
+      warn "$RGOLD exists (not ours) and may shadow $RGNEW"
+      ok "$c installed at $RGNEW"
       continue
     else
-      ln -s "$RGNEW" "$RGOLD" || { warn "linking $c failed"; SETUP_INCOMPLETE=1; continue; }
+      warn "$RGOLD exists, is not executable, and is not ours — move it aside and rerun"
+      SETUP_INCOMPLETE=1
+      continue
     fi
     if [ "$ONUSERSPATH" = "1" ]; then
       ok "$c installed — works now: $RGOLD"
