@@ -46,9 +46,12 @@ hint() { exec bash; }  # window bodies print their own guidance before settling
 w_env() { # always load nvm when it exists — windows run `bash -c` (no bashrc) and
   # may inherit neither the installer's PATH nor nvm; a system node on PATH is NOT
   # proof the CLIs are reachable (they may live in the user's nvm prefix).
-  # nvm.sh is not set-u safe: sourced with -u relaxed inside a subshell.
+  # nvm.sh is not set-u safe — so relax -u IN THIS SHELL while it loads (a subshell
+  # would discard the PATH it exports; that was a dead-code bug and it stays dead).
   [[ -s "$HOME/.nvm/nvm.sh" ]] || return 0
-  ( set +u; . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1 )
+  set +u
+  . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
+  set -u
   return 0
 }
 

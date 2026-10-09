@@ -1148,6 +1148,17 @@ if [ -f "$RGWSH" ]; then
     echo "✗ workspace: builder label did not switch with claude-glm present"; FAIL=1
   fi
   rm -rf "$RGBDP"
+  # w_env must actually export: nvm-resident CLI invisible on PATH becomes visible
+  RGWE="$(mktemp -d)"; mkdir -p "$RGWE/.nvm/versions/node/vT/bin"
+  printf '#!/bin/sh\n' > "$RGWE/.nvm/versions/node/vT/bin/claude"; chmod +x "$RGWE/.nvm/versions/node/vT/bin/claude"
+  printf 'export PATH="%s/.nvm/versions/node/vT/bin:$PATH"\n' "$RGWE" > "$RGWE/.nvm/nvm.sh"
+  RGWER="$( HOME="$RGWE" PATH="/usr/bin:/bin" bash -c '. "$1"; w_env >/dev/null 2>&1; command -v claude' _ "$RGWSH" 2>/dev/null )"
+  if [ "$RGWER" = "$RGWE/.nvm/versions/node/vT/bin/claude" ]; then
+    echo "✓ workspace: w_env exports nvm's PATH into the calling shell (dead-code regression covered)"
+  else
+    echo "✗ workspace: w_env did not surface the nvm CLI (got: '$RGWER')"; FAIL=1
+  fi
+  rm -rf "$RGWE"
   if command -v tmux >/dev/null 2>&1; then
     RGTM="$(mktemp -d)"; mkdir -p "$RGTM/bin" "$RGTM/home/rig-lite"
     # stub CLIs: interactive loop for the windows, instant exit for `auth` (no orphan)
