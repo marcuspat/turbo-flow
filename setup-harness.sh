@@ -45,9 +45,120 @@ ensure_node() {
   ok "node $(node -v) installed"
 }
 
-npm_global() { # npm_global <pkg…> — installs quietly under the nvm/user prefix
-  npm install -g --silent "$@" >/dev/null 2>&1 \
+npm_global() { # npm_global <pkg…> — installs under the nvm/user prefix, visibly
+  say "npm install -g $* — this can take up to a minute; progress follows…"
+  npm install -g "$@" \
     || die "npm install failed: $* (if node is a root-owned system install, switch to nvm and rerun)"
+}
+
+SETUP_INCOMPLETE=0
+path_verdict() { # path_verdict <cli>… — link the CLIs (+node/npm/npx from the ACTIVE
+  # node) into ~/.local/bin. Resolution runs through a normalized PATH with our bin
+  # stripped (trailing-slash-safe), so a link can never resolve to itself; links are
+  # only refreshed when they already point into an nvm root (foreign links/files are
+  # left alone and called out); a native install already in ~/.local/bin is
+  # recognized, not reported missing; "works now" is only claimed when ~/.local/bin
+  # is genuinely on the user's PATH; dangling node links are re-pointed on rerun.
+  local c b RGNEW RGOLD RGBIN RGSRCH RGENTRY RGTGT ONUSERSPATH OLDIFS
+  mkdir -p "$HOME/.local/bin" || { warn "cannot create ~/.local/bin"; SETUP_INCOMPLETE=1; return 0; }
+  RG_SRCPATH="${RG_SRCPATH:-$PATH}"   # the USER's original PATH, captured once, immune to our own exports
+  RGSRCH=""
+  OLDIFS="$IFS"; IFS=":"
+  set -f  # no glob expansion while splitting PATH
+  for RGENTRY in $RG_SRCPATH; do
+    RGENTRY="${RGENTRY%/}"
+    case "$RGENTRY" in
+      "$HOME/.local/bin") continue ;;
+      /*) : ;;
+      *) continue ;;  # relative/empty entries (., bin, ::) would resolve to cwd and make relative links
+    esac
+    RGSRCH="${RGSRCH:+$RGSRCH:}$RGENTRY"
+  done
+  set +f
+  IFS="$OLDIFS"
+  ONUSERSPATH=0
+  case ":$RG_SRCPATH:" in *":$HOME/.local/bin:"*|*":$HOME/.local/bin/:"*) ONUSERSPATH=1 ;; esac
+  RGBIN="$(PATH="$RGSRCH" command -v node 2>/dev/null)"; RGBIN="${RGBIN%/node}"
+  case "$RGBIN" in
+    "$HOME"/.nvm/versions/node/*/bin|/usr/local/share/nvm/*/bin) ;;
+    *) RGBIN="" ;;
+  esac
+  if [ -n "$RGBIN" ]; then
+    for b in node npm npx; do
+      [ -x "$RGBIN/$b" ] || continue
+      RGOLD="$HOME/.local/bin/$b"
+      if [ -L "$RGOLD" ]; then
+        RGTGT="$(readlink "$RGOLD")"
+        case "$RGTGT" in
+          "$HOME"/.nvm/*|/usr/local/share/nvm/*)
+            ln -sf "$RGBIN/$b" "$RGOLD" || warn "relink $b failed" ;;
+        esac
+        if [ ! -x "$RGOLD" ]; then
+          case "$RGTGT" in
+            "$HOME"/.nvm/*|/usr/local/share/nvm/*)
+              ln -sf "$RGBIN/$b" "$RGOLD" && warn "re-pointed dangling $b link" || warn "re-point $b failed" ;;
+            *)
+              warn "$RGOLD dangles (target gone) but is not ours — remove it manually" ;;
+          esac
+        fi
+      elif [ ! -e "$RGOLD" ]; then
+        ln -s "$RGBIN/$b" "$RGOLD" || warn "link $b failed"
+      fi
+    done
+  fi
+  for c in "$@"; do
+    RGNEW="$(PATH="$RGSRCH" command -v "$c" 2>/dev/null)"
+    RGOLD="$HOME/.local/bin/$c"
+    if [ -z "$RGNEW" ]; then
+      if [ -x "$RGOLD" ]; then
+        ok "$c already present at $RGOLD (native install — left as-is)"
+      else
+        warn "$c not found after install — rerun ./setup-harness.sh"
+        SETUP_INCOMPLETE=1
+      fi
+      continue
+    fi
+    case "$RGNEW" in
+      "$HOME"/.local/bin/*) warn "resolution landed inside ~/.local/bin — refusing to link $c"; SETUP_INCOMPLETE=1; continue ;;
+    esac
+    case "$RGNEW" in
+      "$HOME"/.nvm/*|/usr/local/share/nvm/*) : ;;
+      *)
+        # non-nvm binary (brew, system): already reachable on PATH — a link would
+        # only shadow it, and on rerun our own such link would read as "foreign"
+        ok "$c installed at $RGNEW"
+        continue ;;
+    esac
+    if [ -L "$RGOLD" ]; then
+      RGTGT="$(readlink "$RGOLD")"
+      case "$RGTGT" in
+        "$HOME"/.nvm/*|/usr/local/share/nvm/*|"$RGNEW")
+          ln -sf "$RGNEW" "$RGOLD" || { warn "relink $c failed"; SETUP_INCOMPLETE=1; continue; } ;;
+        *)
+          warn "$RGOLD is a foreign link (not ours) — left alone; may shadow $RGNEW"
+          ok "$c installed at $RGNEW"
+          continue ;;
+      esac
+    elif [ ! -e "$RGOLD" ]; then
+      ln -s "$RGNEW" "$RGOLD" || { warn "linking $c failed"; SETUP_INCOMPLETE=1; continue; }
+    elif [ -x "$RGOLD" ]; then
+      warn "$RGOLD exists (not ours) and may shadow $RGNEW"
+      ok "$c installed at $RGNEW"
+      continue
+    else
+      warn "$RGOLD exists, is not executable, and is not ours — move it aside and rerun"
+      SETUP_INCOMPLETE=1
+      continue
+    fi
+    if [ "$ONUSERSPATH" = "1" ]; then
+      ok "$c installed — works now: $RGOLD"
+    else
+      ok "$c installed at $RGOLD"
+      warn '~/.local/bin is not on your PATH — add: export PATH="$HOME/.local/bin:$PATH"'
+    fi
+  done
+  case ":$PATH:" in *":$HOME/.local/bin:"*) : ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+  return 0
 }
 
 claude_logged_in() {
@@ -94,6 +205,7 @@ setup_claude() {
     warn "claude is logged out. Run:  claude   then  /login  (browser OAuth), then rerun or continue"
   fi
   install_ruflo_plugins
+  path_verdict claude
 }
 
 setup_codex() {
@@ -122,6 +234,7 @@ args = ["-y", "ruflo@latest", "mcp", "start"]
 EOF
     ok "ruflo MCP wired — codex reaches ruflo's tool fleet via npx on demand"
   fi
+  path_verdict codex
 }
 
 glm_write_env() { # glm_write_env <key> <dir> — 0600-from-birth, charset-gated
@@ -172,6 +285,7 @@ setup_glm() {
   esac
   ok "run: claude-glm  (GLM builder) · claude remains your Anthropic reviewer — Law 1 intact"
   install_ruflo_plugins
+  path_verdict claude
 }
 
 menu() {
@@ -210,5 +324,10 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     *) die "unknown flag '$1' (try --help)" ;;
   esac
   echo
-  ok "done. next: open the repo README — the gate is the same for every harness."
+  if [[ "$SETUP_INCOMPLETE" = "1" ]]; then
+    warn "done WITH GAPS — see the warnings above; rerun ./setup-harness.sh"
+    exit 1
+  else
+    ok "done. next: open the repo README — the gate is the same for every harness."
+  fi
 fi
