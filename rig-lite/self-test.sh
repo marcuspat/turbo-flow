@@ -1031,6 +1031,48 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
   [[ "$RGPC" != *"devpods"* ]] && echo "✓ devcontainer: no references to the removed devpods/ chain" || { echo "✗ devcontainer: devpods reference survived"; FAIL=1; }
   RGDJ="$(cat "$RGDC" 2>/dev/null)"
   [[ "$RGDJ" == *"devcontainers/features/sshd"* ]] && echo "✓ devcontainer: sshd feature present (gh cs ssh/cp depend on it)" || { echo "✗ devcontainer: sshd feature missing — gh cs ssh/cp break"; FAIL=1; }
+  [[ "$RGDJ" == *"tf-boot"* && "$RGDJ" == *"harness-booted"* && "$RGDJ" == *"TF_HOME"* ]] \
+    && echo "✓ devcontainer: first-boot harness menu hook installed (once-flag + TF_HOME)" \
+    || { echo "✗ devcontainer: boot menu hook missing"; FAIL=1; }
+  # behavioral: the hook survives four layers of escaping, appends exactly once,
+  # parses as bash, and its once-flag is atomic across concurrent shells
+  RGBT="$(mktemp -d)"
+  RGTAIL="${RGPC#*self-test.sh; }"
+  if [ "$RGTAIL" = "$RGPC" ]; then
+    echo "✗ devcontainer: hook-tail extraction failed (postCreate text changed?)"; FAIL=1
+  else
+    HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
+    HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
+    RGBRC="$RGBT/.bashrc"
+    if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot: hand the user' "$RGBRC")" = "1" ] \
+       && bash -n "$RGBRC" 2>/dev/null \
+       && grep -q '\$HOME/.config/turbo-flow/harness-booted' "$RGBRC" \
+       && ! grep -qE '/home/[a-z]|/root/' "$RGBRC"; then
+      echo "✓ devcontainer: hook append is idempotent, parses, literal \$HOME, no baked user paths"
+    else
+      echo "✗ devcontainer: generated .bashrc hook failed its behavioral check"; FAIL=1
+    fi
+    # atomic winner: the stub is built FROM the generated hook (tty guards stripped,
+    # body swapped for echo) so a non-atomic flag line in the real hook FAILS here
+    RGBT2="$(mktemp -d)"
+    RGSTUB="$(sed -n '/^if \[\[ -t 0/,/^fi$/p' "$RGBRC" \
+      | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh )|echo TOOK|')"
+    if bash -n <<<"$RGSTUB" 2>/dev/null; then
+      printf '#!/usr/bin/env bash\nexit 0\n' > "$RGBT2/setup-harness.sh"   # the hook's -f guard needs it present
+      ( HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w1" 2>/dev/null ) \
+        & ( HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w2" 2>/dev/null ) & wait
+      RGW=$(cat "$RGBT2/w1" "$RGBT2/w2" 2>/dev/null | grep -c TOOK)
+      RG3=$(HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" 2>/dev/null | grep -c TOOK)
+      if [ "$RGW" = "1" ] && [ "$RG3" = "0" ]; then
+        echo "✓ devcontainer: real hook's flag is atomic — exactly 1 of 2 concurrent shells wins, 3rd run silent"
+      else
+        echo "✗ devcontainer: atomicity broken (winners=$RGW, third-run=$RG3)"; FAIL=1
+      fi
+    else
+      echo "✗ devcontainer: could not build a stub from the generated hook"; FAIL=1
+    fi
+    rm -rf "$RGBT" "$RGBT2"
+  fi
 else
   echo "⚠ devcontainer checks SKIPPED (python3 or .devcontainer/devcontainer.json unavailable)"
 fi
