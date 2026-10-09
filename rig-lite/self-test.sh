@@ -1175,6 +1175,20 @@ echo real-user-node" ]; then
   else
     echo "✗ setup-harness: foreign/native handling regressed"; FAIL=1
   fi
+  # honest "works now": local-bin OFF the user PATH → no works-now claim on EITHER
+  # call, and the warning carries the literal export line with $HOME unexpanded
+  RGH2="$(mktemp -d)"; mkdir -p "$RGH2/.nvm/versions/node/vC/bin" "$RGH2/.local/bin"
+  printf '#!/bin/sh\n' > "$RGH2/.nvm/versions/node/vC/bin/node"; printf '#!/bin/sh\n' > "$RGH2/.nvm/versions/node/vC/bin/claude"
+  chmod +x "$RGH2/.nvm/versions/node/vC/bin/"*
+  RGW2="$( HOME="$RGH2" PATH="$RGH2/.nvm/versions/node/vC/bin:/usr/bin:/bin" bash -c \
+    '. "$1"; SETUP_INCOMPLETE=0; path_verdict claude 2>&1; path_verdict claude 2>&1' _ "$RGSH" )"
+  if ! grep -q "works now" <<<"$RGW2" \
+     && grep -q 'export PATH="$HOME/.local/bin:$PATH"' <<<"$RGW2"; then
+    echo "✓ setup-harness: works-now only when the bin is truly on PATH; export line literal on both calls"
+  else
+    echo "✗ setup-harness: false works-now claim or non-literal export line"; FAIL=1
+  fi
+  rm -rf "$RGH2"
   # missing CLI: the call still succeeds, the flag carries the gap
   RGF="$( HOME="$RGPV" PATH="$RGPV/.nvm/versions/node/vB/bin:/usr/bin:/bin" bash -c \
     '. "$1"; SETUP_INCOMPLETE=0; path_verdict definitely-missing-cli >/dev/null 2>&1; echo "$SETUP_INCOMPLETE"' _ "$RGSH" )"

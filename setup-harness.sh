@@ -61,16 +61,17 @@ path_verdict() { # path_verdict <cli>… — link the CLIs (+node/npm/npx from t
   # is genuinely on the user's PATH; dangling node links are re-pointed on rerun.
   local c b RGNEW RGOLD RGBIN RGSRCH RGENTRY RGTGT ONUSERSPATH OLDIFS
   mkdir -p "$HOME/.local/bin" || { warn "cannot create ~/.local/bin"; SETUP_INCOMPLETE=1; return 0; }
+  RG_SRCPATH="${RG_SRCPATH:-$PATH}"   # the USER's original PATH, captured once, immune to our own exports
   RGSRCH=""
   OLDIFS="$IFS"; IFS=":"
-  for RGENTRY in $PATH; do
+  for RGENTRY in $RG_SRCPATH; do
     RGENTRY="${RGENTRY%/}"
     [ "$RGENTRY" = "$HOME/.local/bin" ] && continue
     RGSRCH="${RGSRCH:+$RGSRCH:}$RGENTRY"
   done
   IFS="$OLDIFS"
   ONUSERSPATH=0
-  case ":$PATH:" in *":$HOME/.local/bin:"*|*":$HOME/.local/bin/:"*) ONUSERSPATH=1 ;; esac
+  case ":$RG_SRCPATH:" in *":$HOME/.local/bin:"*|*":$HOME/.local/bin/:"*) ONUSERSPATH=1 ;; esac
   RGBIN="$(PATH="$RGSRCH" command -v node 2>/dev/null)"; RGBIN="${RGBIN%/node}"
   case "$RGBIN" in
     "$HOME"/.nvm/versions/node/*/bin|/usr/local/share/nvm/*/bin) ;;
@@ -135,7 +136,7 @@ path_verdict() { # path_verdict <cli>… — link the CLIs (+node/npm/npx from t
       ok "$c installed — works now: $RGOLD"
     else
       ok "$c installed at $RGOLD"
-      warn "~/.local/bin is not on your PATH — add: export PATH="$HOME/.local/bin:$PATH""
+      warn '~/.local/bin is not on your PATH — add: export PATH="$HOME/.local/bin:$PATH"'
     fi
   done
   case ":$PATH:" in *":$HOME/.local/bin:"*) : ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
