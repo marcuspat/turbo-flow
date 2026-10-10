@@ -1159,6 +1159,30 @@ if [ -f "$RGWSH" ]; then
     echo "✗ workspace: w_env did not surface the nvm CLI (got: '$RGWER')"; FAIL=1
   fi
   rm -rf "$RGWE"
+  # inherited-NOTHING window, no nvm default: node must resolve to the NEWEST bin
+  # (env-node shebangs depend on it), and the codex window must run its CLI to completion
+  RGWN="$(mktemp -d)"
+  mkdir -p "$RGWN/.nvm/versions/node/v9.0.0/bin" "$RGWN/.nvm/versions/node/v10.0.0/bin"
+  printf '#!/bin/sh\n' > "$RGWN/.nvm/versions/node/v9.0.0/bin/node"
+  printf '#!/bin/sh\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/node"
+  printf '#!/bin/sh\necho CODEX-RUNNING\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/codex"
+  chmod +x "$RGWN/.nvm/versions/node/"v*/bin/*
+  RGWNN="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_env; command -v node' _ "$RGWSH" 2>/dev/null )"
+  RGWNR="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_codex' _ "$RGWSH" 2>/dev/null )"
+  if [ "$RGWNN" = "$RGWN/.nvm/versions/node/v10.0.0/bin/node" ] && grep -q "CODEX-RUNNING" <<<"$RGWNR"; then
+    echo "✓ workspace: inherited-nothing window — node guaranteed (newest bin), codex actually runs"
+  else
+    echo "✗ workspace: inherited-nothing window failed (node='$RGWNN' out='$RGWNR')"; FAIL=1
+  fi
+  # banner survives before exec (claude stub echoes after the banner)
+  printf '#!/bin/sh\necho CLAUDE-STUB\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/claude"; chmod +x "$RGWN/.nvm/versions/node/v10.0.0/bin/claude"
+  RGWNB="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_claude' _ "$RGWSH" 2>/dev/null )"
+  if printf '%s' "$RGWNB" | grep -q "window 1 — claude" && printf '%s' "$RGWNB" | grep -q "CLAUDE-STUB"; then
+    echo "✓ workspace: role banner printed, then the CLI actually runs"
+  else
+    echo "✗ workspace: banner/exec sequence broken (got: '$RGWNB')"; FAIL=1
+  fi
+  rm -rf "$RGWN"
   if command -v tmux >/dev/null 2>&1; then
     RGTM="$(mktemp -d)"; mkdir -p "$RGTM/bin" "$RGTM/home/rig-lite"
     # stub CLIs: interactive loop for the windows, instant exit for `auth` (no orphan)
