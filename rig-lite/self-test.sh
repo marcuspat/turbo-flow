@@ -1166,20 +1166,21 @@ if [ -f "$RGWSH" ]; then
     echo "⚠ workspace: inherited-nothing node test SKIPPED (host has a system node)"
   else
     RGWN="$(mktemp -d)"
-    mkdir -p "$RGWN/.nvm/versions/node/v9.0.0/bin" "$RGWN/.nvm/versions/node/v10.0.0/bin"
-    printf '#!/bin/sh\n' > "$RGWN/.nvm/versions/node/v9.0.0/bin/node"
-    printf '#!/bin/sh\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/node"
-    printf '#!/bin/sh\necho CODEX-RUNNING\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/codex"
+    # v9/v18/v22: text order is v18,v22,v9 — first-match picks v18, last-match picks
+    # v9, only a REAL numeric compare picks v22. This fixture discriminates.
+    mkdir -p "$RGWN/.nvm/versions/node/v9.0.0/bin" "$RGWN/.nvm/versions/node/v18.0.0/bin" "$RGWN/.nvm/versions/node/v22.0.0/bin"
+    for v in v9.0.0 v18.0.0 v22.0.0; do printf '#!/bin/sh\n' > "$RGWN/.nvm/versions/node/$v/bin/node"; done
+    printf '#!/bin/sh\necho CODEX-RUNNING\n' > "$RGWN/.nvm/versions/node/v22.0.0/bin/codex"
     chmod +x "$RGWN/.nvm/versions/node/"v*/bin/*
     RGWNN="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_env; command -v node' _ "$RGWSH" 2>/dev/null )"
     RGWNR="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_codex' _ "$RGWSH" 2>/dev/null )"
-    if [ "$RGWNN" = "$RGWN/.nvm/versions/node/v10.0.0/bin/node" ] && grep -q "CODEX-RUNNING" <<<"$RGWNR"; then
+    if [ "$RGWNN" = "$RGWN/.nvm/versions/node/v22.0.0/bin/node" ] && grep -q "CODEX-RUNNING" <<<"$RGWNR"; then
       echo "✓ workspace: inherited-nothing window — node guaranteed (newest bin), codex actually runs"
     else
       echo "✗ workspace: inherited-nothing window failed (node='$RGWNN' out='$RGWNR')"; FAIL=1
     fi
     # banner survives before exec (claude stub echoes after the banner)
-    printf '#!/bin/sh\necho CLAUDE-STUB\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/claude"; chmod +x "$RGWN/.nvm/versions/node/v10.0.0/bin/claude"
+    printf '#!/bin/sh\necho CLAUDE-STUB\n' > "$RGWN/.nvm/versions/node/v22.0.0/bin/claude"; chmod +x "$RGWN/.nvm/versions/node/v22.0.0/bin/claude"
     RGWNB="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_claude' _ "$RGWSH" 2>/dev/null )"
     if printf '%s' "$RGWNB" | grep -q "window 1 — claude" && printf '%s' "$RGWNB" | grep -q "CLAUDE-STUB"; then
       echo "✓ workspace: role banner printed, then the CLI actually runs"
@@ -1189,13 +1190,14 @@ if [ -f "$RGWSH" ]; then
     rm -rf "$RGWN"
   fi
   # system node on PATH, CLI ONLY in nvm (v9 AND v10): w_find must run, newest wins
-  RGWN2="$(mktemp -d)"; mkdir -p "$RGWN2/sysbin" "$RGWN2/.nvm/versions/node/v9.0.0/bin" "$RGWN2/.nvm/versions/node/v10.0.0/bin"
+  RGWN2="$(mktemp -d)"; mkdir -p "$RGWN2/sysbin" "$RGWN2/.nvm/versions/node/v9.0.0/bin" "$RGWN2/.nvm/versions/node/v18.0.0/bin" "$RGWN2/.nvm/versions/node/v22.0.0/bin"
   printf '#!/bin/sh\n' > "$RGWN2/sysbin/node"; chmod +x "$RGWN2/sysbin/node"
   printf '#!/bin/sh\necho CODEX-V9\n' > "$RGWN2/.nvm/versions/node/v9.0.0/bin/codex"
-  printf '#!/bin/sh\necho CODEX-V10\n' > "$RGWN2/.nvm/versions/node/v10.0.0/bin/codex"
+  printf '#!/bin/sh\necho CODEX-V18\n' > "$RGWN2/.nvm/versions/node/v18.0.0/bin/codex"
+  printf '#!/bin/sh\necho CODEX-V22\n' > "$RGWN2/.nvm/versions/node/v22.0.0/bin/codex"
   chmod +x "$RGWN2/.nvm/versions/node/"v*/bin/*
   RGWN2R="$( HOME="$RGWN2" PATH="$RGWN2/sysbin:/usr/bin:/bin" bash -c '. "$1"; w_codex' _ "$RGWSH" 2>/dev/null )"
-  grep -q "CODEX-V10" <<<"$RGWN2R" \
+  grep -q "CODEX-V22" <<<"$RGWN2R" \
     && echo "✓ workspace: w_find fallback runs when the CLI is nvm-only — newest version wins" \
     || { echo "✗ workspace: w_find fallback broken (got: '$RGWN2R')"; FAIL=1; }
   # CLI ONLY in an OLDER bin than the exported node: its bin dir must join PATH at exec
