@@ -43,35 +43,83 @@ plan() {
 
 hint() { exec bash; }  # window bodies print their own guidance before settling
 
-w_env() { # always load nvm when it exists — windows run `bash -c` (no bashrc) and
-  # may inherit neither the installer's PATH nor nvm; a system node on PATH is NOT
-  # proof the CLIs are reachable (they may live in the user's nvm prefix).
-  # nvm.sh is not set-u safe — so relax -u IN THIS SHELL while it loads (a subshell
-  # would discard the PATH it exports; that was a dead-code bug and it stays dead).
-  [[ -s "$HOME/.nvm/nvm.sh" ]] || return 0
-  set +u
-  . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
-  set -u
+w_env() { # make the installed CLIs reachable in a window that inherited NOTHING:
+  # layer 1 = setup-harness's ~/.local/bin links; layer 2 = nvm itself (windows run
+  # `bash -c`, no bashrc, so neither is otherwise on PATH). nvm.sh is not set-u
+  # safe — relax -u IN THIS SHELL while it loads (a subshell would discard the PATH
+  # it exports; that was a dead-code bug once, and it stays dead).
+  case ":$PATH:" in
+    *":$HOME/.local/bin:"*) : ;;
+    *) [ -d "$HOME/.local/bin" ] && export PATH="$HOME/.local/bin:$PATH" ;;
+  esac
+  [[ -s "$HOME/.nvm/nvm.sh" ]] && {
+    set +u
+    . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
+    set -u
+  }
+  # node itself must be reachable or every `#!/usr/bin/env node` CLI dies at exec:
+  # export the NEWEST nvm version bin — numeric key compare (portable; sort -V is
+  # BusyBox-absent and would silently return nothing on Alpine-based images)
+  if ! command -v node >/dev/null 2>&1; then
+    local RGD RGB RGK RGKB="" RGNB=""
+    for RGD in "$HOME"/.nvm/versions/node/*/bin; do
+      [ -x "$RGD/node" ] || continue
+      RGB="${RGD%/bin}"; RGB="${RGB##*/}"; RGB="${RGB#v}"
+      RGK="$(printf '%s' "$RGB" | awk -F. '{printf "%06d%06d%06d", $1+0, $2+0, $3+0}')"
+      if [ -z "$RGNB" ] || [ "$RGK" -gt "$RGKB" ]; then RGNB="$RGD"; RGKB="$RGK"; fi
+    done
+    [ -n "$RGNB" ] && export PATH="$RGNB:$PATH"
+  fi
   return 0
+}
+
+
+w_find() { # last resort: the CLI in the NEWEST nvm version bin holding it
+  # (numeric key compare — see w_env for why not sort -V)
+  local RGD RGB RGK RGKB="" RGF RGFB=""
+  for RGD in "$HOME"/.nvm/versions/node/*/bin; do
+    RGF="$RGD/$1"
+    [ -x "$RGF" ] || continue
+    RGB="${RGD%/bin}"; RGB="${RGB##*/}"; RGB="${RGB#v}"
+    RGK="$(printf '%s' "$RGB" | awk -F. '{printf "%06d%06d%06d", $1+0, $2+0, $3+0}')"
+    if [ -z "$RGFB" ] || [ "$RGK" -gt "$RGKB" ]; then RGFB="$RGF"; RGKB="$RGK"; fi
+  done
+  [ -n "$RGFB" ] && { printf '%s' "$RGFB"; return 0; }
+  return 1
 }
 
 w_claude() {
   w_env
-  command -v claude >/dev/null 2>&1 || { echo "claude not installed — run: ./setup-harness.sh"; hint; }
+  printf '\033[1;36m▸ window 1 — claude (Anthropic reviewer)\033[0m\n'
+  if ! command -v claude >/dev/null 2>&1; then
+    RGC="$(w_find claude)" || { echo "claude not found — run ./setup-harness.sh --claude, then reopen this window"; hint; }
+    export PATH="$(dirname "$RGC"):$PATH"   # the CLI's shebang needs node on PATH
+    exec "$RGC"
+  fi
   exec claude
 }
 w_builder() { # claude-glm when wired (its exec fails closed by design); else plain claude
   w_env
   if command -v claude-glm >/dev/null 2>&1; then
+    printf '\033[1;36m▸ window 2 — claude-glm (builder, zai family · ruflo plugins loaded)\033[0m\n'
     exec claude-glm
   fi
-  command -v claude >/dev/null 2>&1 || { echo "no harness CLI installed — run: ./setup-harness.sh"; hint; }
-  echo "(same family as window 1 — choose the GLM path in ./setup-harness.sh for a cross-family builder)"
+  printf '\033[1;36m▸ window 2 — claude + ruflo (same family as w1 until you wire GLM: ./setup-harness.sh --glm)\033[0m\n'
+  if ! command -v claude >/dev/null 2>&1; then
+    RGC="$(w_find claude)" || { echo "no harness CLI found — run ./setup-harness.sh, then reopen this window"; hint; }
+    export PATH="$(dirname "$RGC"):$PATH"
+    exec "$RGC"
+  fi
   exec claude
 }
 w_codex() {
   w_env
-  command -v codex >/dev/null 2>&1 || { echo "codex not installed — run: ./setup-harness.sh"; hint; }
+  printf '\033[1;36m▸ window 3 — codex (OpenAI · ruflo via MCP)\033[0m\n'
+  if ! command -v codex >/dev/null 2>&1; then
+    RGC="$(w_find codex)" || { echo "codex not found — run ./setup-harness.sh --codex, then reopen this window"; hint; }
+    export PATH="$(dirname "$RGC"):$PATH"
+    exec "$RGC"
+  fi
   exec codex
 }
 w_tokens() {
