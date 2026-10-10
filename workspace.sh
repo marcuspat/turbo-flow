@@ -43,11 +43,15 @@ plan() {
 
 hint() { exec bash; }  # window bodies print their own guidance before settling
 
-w_env() { # always load nvm when it exists — windows run `bash -c` (no bashrc) and
-  # may inherit neither the installer's PATH nor nvm; a system node on PATH is NOT
-  # proof the CLIs are reachable (they may live in the user's nvm prefix).
-  # nvm.sh is not set-u safe — so relax -u IN THIS SHELL while it loads (a subshell
-  # would discard the PATH it exports; that was a dead-code bug and it stays dead).
+w_env() { # make the installed CLIs reachable in a window that inherited NOTHING:
+  # layer 1 = setup-harness's ~/.local/bin links; layer 2 = nvm itself (windows run
+  # `bash -c`, no bashrc, so neither is otherwise on PATH). nvm.sh is not set-u
+  # safe — relax -u IN THIS SHELL while it loads (a subshell would discard the PATH
+  # it exports; that was a dead-code bug once, and it stays dead).
+  case ":$PATH:" in
+    *":$HOME/.local/bin:"*) : ;;
+    *) [ -d "$HOME/.local/bin" ] && export PATH="$HOME/.local/bin:$PATH" ;;
+  esac
   [[ -s "$HOME/.nvm/nvm.sh" ]] || return 0
   set +u
   . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
@@ -55,23 +59,43 @@ w_env() { # always load nvm when it exists — windows run `bash -c` (no bashrc)
   return 0
 }
 
+w_find() { # last resort: locate a CLI by direct search of the nvm version bins
+  local f
+  for f in "$HOME"/.nvm/versions/node/*/bin/"$1"; do
+    [ -x "$f" ] && { printf '%s' "$f"; return 0; }
+  done
+  return 1
+}
+
 w_claude() {
   w_env
-  command -v claude >/dev/null 2>&1 || { echo "claude not installed — run: ./setup-harness.sh"; hint; }
+  printf '\033[1;36m▸ window 1 — claude (Anthropic reviewer)\033[0m\n'
+  if ! command -v claude >/dev/null 2>&1; then
+    RGC="$(w_find claude)" && exec "$RGC"
+    { echo "claude not found — run ./setup-harness.sh --claude, then reopen this window"; hint; }
+  fi
   exec claude
 }
 w_builder() { # claude-glm when wired (its exec fails closed by design); else plain claude
   w_env
   if command -v claude-glm >/dev/null 2>&1; then
+    printf '\033[1;36m▸ window 2 — claude-glm (builder, zai family · ruflo plugins loaded)\033[0m\n'
     exec claude-glm
   fi
-  command -v claude >/dev/null 2>&1 || { echo "no harness CLI installed — run: ./setup-harness.sh"; hint; }
-  echo "(same family as window 1 — choose the GLM path in ./setup-harness.sh for a cross-family builder)"
+  printf '\033[1;36m▸ window 2 — claude + ruflo (same family as w1 until you wire GLM: ./setup-harness.sh --glm)\033[0m\n'
+  if ! command -v claude >/dev/null 2>&1; then
+    RGC="$(w_find claude)" && exec "$RGC"
+    { echo "no harness CLI found — run ./setup-harness.sh, then reopen this window"; hint; }
+  fi
   exec claude
 }
 w_codex() {
   w_env
-  command -v codex >/dev/null 2>&1 || { echo "codex not installed — run: ./setup-harness.sh"; hint; }
+  printf '\033[1;36m▸ window 3 — codex (OpenAI · ruflo via MCP)\033[0m\n'
+  if ! command -v codex >/dev/null 2>&1; then
+    RGC="$(w_find codex)" && exec "$RGC"
+    { echo "codex not found — run ./setup-harness.sh --codex, then reopen this window"; hint; }
+  fi
   exec codex
 }
 w_tokens() {
