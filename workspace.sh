@@ -58,18 +58,33 @@ w_env() { # make the installed CLIs reachable in a window that inherited NOTHING
     set -u
   }
   # node itself must be reachable or every `#!/usr/bin/env node` CLI dies at exec:
-  # export the NEWEST nvm version bin (version-sorted, not glob order — v10 < v9 textually)
+  # export the NEWEST nvm version bin — numeric key compare (portable; sort -V is
+  # BusyBox-absent and would silently return nothing on Alpine-based images)
   if ! command -v node >/dev/null 2>&1; then
-    RGNB="$(printf '%s\n' "$HOME"/.nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1)"
-    [ -n "$RGNB" ] && [ -x "$RGNB/node" ] && export PATH="$RGNB:$PATH"
+    local RGD RGB RGK RGKB="" RGNB=""
+    for RGD in "$HOME"/.nvm/versions/node/*/bin; do
+      [ -x "$RGD/node" ] || continue
+      RGB="${RGD%/bin}"; RGB="${RGB##*/}"; RGB="${RGB#v}"
+      RGK="$(printf '%s' "$RGB" | awk -F. '{printf "%06d%06d%06d", $1+0, $2+0, $3+0}')"
+      if [ -z "$RGNB" ] || [ "$RGK" -gt "$RGKB" ]; then RGNB="$RGD"; RGKB="$RGK"; fi
+    done
+    [ -n "$RGNB" ] && export PATH="$RGNB:$PATH"
   fi
   return 0
 }
 
-w_find() { # last resort: NEWEST nvm version bin holding the CLI (version-sorted)
-  local f
-  f="$(printf '%s\n' "$HOME"/.nvm/versions/node/*/bin/"$1" 2>/dev/null | sort -V | tail -1)"
-  [ -n "$f" ] && [ -x "$f" ] && { printf '%s' "$f"; return 0; }
+
+w_find() { # last resort: the CLI in the NEWEST nvm version bin holding it
+  # (numeric key compare — see w_env for why not sort -V)
+  local RGD RGB RGK RGKB="" RGF RGFB=""
+  for RGD in "$HOME"/.nvm/versions/node/*/bin; do
+    RGF="$RGD/$1"
+    [ -x "$RGF" ] || continue
+    RGB="${RGD%/bin}"; RGB="${RGB##*/}"; RGB="${RGB#v}"
+    RGK="$(printf '%s' "$RGB" | awk -F. '{printf "%06d%06d%06d", $1+0, $2+0, $3+0}')"
+    if [ -z "$RGFB" ] || [ "$RGK" -gt "$RGKB" ]; then RGFB="$RGF"; RGKB="$RGK"; fi
+  done
+  [ -n "$RGFB" ] && { printf '%s' "$RGFB"; return 0; }
   return 1
 }
 

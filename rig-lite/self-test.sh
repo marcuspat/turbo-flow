@@ -1159,30 +1159,62 @@ if [ -f "$RGWSH" ]; then
     echo "✗ workspace: w_env did not surface the nvm CLI (got: '$RGWER')"; FAIL=1
   fi
   rm -rf "$RGWE"
-  # inherited-NOTHING window, no nvm default: node must resolve to the NEWEST bin
-  # (env-node shebangs depend on it), and the codex window must run its CLI to completion
-  RGWN="$(mktemp -d)"
-  mkdir -p "$RGWN/.nvm/versions/node/v9.0.0/bin" "$RGWN/.nvm/versions/node/v10.0.0/bin"
-  printf '#!/bin/sh\n' > "$RGWN/.nvm/versions/node/v9.0.0/bin/node"
-  printf '#!/bin/sh\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/node"
-  printf '#!/bin/sh\necho CODEX-RUNNING\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/codex"
-  chmod +x "$RGWN/.nvm/versions/node/"v*/bin/*
-  RGWNN="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_env; command -v node' _ "$RGWSH" 2>/dev/null )"
-  RGWNR="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_codex' _ "$RGWSH" 2>/dev/null )"
-  if [ "$RGWNN" = "$RGWN/.nvm/versions/node/v10.0.0/bin/node" ] && grep -q "CODEX-RUNNING" <<<"$RGWNR"; then
-    echo "✓ workspace: inherited-nothing window — node guaranteed (newest bin), codex actually runs"
+  # --- windows-ready branch coverage (each w_find/w_env branch actually runs) ---
+  # host guard: a host /usr/bin/node makes the inherited-nothing node assertion
+  # host-dependent — skip it loudly there rather than fail on a correct machine
+  if [ -e /usr/bin/node ] || [ -e /bin/node ]; then
+    echo "⚠ workspace: inherited-nothing node test SKIPPED (host has a system node)"
   else
-    echo "✗ workspace: inherited-nothing window failed (node='$RGWNN' out='$RGWNR')"; FAIL=1
+    RGWN="$(mktemp -d)"
+    mkdir -p "$RGWN/.nvm/versions/node/v9.0.0/bin" "$RGWN/.nvm/versions/node/v10.0.0/bin"
+    printf '#!/bin/sh\n' > "$RGWN/.nvm/versions/node/v9.0.0/bin/node"
+    printf '#!/bin/sh\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/node"
+    printf '#!/bin/sh\necho CODEX-RUNNING\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/codex"
+    chmod +x "$RGWN/.nvm/versions/node/"v*/bin/*
+    RGWNN="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_env; command -v node' _ "$RGWSH" 2>/dev/null )"
+    RGWNR="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_codex' _ "$RGWSH" 2>/dev/null )"
+    if [ "$RGWNN" = "$RGWN/.nvm/versions/node/v10.0.0/bin/node" ] && grep -q "CODEX-RUNNING" <<<"$RGWNR"; then
+      echo "✓ workspace: inherited-nothing window — node guaranteed (newest bin), codex actually runs"
+    else
+      echo "✗ workspace: inherited-nothing window failed (node='$RGWNN' out='$RGWNR')"; FAIL=1
+    fi
+    # banner survives before exec (claude stub echoes after the banner)
+    printf '#!/bin/sh\necho CLAUDE-STUB\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/claude"; chmod +x "$RGWN/.nvm/versions/node/v10.0.0/bin/claude"
+    RGWNB="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_claude' _ "$RGWSH" 2>/dev/null )"
+    if printf '%s' "$RGWNB" | grep -q "window 1 — claude" && printf '%s' "$RGWNB" | grep -q "CLAUDE-STUB"; then
+      echo "✓ workspace: role banner printed, then the CLI actually runs"
+    else
+      echo "✗ workspace: banner/exec sequence broken (got: '$RGWNB')"; FAIL=1
+    fi
+    rm -rf "$RGWN"
   fi
-  # banner survives before exec (claude stub echoes after the banner)
-  printf '#!/bin/sh\necho CLAUDE-STUB\n' > "$RGWN/.nvm/versions/node/v10.0.0/bin/claude"; chmod +x "$RGWN/.nvm/versions/node/v10.0.0/bin/claude"
-  RGWNB="$( HOME="$RGWN" PATH="/usr/bin:/bin" bash -c '. "$1"; w_claude' _ "$RGWSH" 2>/dev/null )"
-  if printf '%s' "$RGWNB" | grep -q "window 1 — claude" && printf '%s' "$RGWNB" | grep -q "CLAUDE-STUB"; then
-    echo "✓ workspace: role banner printed, then the CLI actually runs"
-  else
-    echo "✗ workspace: banner/exec sequence broken (got: '$RGWNB')"; FAIL=1
-  fi
-  rm -rf "$RGWN"
+  # system node on PATH, CLI ONLY in nvm (v9 AND v10): w_find must run, newest wins
+  RGWN2="$(mktemp -d)"; mkdir -p "$RGWN2/sysbin" "$RGWN2/.nvm/versions/node/v9.0.0/bin" "$RGWN2/.nvm/versions/node/v10.0.0/bin"
+  printf '#!/bin/sh\n' > "$RGWN2/sysbin/node"; chmod +x "$RGWN2/sysbin/node"
+  printf '#!/bin/sh\necho CODEX-V9\n' > "$RGWN2/.nvm/versions/node/v9.0.0/bin/codex"
+  printf '#!/bin/sh\necho CODEX-V10\n' > "$RGWN2/.nvm/versions/node/v10.0.0/bin/codex"
+  chmod +x "$RGWN2/.nvm/versions/node/"v*/bin/*
+  RGWN2R="$( HOME="$RGWN2" PATH="$RGWN2/sysbin:/usr/bin:/bin" bash -c '. "$1"; w_codex' _ "$RGWSH" 2>/dev/null )"
+  grep -q "CODEX-V10" <<<"$RGWN2R" \
+    && echo "✓ workspace: w_find fallback runs when the CLI is nvm-only — newest version wins" \
+    || { echo "✗ workspace: w_find fallback broken (got: '$RGWN2R')"; FAIL=1; }
+  # CLI ONLY in an OLDER bin than the exported node: its bin dir must join PATH at exec
+  RGWN3="$(mktemp -d)"; mkdir -p "$RGWN3/.nvm/versions/node/v10.0.0/bin" "$RGWN3/.nvm/versions/node/v9.0.0/bin"
+  printf '#!/bin/sh\n' > "$RGWN3/.nvm/versions/node/v10.0.0/bin/node"; chmod +x "$RGWN3/.nvm/versions/node/v10.0.0/bin/node"
+  printf '#!/bin/sh\ncase "$PATH" in *v9.0.0*) echo V9-ON-PATH;; *) echo NO-V9;; esac\n' > "$RGWN3/.nvm/versions/node/v9.0.0/bin/codex"
+  chmod +x "$RGWN3/.nvm/versions/node/"v*/bin/*
+  RGWN3R="$( HOME="$RGWN3" PATH="/usr/bin:/bin" bash -c '. "$1"; w_codex' _ "$RGWSH" 2>/dev/null )"
+  grep -q "V9-ON-PATH" <<<"$RGWN3R" \
+    && echo "✓ workspace: last-resort exec exports the CLI's own bin dir (older-bin case)" \
+    || { echo "✗ workspace: older-bin PATH export missing (got: '$RGWN3R')"; FAIL=1; }
+  # no CLI anywhere: the not-found message prints, and the hint is reachable
+  RGWN4="$(mktemp -d)"; mkdir -p "$RGWN4/.nvm/versions/node/v10.0.0/bin"
+  printf '#!/bin/sh\n' > "$RGWN4/.nvm/versions/node/v10.0.0/bin/node"; chmod +x "$RGWN4/.nvm/versions/node/v10.0.0/bin/node"
+  RGWN4R="$( HOME="$RGWN4" PATH="/usr/bin:/bin" bash -c '. "$1"; hint() { echo HINT-REACHED; }; w_codex' _ "$RGWSH" 2>/dev/null )"
+  printf '%s' "$RGWN4R" | grep -q "codex not found" && printf '%s' "$RGWN4R" | grep -q "HINT-REACHED" \
+    && echo "✓ workspace: no-CLI case — guidance message, then the hint shell (not a dead pane)" \
+    || { echo "✗ workspace: no-CLI fallback broken (got: '$RGWN4R')"; FAIL=1; }
+  rm -rf "$RGWN2" "$RGWN3" "$RGWN4"
   if command -v tmux >/dev/null 2>&1; then
     RGTM="$(mktemp -d)"; mkdir -p "$RGTM/bin" "$RGTM/home/rig-lite"
     # stub CLIs: interactive loop for the windows, instant exit for `auth` (no orphan)
