@@ -1086,8 +1086,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     RGSTUB="$(sed -n '/^if \[\[ -t 0/,/^fi$/p' "$RGBRC" \
       | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh --claude --codex ); then|sleep 1; echo TOOK; then|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
     if bash -n <<<"$RGSTUB" 2>/dev/null; then
-      printf '#!/usr/bin/env bash\nexit 0\n' > "$RGBT2/setup-harness.sh"
-      echo "DEBUG: stub-has-mv=$(grep -c 'mv ' <<<"$RGSTUB") stub-has-mktemp=$(grep -c mktemp <<<"$RGSTUB")" >&2   # the hook's -f guard needs it present
+      printf '#!/usr/bin/env bash\nexit 0\n' > "$RGBT2/setup-harness.sh"   # the hook's -f guard needs it present
       ( env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w1" 2>/dev/null ) \
         & ( env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w2" 2>/dev/null ) & wait
       RGW=$(cat "$RGBT2/w1" "$RGBT2/w2" 2>/dev/null | grep -c TOOK)
@@ -1320,7 +1319,7 @@ if [ -f "$RGSH" ]; then
   if bash -n <<<"$RGFAIL" 2>/dev/null; then
     RGFO="$( env -u TF_NO_TMUX HOME="$RGFS" TF_HOME="$RGFS" bash -c "$RGFAIL" 2>&1 )"
     if [ ! -e "$RGFS/.config/turbo-flow/harness-done" ] \
-       && [ ! -d "$RGFS/.config/turbo-flow/harness-booted" ] \
+       && [ ! -L "$RGFS/.config/turbo-flow/harness-booted" ] \
        && grep -q "install FAILED" <<<"$RGFO"; then
       # second shell retries (claim was released)
       RGFO2="$( env -u TF_NO_TMUX HOME="$RGFS" TF_HOME="$RGFS" bash -c "$RGFAIL" 2>&1 )"
