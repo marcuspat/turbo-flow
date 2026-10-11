@@ -1031,9 +1031,12 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
   [[ "$RGPC" != *"devpods"* ]] && echo "✓ devcontainer: no references to the removed devpods/ chain" || { echo "✗ devcontainer: devpods reference survived"; FAIL=1; }
   RGDJ="$(cat "$RGDC" 2>/dev/null)"
   [[ "$RGDJ" == *"devcontainers/features/sshd"* ]] && echo "✓ devcontainer: sshd feature present (gh cs ssh/cp depend on it)" || { echo "✗ devcontainer: sshd feature missing — gh cs ssh/cp break"; FAIL=1; }
-  [[ "$RGDJ" == *"tf-boot"* && "$RGDJ" == *"harness-booted"* && "$RGDJ" == *"TF_HOME"* ]] \
-    && echo "✓ devcontainer: first-boot harness menu hook installed (once-flag + TF_HOME)" \
-    || { echo "✗ devcontainer: boot menu hook missing"; FAIL=1; }
+  [[ "$RGDJ" == *"tf-boot v3"* && "$RGDJ" == *"harness-booted"* && "$RGDJ" == *"TF_HOME"* ]] \
+    && echo "✓ devcontainer: first-boot auto-install hook v3 installed (once-flag + TF_HOME)" \
+    || { echo "✗ devcontainer: boot auto-install hook missing/wrong version"; FAIL=1; }
+  [[ "$RGDJ" == *"setup-harness.sh --claude --codex"* ]] \
+    && echo "✓ devcontainer: boot installs the default pair non-interactively (no menu)" \
+    || { echo "✗ devcontainer: boot no longer installs defaults"; FAIL=1; }
   # behavioral: the hook survives four layers of escaping, appends exactly once,
   # parses as bash, and its once-flag is atomic across concurrent shells
   RGBT="$(mktemp -d)"
@@ -1057,12 +1060,12 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
   printf '# user content stays\n# tf-boot: hand the user the menu\nif [[ -t 0 ]]; then\n  ( cd x && y )\nfi\n' > "$RGUP/.bashrc"
   for _ in 1 2; do HOME="$RGUP" bash -c "$RGTAIL" >/dev/null 2>&1; done
   RGUPB="$(cat "$RGUP/.bashrc" 2>/dev/null)"
-  if [ "$(printf '%s' "$RGUPB" | grep -c 'tf-boot v2:')" = "1" ] \
+  if [ "$(printf '%s' "$RGUPB" | grep -c 'tf-boot v3:')" = "1" ] \
      && ! printf '%s' "$RGUPB" | grep -q 'hand the user' \
      && printf '%s' "$RGUPB" | grep -q '^# user content stays$' \
      && [ ! -e "$RGUP/.bashrc.tfboot-bak" ] \
      && bash -n "$RGUP/.bashrc" 2>/dev/null; then
-    echo "✓ devcontainer: v1 hook upgraded to v2 — replaced, idempotent, user content kept, no debris"
+    echo "✓ devcontainer: v1 hook upgraded to v3 — replaced, idempotent, user content kept, no debris"
   else
     echo "✗ devcontainer: hook upgrade path broken"; FAIL=1
   fi
@@ -1071,7 +1074,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     # body swapped for echo) so a non-atomic flag line in the real hook FAILS here
     RGBT2="$(mktemp -d)"
     RGSTUB="$(sed -n '/^if \[\[ -t 0/,/^fi$/p' "$RGBRC" \
-      | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh )|echo TOOK|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
+      | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh[^)]*)|echo TOOK|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
     if bash -n <<<"$RGSTUB" 2>/dev/null; then
       printf '#!/usr/bin/env bash\nexit 0\n' > "$RGBT2/setup-harness.sh"   # the hook's -f guard needs it present
       ( env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w1" 2>/dev/null ) \
