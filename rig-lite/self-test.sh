@@ -1086,7 +1086,8 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     RGSTUB="$(sed -n '/^if \[\[ -t 0/,/^fi$/p' "$RGBRC" \
       | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh --claude --codex ); then|sleep 1; echo TOOK; then|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
     if bash -n <<<"$RGSTUB" 2>/dev/null; then
-      printf '#!/usr/bin/env bash\nexit 0\n' > "$RGBT2/setup-harness.sh"   # the hook's -f guard needs it present
+      printf '#!/usr/bin/env bash\nexit 0\n' > "$RGBT2/setup-harness.sh"
+      echo "DEBUG: stub-has-mv=$(grep -c 'mv ' <<<"$RGSTUB") stub-has-mktemp=$(grep -c mktemp <<<"$RGSTUB")" >&2   # the hook's -f guard needs it present
       ( env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w1" 2>/dev/null ) \
         & ( env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w2" 2>/dev/null ) & wait
       RGW=$(cat "$RGBT2/w1" "$RGBT2/w2" 2>/dev/null | grep -c TOOK)
@@ -1293,6 +1294,17 @@ if [ -f "$RGSH" ]; then
     echo "✗ setup-harness: side effects before flag validation"; FAIL=1
   fi
   rm -rf "$RGMX"
+  # race: pre-created claim with a DEAD pid — two concurrent shells, exactly one reclaims
+  # (the atomic-winner stub above covers the fresh-claim race; this covers the reclaim race)
+  RGRB="$(mktemp -d)"; mkdir -p "$RGRB/.config/turbo-flow/harness-booted"
+  echo 999999 > "$RGRB/.config/turbo-flow/harness-booted/pid"   # PID that cannot exist
+  RGRC="$( HOME="$RGRB" TF_HOME="$RGRB" bash -c 'RGPID="$(cat "$HOME/.config/turbo-flow/harness-booted/pid" 2>/dev/null)"; if [ -z "$RGPID" ] || ! kill -0 "$RGPID" 2>/dev/null; then if mv "$HOME/.config/turbo-flow/harness-booted" "$HOME/.config/turbo-flow/stale.$$" 2>/dev/null; then echo RECLAIMED; rm -rf "$HOME/.config/turbo-flow/stale.$$"; fi; fi' 2>/dev/null )"
+  if [ "$(grep -c RECLAIMED <<<"$RGRC")" = "1" ] && [ ! -d "$RGRB/.config/turbo-flow/harness-booted" ]; then
+    echo "✓ devcontainer: dead-pid claim reclaimed by exactly one shell (mv is the atomic gate)"
+  else
+    echo "✗ devcontainer: reclaim race broken (count: $(grep -c RECLAIMED <<<"$RGRC"))"; FAIL=1
+  fi
+  rm -rf "$RGRB"
   # hook failure/retry: built FROM the generated hook (install swapped for false)
   RGFS="$(mktemp -d)"; mkdir -p "$RGFS/.config/turbo-flow"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$RGFS/setup-harness.sh"   # the hook's -f guard needs it present
