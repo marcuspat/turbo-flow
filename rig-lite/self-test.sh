@@ -1065,7 +1065,6 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     HOME="$RGD" bash -c "$RGTAIL" >/dev/null 2>&1
     HOME="$RGD" bash -c "$RGTAIL" >/dev/null 2>&1   # second run proves idempotency
   done
-  for _ in 1 2; do HOME="$RGUP" bash -c "$RGTAIL" >/dev/null 2>&1; done
   RGUIDX=0
   for RGD in "$RGUP" "$RGUP2"; do
     RGUIDX=$((RGUIDX+1))
@@ -1085,7 +1084,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     # body swapped for echo) so a non-atomic flag line in the real hook FAILS here
     RGBT2="$(mktemp -d)"
     RGSTUB="$(sed -n '/^if \[\[ -t 0/,/^fi$/p' "$RGBRC" \
-      | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh[^)]*)|echo TOOK|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
+      | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh --claude --codex ); then|sleep 1; echo TOOK; then|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
     if bash -n <<<"$RGSTUB" 2>/dev/null; then
       printf '#!/usr/bin/env bash\nexit 0\n' > "$RGBT2/setup-harness.sh"   # the hook's -f guard needs it present
       ( env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w1" 2>/dev/null ) \
@@ -1301,14 +1300,14 @@ if [ -f "$RGSH" ]; then
   RGBRC2="$RGFS/.bashrc"
   HOME="$RGFS" bash -c "$RGTAIL" >/dev/null 2>&1   # regenerate the hook in this sandbox
   RGFAIL="$(sed -n '/^if \[\[ -t 0/,/^fi$/p' "$RGBRC2" \
-    | sed 's/-t 0 && -t 1 && //; s|bash ./setup-harness.sh --claude --codex )|false )|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|; s|mkdir "$HOME/.config/turbo-flow/harness-booted"|mkdir -p "$HOME/.config/turbo-flow" \&\& mkdir "$HOME/.config/turbo-flow/harness-booted"|')"
+    | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh --claude --codex ); then|false; then|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
   if bash -n <<<"$RGFAIL" 2>/dev/null; then
-    RGFO="$( HOME="$RGFS" TF_HOME="$RGFS" bash -c "$RGFAIL" 2>&1 )"
+    RGFO="$( env -u TF_NO_TMUX HOME="$RGFS" TF_HOME="$RGFS" bash -c "$RGFAIL" 2>&1 )"
     if [ ! -e "$RGFS/.config/turbo-flow/harness-done" ] \
        && [ ! -d "$RGFS/.config/turbo-flow/harness-booted" ] \
        && grep -q "install FAILED" <<<"$RGFO"; then
       # second shell retries (claim was released)
-      RGFO2="$( HOME="$RGFS" TF_HOME="$RGFS" bash -c "$RGFAIL" 2>&1 )"
+      RGFO2="$( env -u TF_NO_TMUX HOME="$RGFS" TF_HOME="$RGFS" bash -c "$RGFAIL" 2>&1 )"
       if grep -q "install FAILED" <<<"$RGFO2"; then
         echo "✓ devcontainer: FAILED install (real hook) releases the claim, no done-marker, retries next shell"
       else
@@ -1318,8 +1317,8 @@ if [ -f "$RGSH" ]; then
       echo "✗ devcontainer: failure path left a marker or missed the hint (out: $RGFO)"; FAIL=1
     fi
     # success path: same stub with the install swapped for true touches harness-done
-    RGOK="$(sed 's|false )|true )|' <<<"$RGFAIL")"
-    RGSO="$( HOME="$RGFS" TF_HOME="$RGFS" bash -c "$RGOK" 2>&1 )"
+    RGOK="$(sed 's|false; then|true; then|' <<<"$RGFAIL")"
+    RGSO="$( env -u TF_NO_TMUX HOME="$RGFS" TF_HOME="$RGFS" bash -c "$RGOK" 2>&1 )"
     if [ -e "$RGFS/.config/turbo-flow/harness-done" ]; then
       echo "✓ devcontainer: SUCCESSFUL install (real hook) writes the done-marker"
     else
