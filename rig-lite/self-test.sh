@@ -1296,9 +1296,9 @@ if [ -f "$RGSH" ]; then
   rm -rf "$RGMX"
   # race: pre-created claim with a DEAD pid — two concurrent shells, exactly one reclaims
   # (the atomic-winner stub above covers the fresh-claim race; this covers the reclaim race)
-  RGRB="$(mktemp -d)"; mkdir -p "$RGRB/.config/turbo-flow/harness-booted"
-  echo 999999 > "$RGRB/.config/turbo-flow/harness-booted/pid"   # PID that cannot exist
-  RGRC="$( HOME="$RGRB" TF_HOME="$RGRB" bash -c 'RGPID="$(cat "$HOME/.config/turbo-flow/harness-booted/pid" 2>/dev/null)"; if [ -z "$RGPID" ] || ! kill -0 "$RGPID" 2>/dev/null; then if mv "$HOME/.config/turbo-flow/harness-booted" "$HOME/.config/turbo-flow/stale.$$" 2>/dev/null; then echo RECLAIMED; rm -rf "$HOME/.config/turbo-flow/stale.$$"; fi; fi' 2>/dev/null )"
+  RGRB="$(mktemp -d)"; mkdir -p "$RGRB/.config/turbo-flow"
+  ln -s 999999 "$RGRB/.config/turbo-flow/harness-booted"   # symlink to a PID that cannot exist
+  RGRC="$( HOME="$RGRB" TF_HOME="$RGRB" bash -c 'RGPID="$(readlink "$HOME/.config/turbo-flow/harness-booted" 2>/dev/null)"; if [ -z "$RGPID" ] || ! kill -0 "$RGPID" 2>/dev/null; then unlink "$HOME/.config/turbo-flow/harness-booted" 2>/dev/null && echo RECLAIMED; fi' 2>/dev/null )"
   if [ "$(grep -c RECLAIMED <<<"$RGRC")" = "1" ] && [ ! -d "$RGRB/.config/turbo-flow/harness-booted" ]; then
     echo "✓ devcontainer: dead-pid claim reclaimed by exactly one shell (mv is the atomic gate)"
   else
