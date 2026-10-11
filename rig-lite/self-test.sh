@@ -1037,6 +1037,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
   [[ "$RGDJ" == *"setup-harness.sh --claude --codex"* ]] \
     && echo "✓ devcontainer: boot installs the default pair non-interactively (no menu)" \
     || { echo "✗ devcontainer: boot no longer installs defaults"; FAIL=1; }
+
   # behavioral: the hook survives four layers of escaping, appends exactly once,
   # parses as bash, and its once-flag is atomic across concurrent shells
   RGBT="$(mktemp -d)"
@@ -1047,7 +1048,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
     HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
     RGBRC="$RGBT/.bashrc"
-    if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot' "$RGBRC")" = "1" ] \
+    if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot v3:' "$RGBRC")" = "1" ] \
        && bash -n "$RGBRC" 2>/dev/null \
        && grep -q '\$HOME/.config/turbo-flow/harness-booted' "$RGBRC" \
        && ! grep -qE '/home/[a-z]|/root/' "$RGBRC"; then
@@ -1055,21 +1056,30 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     else
       echo "✗ devcontainer: generated .bashrc hook failed its behavioral check"; FAIL=1
     fi
-    # hook upgrade path: a v1 block is REPLACED by v2, user content kept, no debris
+    # hook upgrade path: v1 AND v2 blocks are REPLACED by v3, user content kept, no debris
   RGUP="$(mktemp -d)"
   printf '# user content stays\n# tf-boot: hand the user the menu\nif [[ -t 0 ]]; then\n  ( cd x && y )\nfi\n' > "$RGUP/.bashrc"
+  RGUP2="$(mktemp -d)"
+  printf '# user content stays\n# tf-boot v2: first interactive shell gets the harness menu\nif [[ -t 0 && -n "$TF_HOME" ]]; then\n  if [[ ! -e x ]]; then\n    ( cd "$TF_HOME" && bash ./setup-harness.sh )\n  fi\nfi\n' > "$RGUP2/.bashrc"
+  for RGD in "$RGUP" "$RGUP2"; do
+    for _ in 1 2; do HOME="$RGD" bash -c "$RGTAIL" >/dev/null 2>&1; done
+  done
   for _ in 1 2; do HOME="$RGUP" bash -c "$RGTAIL" >/dev/null 2>&1; done
-  RGUPB="$(cat "$RGUP/.bashrc" 2>/dev/null)"
-  if [ "$(printf '%s' "$RGUPB" | grep -c 'tf-boot v3:')" = "1" ] \
-     && ! printf '%s' "$RGUPB" | grep -q 'hand the user' \
-     && printf '%s' "$RGUPB" | grep -q '^# user content stays$' \
-     && [ ! -e "$RGUP/.bashrc.tfboot-bak" ] \
-     && bash -n "$RGUP/.bashrc" 2>/dev/null; then
-    echo "✓ devcontainer: v1 hook upgraded to v3 — replaced, idempotent, user content kept, no debris"
-  else
-    echo "✗ devcontainer: hook upgrade path broken"; FAIL=1
-  fi
-  rm -rf "$RGUP"
+  RGUIDX=0
+  for RGD in "$RGUP" "$RGUP2"; do
+    RGUIDX=$((RGUIDX+1))
+    RGUPB="$(cat "$RGD/.bashrc" 2>/dev/null)"
+    if [ "$(printf '%s' "$RGUPB" | grep -c 'tf-boot v3:')" = "1" ] \
+       && ! printf '%s' "$RGUPB" | grep -qE 'hand the user|harness menu \(once' \
+       && printf '%s' "$RGUPB" | grep -q '^# user content stays$' \
+       && [ ! -e "$RGD/.bashrc.tfboot-bak" ] \
+       && bash -n "$RGD/.bashrc" 2>/dev/null; then
+      echo "✓ devcontainer: hook v$RGUIDX upgraded to v3 - replaced, idempotent, user content kept, no debris"
+    else
+      echo "✗ devcontainer: hook v$RGUIDX to-v3 upgrade path broken"; FAIL=1
+    fi
+  done
+  rm -rf "$RGUP" "$RGUP2"
   # atomic winner: the stub is built FROM the generated hook (tty guards stripped,
     # body swapped for echo) so a non-atomic flag line in the real hook FAILS here
     RGBT2="$(mktemp -d)"
@@ -1251,6 +1261,23 @@ fi
 RGSH="$KIT/../setup-harness.sh"
 if [ -f "$RGSH" ]; then
   bash -n "$RGSH" 2>/dev/null && echo "✓ setup-harness: bash -n clean" || { echo "✗ setup-harness: syntax error"; FAIL=1; }
+  # behavioral: the two-flag call runs BOTH paths, unattended, nothing reads the tty
+  RGMF="$(mktemp -d)"; mkdir -p "$RGMF/bin"
+  printf '#!/bin/bash\n[ "$1" = install ] && echo "NPM:$*" >> "$RGLOG"\nexit 0\n' > "$RGMF/bin/npm"
+  printf '#!/bin/bash\nexit 0\n' > "$RGMF/bin/node"
+  for c in claude codex; do printf '#!/bin/bash\n[ "$1" = auth ] && exit 1\nexit 0\n' > "$RGMF/bin/$c"; done
+  chmod +x "$RGMF/bin/"*
+  RGMFR="$( RGLOG="$RGMF/log" HOME="$RGMF" PATH="$RGMF/bin:/usr/bin:/bin" \
+    bash "$RGSH" --claude --codex </dev/null 2>&1; echo "RC=$?" )"
+  if grep -q "RC=0" <<<"$RGMFR" \
+     && grep -q "Codex + Ruflo via MCP" <<<"$RGMFR" \
+     && grep -q "Claude Code + Ruflo plugins" <<<"$RGMFR" \
+     && ! grep -q "pick your harness" <<<"$RGMFR"; then
+    echo "✓ setup-harness: --claude --codex runs BOTH paths unattended, no menu, no tty read"
+  else
+    echo "✗ setup-harness: multi-flag boot call broken"; FAIL=1
+  fi
+  rm -rf "$RGMF"
   RGOUT="$("$RGSH" --help 2>&1)"; RC=$?
   t "setup-harness: --help exits 0" 0 $RC
   case "$RGOUT" in *"--codex"*"--glm"*) echo "✓ setup-harness: help documents all flags";; *) echo "✗ setup-harness: help missing flags"; FAIL=1;; esac

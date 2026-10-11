@@ -225,7 +225,7 @@ setup_codex() {
   if grep -q 'mcp_servers.ruflo' "$CFG" 2>/dev/null; then
     ok "ruflo MCP already wired in $CFG"
   else
-    say "wiring ruflo MCP into $CFG…"
+    say "wiring ruflo MCP into $CFG..."
     cat >> "$CFG" <<'EOF'
 
 [mcp_servers.ruflo]
@@ -315,14 +315,19 @@ EOF
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  case "${1:-}" in
-    --claude) setup_claude ;;
-    --codex)  setup_codex ;;
-    --glm)    setup_glm ;;
-    --help|-h) awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 && !/^#/ {exit}' "$0"; exit 0 ;;
-    "")       menu ;;
-    *) die "unknown flag '$1' (try --help)" ;;
-  esac
+  # multi-flag dispatch: the boot calls `--claude --codex` in one shot — every
+  # recognized flag runs in order; one unknown flag still fails closed
+  RGHAD_ANY=0
+  for RGARG in "$@"; do
+    case "$RGARG" in
+      --claude) setup_claude; RGHAD_ANY=1 ;;
+      --codex)  setup_codex;  RGHAD_ANY=1 ;;
+      --glm)    setup_glm;    RGHAD_ANY=1 ;;
+      --help|-h) awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 && !/^#/ {exit}' "$0"; exit 0 ;;
+      *) die "unknown flag '$RGARG' (try --help)" ;;
+    esac
+  done
+  if [[ "$#" -eq 0 ]]; then menu; fi
   echo
   if [[ "$SETUP_INCOMPLETE" = "1" ]]; then
     warn "done WITH GAPS — see the warnings above; rerun ./setup-harness.sh"
