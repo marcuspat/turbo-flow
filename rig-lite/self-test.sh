@@ -1031,9 +1031,13 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
   [[ "$RGPC" != *"devpods"* ]] && echo "✓ devcontainer: no references to the removed devpods/ chain" || { echo "✗ devcontainer: devpods reference survived"; FAIL=1; }
   RGDJ="$(cat "$RGDC" 2>/dev/null)"
   [[ "$RGDJ" == *"devcontainers/features/sshd"* ]] && echo "✓ devcontainer: sshd feature present (gh cs ssh/cp depend on it)" || { echo "✗ devcontainer: sshd feature missing — gh cs ssh/cp break"; FAIL=1; }
-  [[ "$RGDJ" == *"tf-boot"* && "$RGDJ" == *"harness-booted"* && "$RGDJ" == *"TF_HOME"* ]] \
-    && echo "✓ devcontainer: first-boot harness menu hook installed (once-flag + TF_HOME)" \
-    || { echo "✗ devcontainer: boot menu hook missing"; FAIL=1; }
+  [[ "$RGDJ" == *"tf-boot v3"* && "$RGDJ" == *"harness-booted"* && "$RGDJ" == *"TF_HOME"* ]] \
+    && echo "✓ devcontainer: first-boot auto-install hook v3 installed (once-flag + TF_HOME)" \
+    || { echo "✗ devcontainer: boot auto-install hook missing/wrong version"; FAIL=1; }
+  [[ "$RGDJ" == *"setup-harness.sh --claude --codex"* ]] \
+    && echo "✓ devcontainer: boot installs the default pair non-interactively (no menu)" \
+    || { echo "✗ devcontainer: boot no longer installs defaults"; FAIL=1; }
+
   # behavioral: the hook survives four layers of escaping, appends exactly once,
   # parses as bash, and its once-flag is atomic across concurrent shells
   RGBT="$(mktemp -d)"
@@ -1044,7 +1048,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
     HOME="$RGBT" bash -c "$RGTAIL" >/dev/null 2>&1
     RGBRC="$RGBT/.bashrc"
-    if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot' "$RGBRC")" = "1" ] \
+    if [ -f "$RGBRC" ] && [ "$(grep -c 'tf-boot v3:' "$RGBRC")" = "1" ] \
        && bash -n "$RGBRC" 2>/dev/null \
        && grep -q '\$HOME/.config/turbo-flow/harness-booted' "$RGBRC" \
        && ! grep -qE '/home/[a-z]|/root/' "$RGBRC"; then
@@ -1052,26 +1056,35 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$RGDC" ]; then
     else
       echo "✗ devcontainer: generated .bashrc hook failed its behavioral check"; FAIL=1
     fi
-    # hook upgrade path: a v1 block is REPLACED by v2, user content kept, no debris
+    # hook upgrade path: v1 AND v2 blocks are REPLACED by v3, user content kept, no debris
   RGUP="$(mktemp -d)"
   printf '# user content stays\n# tf-boot: hand the user the menu\nif [[ -t 0 ]]; then\n  ( cd x && y )\nfi\n' > "$RGUP/.bashrc"
-  for _ in 1 2; do HOME="$RGUP" bash -c "$RGTAIL" >/dev/null 2>&1; done
-  RGUPB="$(cat "$RGUP/.bashrc" 2>/dev/null)"
-  if [ "$(printf '%s' "$RGUPB" | grep -c 'tf-boot v2:')" = "1" ] \
-     && ! printf '%s' "$RGUPB" | grep -q 'hand the user' \
-     && printf '%s' "$RGUPB" | grep -q '^# user content stays$' \
-     && [ ! -e "$RGUP/.bashrc.tfboot-bak" ] \
-     && bash -n "$RGUP/.bashrc" 2>/dev/null; then
-    echo "✓ devcontainer: v1 hook upgraded to v2 — replaced, idempotent, user content kept, no debris"
-  else
-    echo "✗ devcontainer: hook upgrade path broken"; FAIL=1
-  fi
-  rm -rf "$RGUP"
+  RGUP2="$(mktemp -d)"
+  printf '# user content stays\n# tf-boot v2: first interactive shell gets the harness menu\nif [[ -t 0 && -n "$TF_HOME" ]]; then\n  if [[ ! -e x ]]; then\n    ( cd "$TF_HOME" && bash ./setup-harness.sh )\n  fi\nfi\n' > "$RGUP2/.bashrc"
+  for RGD in "$RGUP" "$RGUP2"; do
+    HOME="$RGD" bash -c "$RGTAIL" >/dev/null 2>&1
+    HOME="$RGD" bash -c "$RGTAIL" >/dev/null 2>&1   # second run proves idempotency
+  done
+  RGUIDX=0
+  for RGD in "$RGUP" "$RGUP2"; do
+    RGUIDX=$((RGUIDX+1))
+    RGUPB="$(cat "$RGD/.bashrc" 2>/dev/null)"
+    if [ "$(printf '%s' "$RGUPB" | grep -c 'tf-boot v3:')" = "1" ] \
+       && ! printf '%s' "$RGUPB" | grep -qE 'hand the user|harness menu \(once|tf-boot v2' \
+       && printf '%s' "$RGUPB" | grep -q '^# user content stays$' \
+       && [ ! -e "$RGD/.bashrc.tfboot-bak" ] \
+       && bash -n "$RGD/.bashrc" 2>/dev/null; then
+      echo "✓ devcontainer: hook v$RGUIDX upgraded to v3 - replaced, idempotent, user content kept, no debris"
+    else
+      echo "✗ devcontainer: hook v$RGUIDX to-v3 upgrade path broken"; FAIL=1
+    fi
+  done
+  rm -rf "$RGUP" "$RGUP2"
   # atomic winner: the stub is built FROM the generated hook (tty guards stripped,
     # body swapped for echo) so a non-atomic flag line in the real hook FAILS here
     RGBT2="$(mktemp -d)"
     RGSTUB="$(sed -n '/^if \[\[ -t 0/,/^fi$/p' "$RGBRC" \
-      | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh )|echo TOOK|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
+      | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh --claude --codex ); then|sleep 1; echo TOOK; then|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
     if bash -n <<<"$RGSTUB" 2>/dev/null; then
       printf '#!/usr/bin/env bash\nexit 0\n' > "$RGBT2/setup-harness.sh"   # the hook's -f guard needs it present
       ( env -u TF_NO_TMUX HOME="$RGBT2" TF_HOME="$RGBT2" bash -c "$RGSTUB" >"$RGBT2/w1" 2>/dev/null ) \
@@ -1248,6 +1261,88 @@ fi
 RGSH="$KIT/../setup-harness.sh"
 if [ -f "$RGSH" ]; then
   bash -n "$RGSH" 2>/dev/null && echo "✓ setup-harness: bash -n clean" || { echo "✗ setup-harness: syntax error"; FAIL=1; }
+  # behavioral: the two-flag call runs BOTH paths, unattended, nothing reads the tty
+  RGMF="$(mktemp -d)"; mkdir -p "$RGMF/bin"
+  printf '#!/bin/bash\n[ "$1" = install ] && echo "NPM:$*" >> "$RGLOG"\nexit 0\n' > "$RGMF/bin/npm"
+  printf '#!/bin/bash\nexit 0\n' > "$RGMF/bin/node"
+  for c in claude codex; do printf '#!/bin/bash\n[ "$1" = auth ] && exit 1\nexit 0\n' > "$RGMF/bin/$c"; done
+  chmod +x "$RGMF/bin/"*
+  RGMFR="$( RGLOG="$RGMF/log" HOME="$RGMF" PATH="$RGMF/bin:/usr/bin:/bin" \
+    bash "$RGSH" --claude --codex </dev/null 2>&1; echo "RC=$?" )"
+  if grep -q "RC=0" <<<"$RGMFR" \
+     && grep -q "Codex + Ruflo via MCP" <<<"$RGMFR" \
+     && grep -q "Claude Code + Ruflo plugins" <<<"$RGMFR" \
+     && ! grep -q "pick your harness" <<<"$RGMFR"; then
+    echo "✓ setup-harness: --claude --codex runs BOTH paths unattended, no menu, no tty read"
+  else
+    echo "✗ setup-harness: multi-flag boot call broken"; FAIL=1
+  fi
+  rm -rf "$RGMF"
+  # mixed flags: an unknown flag dies BEFORE any install side effect
+  RGMX="$(mktemp -d)"; mkdir -p "$RGMX/bin"
+  printf '#!/bin/bash\n[ "$1" = install ] && echo "NPM:$*" >> "$RGLOG"\nexit 0\n' > "$RGMX/bin/npm"
+  printf '#!/bin/bash\nexit 0\n' > "$RGMX/bin/node"
+  for c in claude codex; do printf '#!/bin/bash\n[ "$1" = auth ] && exit 1\nexit 0\n' > "$RGMX/bin/$c"; done
+  chmod +x "$RGMX/bin/"*
+  RGMXR="$( RGLOG="$RGMX/log" HOME="$RGMX" PATH="$RGMX/bin:/usr/bin:/bin" \
+    bash "$RGSH" --claude --bogus </dev/null 2>&1; echo "RC=$?" )"
+  if grep -q "unknown flag" <<<"$RGMXR" && grep -q "RC=1" <<<"$RGMXR" \
+     && ! grep -q "NPM:" "$RGMX/log" 2>/dev/null; then
+    echo "✓ setup-harness: unknown flag rejected before any install side effect"
+  else
+    echo "✗ setup-harness: side effects before flag validation"; FAIL=1
+  fi
+  rm -rf "$RGMX"
+  # race: pre-planted dead-pid symlink — two CONCURRENT real-hook shells, exactly 1 TOOK
+  # (built from the generated hook like the fresh-claim race above; covers the reclaim path)
+  RGRB="$(mktemp -d)"; mkdir -p "$RGRB/.config/turbo-flow"
+  ln -s 999999 "$RGRB/.config/turbo-flow/harness-booted"   # dead PID link
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$RGRB/setup-harness.sh"   # -f guard
+  RGRBS="$RGSTUB"   # the TOOK stub already built from the real hook
+  ( env -u TF_NO_TMUX HOME="$RGRB" TF_HOME="$RGRB" bash -c "$RGRBS" >"$RGRB/w1" 2>/dev/null ) \
+    & ( env -u TF_NO_TMUX HOME="$RGRB" TF_HOME="$RGRB" bash -c "$RGRBS" >"$RGRB/w2" 2>/dev/null ) & wait
+  RGRBW=$(cat "$RGRB/w1" "$RGRB/w2" 2>/dev/null | grep -c TOOK)
+  if [ "$RGRBW" = "1" ]; then
+    echo "✓ devcontainer: dead-pid claim reclaimed by exactly one of two concurrent real-hook shells"
+  else
+    echo "✗ devcontainer: reclaim race broken (winners=$RGRBW)"; FAIL=1
+  fi
+  rm -rf "$RGRB"
+  # hook failure/retry: built FROM the generated hook (install swapped for false)
+  RGFS="$(mktemp -d)"; mkdir -p "$RGFS/.config/turbo-flow"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$RGFS/setup-harness.sh"   # the hook's -f guard needs it present
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$RGFS/workspace.sh"
+  RGBRC2="$RGFS/.bashrc"
+  HOME="$RGFS" bash -c "$RGTAIL" >/dev/null 2>&1   # regenerate the hook in this sandbox
+  RGFAIL="$(sed -n '/^if \[\[ -t 0/,/^fi$/p' "$RGBRC2" \
+    | sed 's/-t 0 && -t 1 && //; s|( cd "$TF_HOME" && bash ./setup-harness.sh --claude --codex ); then|false; then|; s|( cd "$TF_HOME" && exec bash ./workspace.sh )|true|')"
+  if bash -n <<<"$RGFAIL" 2>/dev/null; then
+    RGFO="$( env -u TF_NO_TMUX HOME="$RGFS" TF_HOME="$RGFS" bash -c "$RGFAIL" 2>&1 )"
+    if [ ! -e "$RGFS/.config/turbo-flow/harness-done" ] \
+       && [ ! -L "$RGFS/.config/turbo-flow/harness-booted" ] \
+       && grep -q "install FAILED" <<<"$RGFO"; then
+      # second shell retries (claim was released)
+      RGFO2="$( env -u TF_NO_TMUX HOME="$RGFS" TF_HOME="$RGFS" bash -c "$RGFAIL" 2>&1 )"
+      if grep -q "install FAILED" <<<"$RGFO2"; then
+        echo "✓ devcontainer: FAILED install (real hook) releases the claim, no done-marker, retries next shell"
+      else
+        echo "✗ devcontainer: second shell did not retry"; FAIL=1
+      fi
+    else
+      echo "✗ devcontainer: failure path left a marker or missed the hint (out: $RGFO)"; FAIL=1
+    fi
+    # success path: same stub with the install swapped for true touches harness-done
+    RGOK="$(sed 's|false; then|true; then|' <<<"$RGFAIL")"
+    RGSO="$( env -u TF_NO_TMUX HOME="$RGFS" TF_HOME="$RGFS" bash -c "$RGOK" 2>&1 )"
+    if [ -e "$RGFS/.config/turbo-flow/harness-done" ]; then
+      echo "✓ devcontainer: SUCCESSFUL install (real hook) writes the done-marker"
+    else
+      echo "✗ devcontainer: success path did not mark done"; FAIL=1
+    fi
+  else
+    echo "✗ devcontainer: could not build fail-stub from the generated hook"; FAIL=1
+  fi
+  rm -rf "$RGFS"
   RGOUT="$("$RGSH" --help 2>&1)"; RC=$?
   t "setup-harness: --help exits 0" 0 $RC
   case "$RGOUT" in *"--codex"*"--glm"*) echo "✓ setup-harness: help documents all flags";; *) echo "✗ setup-harness: help missing flags"; FAIL=1;; esac

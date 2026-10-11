@@ -63,9 +63,9 @@ bash /path/to/turbo-flow/rig-lite/self-test.sh   # prove the kit on your machine
 
 No Codespace? Fine — it's bash. Want the 30-second container tour anyway? Open this repo in a Codespace; `postCreate` runs the self-test. That's the whole install surface.
 
-## Add a harness (optional — one script, three doors)
+## Harnesses — installed by the boot, menu on demand
 
-The kit ships no harness. When you want one, [`setup-harness.sh`](setup-harness.sh) turns a fresh Codespace into an agentic box in one run — it asks which harness to start with:
+The kit ships no harness, and the boot no longer asks: a fresh Codespace **auto-installs the default pair (Claude Code + Codex + the Ruflo wiring)** on the first shell, visibly, then drops you straight into the tmux rig. The interactive menu is still there on demand — [`setup-harness.sh`](setup-harness.sh) — for GLM, all-of-the-above, or skip:
 
 | choice | what you get |
 |---|---|
@@ -73,7 +73,7 @@ The kit ships no harness. When you want one, [`setup-harness.sh`](setup-harness.
 | **Codex** | OpenAI login · Ruflo wired through **MCP** (`~/.codex/config.toml`) |
 | **GLM** | Claude Code on your **GLM Coding Plan** key (docs.z.ai, Anthropic-protocol endpoint) via a dedicated `claude-glm` launcher — plain `claude` stays your Anthropic reviewer, so builder ≠ reviewer survives by construction |
 
-After your choice, the boot drops you **inside a 5-window tmux rig**: `claude` (the Anthropic reviewer) · the **builder window** — `claude-glm` when you chose the GLM path (a genuine cross-family pair with window 1), otherwise plain `claude` honestly labeled same-family, with the ruflo plugins pre-loaded (the slash commands were executed at install time — verify any time with `/plugin`) · `codex` · the **tokens dashboard** live (`rig-lite/tokens.py --watch`) · a free shell. Detach any time; the session survives (every new terminal auto-attaches to the same rig — that's the design). `TF_NO_TMUX=1` is a total opt-out: no boot menu, no auto-attach. Keys are read hidden and stored with `600` permissions, and everything installs user-space (nvm + npm global prefix). The GLM path is fail-closed: a missing or incomplete `glm.env` makes `claude-glm` refuse to run rather than silently fall back to an Anthropic session. One shared surface, stated plainly: Ruflo plugins installed via the Claude/GLM paths load in **both** `claude` and `claude-glm` (they're tooling, not model — the reviewer's model stays Anthropic, so builder ≠ reviewer holds). `--claude` / `--codex` / `--glm` flags run it non-interactively.
+When the install finishes, you land **inside a 5-window tmux rig**: `claude` (the Anthropic reviewer) · the **builder window** — `claude-glm` when you chose the GLM path (a genuine cross-family pair with window 1), otherwise plain `claude` honestly labeled same-family (wire it later: `./setup-harness.sh --glm`), with the ruflo plugins pre-loaded (the slash commands were executed at install time — verify any time with `/plugin`) · `codex` · the **tokens dashboard** live (`rig-lite/tokens.py --watch`) · a free shell. Detach any time; the session survives (every new terminal auto-attaches to the same rig — that's the design). `TF_NO_TMUX=1` is a total opt-out: no boot install, no auto-attach. Keys are read hidden and stored with `600` permissions, and everything installs user-space (nvm + npm global prefix). The GLM path is fail-closed: a missing or incomplete `glm.env` makes `claude-glm` refuse to run rather than silently fall back to an Anthropic session. One shared surface, stated plainly: Ruflo plugins installed via the Claude/GLM paths load in **both** `claude` and `claude-glm` (they're tooling, not model — the reviewer's model stays Anthropic, so builder ≠ reviewer holds). `--claude` / `--codex` / `--glm` flags run it non-interactively.
 
 ## Where the v4 environment went
 

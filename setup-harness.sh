@@ -225,7 +225,7 @@ setup_codex() {
   if grep -q 'mcp_servers.ruflo' "$CFG" 2>/dev/null; then
     ok "ruflo MCP already wired in $CFG"
   else
-    say "wiring ruflo MCP into $CFG…"
+    say "wiring ruflo MCP into $CFG..."
     cat >> "$CFG" <<'EOF'
 
 [mcp_servers.ruflo]
@@ -315,14 +315,29 @@ EOF
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  case "${1:-}" in
-    --claude) setup_claude ;;
-    --codex)  setup_codex ;;
-    --glm)    setup_glm ;;
-    --help|-h) awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 && !/^#/ {exit}' "$0"; exit 0 ;;
-    "")       menu ;;
-    *) die "unknown flag '$1' (try --help)" ;;
-  esac
+  # multi-flag dispatch: validate EVERY argument first (no side effects before an
+  # unknown flag dies), deduplicate, then run each recognized path once
+  for RGARG in "$@"; do
+    case "$RGARG" in
+      --claude|--codex|--glm|--help|-h) : ;;
+      *) die "unknown flag '$RGARG' (try --help)" ;;
+    esac
+  done
+  for RGARG in "$@"; do
+    case "$RGARG" in
+      --help|-h) awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 && !/^#/ {exit}' "$0"; exit 0 ;;
+    esac
+  done
+  RGDONE=""
+  for RGARG in "$@"; do
+    case ",$RGDONE," in *",$RGARG,"*) continue ;; esac
+    case "$RGARG" in
+      --claude) setup_claude; RGDONE="$RGDONE,$RGARG" ;;
+      --codex)  setup_codex;  RGDONE="$RGDONE,$RGARG" ;;
+      --glm)    setup_glm;    RGDONE="$RGDONE,$RGARG" ;;
+    esac
+  done
+  if [[ "$#" -eq 0 ]]; then menu; fi
   echo
   if [[ "$SETUP_INCOMPLETE" = "1" ]]; then
     warn "done WITH GAPS — see the warnings above; rerun ./setup-harness.sh"
