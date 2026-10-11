@@ -1294,15 +1294,19 @@ if [ -f "$RGSH" ]; then
     echo "✗ setup-harness: side effects before flag validation"; FAIL=1
   fi
   rm -rf "$RGMX"
-  # race: pre-created claim with a DEAD pid — two concurrent shells, exactly one reclaims
-  # (the atomic-winner stub above covers the fresh-claim race; this covers the reclaim race)
+  # race: pre-planted dead-pid symlink — two CONCURRENT real-hook shells, exactly 1 TOOK
+  # (built from the generated hook like the fresh-claim race above; covers the reclaim path)
   RGRB="$(mktemp -d)"; mkdir -p "$RGRB/.config/turbo-flow"
-  ln -s 999999 "$RGRB/.config/turbo-flow/harness-booted"   # symlink to a PID that cannot exist
-  RGRC="$( HOME="$RGRB" TF_HOME="$RGRB" bash -c 'RGPID="$(readlink "$HOME/.config/turbo-flow/harness-booted" 2>/dev/null)"; if [ -z "$RGPID" ] || ! kill -0 "$RGPID" 2>/dev/null; then unlink "$HOME/.config/turbo-flow/harness-booted" 2>/dev/null && echo RECLAIMED; fi' 2>/dev/null )"
-  if [ "$(grep -c RECLAIMED <<<"$RGRC")" = "1" ] && [ ! -d "$RGRB/.config/turbo-flow/harness-booted" ]; then
-    echo "✓ devcontainer: dead-pid claim reclaimed by exactly one shell (mv is the atomic gate)"
+  ln -s 999999 "$RGRB/.config/turbo-flow/harness-booted"   # dead PID link
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$RGRB/setup-harness.sh"   # -f guard
+  RGRBS="$RGSTUB"   # the TOOK stub already built from the real hook
+  ( env -u TF_NO_TMUX HOME="$RGRB" TF_HOME="$RGRB" bash -c "$RGRBS" >"$RGRB/w1" 2>/dev/null ) \
+    & ( env -u TF_NO_TMUX HOME="$RGRB" TF_HOME="$RGRB" bash -c "$RGRBS" >"$RGRB/w2" 2>/dev/null ) & wait
+  RGRBW=$(cat "$RGRB/w1" "$RGRB/w2" 2>/dev/null | grep -c TOOK)
+  if [ "$RGRBW" = "1" ]; then
+    echo "✓ devcontainer: dead-pid claim reclaimed by exactly one of two concurrent real-hook shells"
   else
-    echo "✗ devcontainer: reclaim race broken (count: $(grep -c RECLAIMED <<<"$RGRC"))"; FAIL=1
+    echo "✗ devcontainer: reclaim race broken (winners=$RGRBW)"; FAIL=1
   fi
   rm -rf "$RGRB"
   # hook failure/retry: built FROM the generated hook (install swapped for false)
