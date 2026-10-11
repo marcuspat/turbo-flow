@@ -1278,6 +1278,37 @@ if [ -f "$RGSH" ]; then
     echo "✗ setup-harness: multi-flag boot call broken"; FAIL=1
   fi
   rm -rf "$RGMF"
+  # mixed flags: an unknown flag dies BEFORE any install side effect
+  RGMX="$(mktemp -d)"; mkdir -p "$RGMX/bin"
+  printf '#!/bin/bash\n[ "$1" = install ] && echo "NPM:$*" >> "$RGLOG"\nexit 0\n' > "$RGMX/bin/npm"
+  printf '#!/bin/bash\nexit 0\n' > "$RGMX/bin/node"
+  for c in claude codex; do printf '#!/bin/bash\n[ "$1" = auth ] && exit 1\nexit 0\n' > "$RGMX/bin/$c"; done
+  chmod +x "$RGMX/bin/"*
+  RGMXR="$( RGLOG="$RGMX/log" HOME="$RGMX" PATH="$RGMX/bin:/usr/bin:/bin" \
+    bash "$RGSH" --claude --bogus </dev/null 2>&1; echo "RC=$?" )"
+  if grep -q "unknown flag" <<<"$RGMXR" && grep -q "RC=1" <<<"$RGMXR" \
+     && ! grep -q "NPM:" "$RGMX/log" 2>/dev/null; then
+    echo "✓ setup-harness: unknown flag rejected before any install side effect"
+  else
+    echo "✗ setup-harness: side effects before flag validation"; FAIL=1
+  fi
+  rm -rf "$RGMX"
+  # hook failure/retry: failing install releases the claim, no done-marker, next shell retries
+  RGFS="$(mktemp -d)"; mkdir -p "$RGFS/.config/turbo-flow"
+  RGBODY="$(sed -n '/^if \[\[ ! -e .*harness-done/,/^  fi$/p' "$RGBRC" | sed 's/-t 0 && -t 1 && //; s|bash ./setup-harness.sh --claude --codex )|false; then exit 0; fi 2>/dev/null; false )| false )|')"
+  # simpler: swap the install call for false
+  RGBODY="$(sed -n '/^  if \[\[ ! -e .*harness-done/,/^  fi$/p' "$RGBRC" | sed 's/-t 0 && -t 1 && //' | sed 's|bash ./setup-harness.sh --claude --codex )|false )|')"
+  RGWK="$RGFS/.config/turbo-flow"
+  # failing run: claim taken, install fails, claim released, no done
+  ( cd "$RGFS" && TF_HOME="$RGFS" HOME="$RGFS" bash -c "mkdir -p $RGWK && mkdir $RGWK/harness-booted 2>/dev/null; if ( cd "\$TF_HOME" && false ); then touch $RGWK/harness-done; else rmdir $RGWK/harness-booted 2>/dev/null; echo RETRY-HINT; fi" ) >"$RGFS/out1" 2>&1
+  if [ -e "$RGWK/harness-done" ] || [ -d "$RGWK/harness-booted" ]; then
+    echo "✗ devcontainer: failure path kept a marker"; FAIL=1
+  elif grep -q "RETRY-HINT" "$RGFS/out1"; then
+    echo "✓ devcontainer: failed install releases the claim (retries next shell), no done-marker"
+  else
+    echo "✗ devcontainer: failure path broken (out: $(cat "$RGFS/out1"))"; FAIL=1
+  fi
+  rm -rf "$RGFS"
   RGOUT="$("$RGSH" --help 2>&1)"; RC=$?
   t "setup-harness: --help exits 0" 0 $RC
   case "$RGOUT" in *"--codex"*"--glm"*) echo "✓ setup-harness: help documents all flags";; *) echo "✗ setup-harness: help missing flags"; FAIL=1;; esac

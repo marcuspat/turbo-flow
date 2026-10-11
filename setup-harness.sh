@@ -315,16 +315,26 @@ EOF
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  # multi-flag dispatch: the boot calls `--claude --codex` in one shot — every
-  # recognized flag runs in order; one unknown flag still fails closed
-  RGHAD_ANY=0
+  # multi-flag dispatch: validate EVERY argument first (no side effects before an
+  # unknown flag dies), deduplicate, then run each recognized path once
   for RGARG in "$@"; do
     case "$RGARG" in
-      --claude) setup_claude; RGHAD_ANY=1 ;;
-      --codex)  setup_codex;  RGHAD_ANY=1 ;;
-      --glm)    setup_glm;    RGHAD_ANY=1 ;;
-      --help|-h) awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 && !/^#/ {exit}' "$0"; exit 0 ;;
+      --claude|--codex|--glm|--help|-h) : ;;
       *) die "unknown flag '$RGARG' (try --help)" ;;
+    esac
+  done
+  for RGARG in "$@"; do
+    case "$RGARG" in
+      --help|-h) awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 && !/^#/ {exit}' "$0"; exit 0 ;;
+    esac
+  done
+  RGDONE=""
+  for RGARG in "$@"; do
+    case ",$RGDONE," in *",$RGARG,"*) continue ;; esac
+    case "$RGARG" in
+      --claude) setup_claude; RGDONE="$RGDONE,$RGARG" ;;
+      --codex)  setup_codex;  RGDONE="$RGDONE,$RGARG" ;;
+      --glm)    setup_glm;    RGDONE="$RGDONE,$RGARG" ;;
     esac
   done
   if [[ "$#" -eq 0 ]]; then menu; fi
