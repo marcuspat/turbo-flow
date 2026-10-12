@@ -1509,6 +1509,37 @@ else
   echo "⚠ setup-harness checks SKIPPED (script not present — kit running outside its home repo)"
 fi
 
+# ── protect.sh contract (Law 2 enforcement) ─────────────────────────────────
+RGPT="$KIT/protect.sh"
+if [ -f "$RGPT" ]; then
+  bash -n "$RGPT" 2>/dev/null && echo "✓ protect: bash -n clean" || { echo "✗ protect: syntax"; FAIL=1; }
+  RGPT_OUT="$("$RGPT" --help 2>&1)"; RC=$?
+  t "protect: --help exits 0" 0 $RC
+  case "$RGPT_OUT" in *"--dry-run"*"--status"*) echo "✓ protect: help documents all modes";; *) echo "✗ protect: help missing modes"; FAIL=1;; esac
+  "$RGPT" --bogus >/dev/null 2>&1; RC=$?
+  [ "$RC" -ne 0 ] && echo "✓ protect: unknown flag fails closed" || { echo "✗ protect: unknown flag accepted"; FAIL=1; }
+  # gate-check.yml must exist alongside protect.sh (the check it enables)
+  [ -f "$KIT/../.github/workflows/gate-check.yml" ] \
+    && echo "✓ protect: gate-check.yml workflow present (the enforcement mechanism)" \
+    || { echo "✗ protect: gate-check.yml missing — protect.sh would block ALL merges"; FAIL=1; }
+  # gate-check.yml: parses as YAML and checks for the verdict marker
+  python3 -c "
+import yaml, sys
+with open('$KIT/../.github/workflows/gate-check.yml') as f:
+    d = yaml.safe_load(f)
+assert 'gate-verdict' in d['name'].lower() or 'gate-verdict' in str(d), 'name missing'
+assert 'pull_request' in d[True]['on'] or 'pull_request' in d.get('on', {}), 'trigger missing'
+" 2>/dev/null \
+    && echo "✓ protect: gate-check.yml parses and has the right trigger" \
+    || { echo "⚠ protect: gate-check.yml YAML parse skipped (pyyaml unavailable)"; }
+  # constitution mentions protect.sh (the law points at the enforcement)
+  grep -q "protect.sh" "$KIT/constitution.md" \
+    && echo "✓ protect: constitution references protect.sh (Law 2 → enforcement)" \
+    || { echo "✗ protect: constitution doesn't mention enforcement"; FAIL=1; }
+else
+  echo "⚠ protect checks SKIPPED (script not present)"
+fi
+
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
 echo
