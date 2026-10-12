@@ -70,7 +70,28 @@ w_env() { # make the installed CLIs reachable in a window that inherited NOTHING
     done
     [ -n "$RGNB" ] && export PATH="$RGNB:$PATH"
   fi
+  if [[ "${W_PROFILE_DONE:-0}" != "1" ]] && ! command -v node >/dev/null 2>&1 && [ -f "$HOME/.profile" ]; then
+    export W_PROFILE_DONE=1
+    RGPP="$( set +u; . "$HOME/.profile" </dev/null >/dev/null 2>&1; printf '%s' "$PATH" )"
+    [ -n "$RGPP" ] && export PATH="$RGPP"
+  fi
   return 0
+}
+
+w_wait_cli() { # wait up to 30s for a CLI to become findable (install may be running)
+  [[ "${W_WAIT_SKIP:-0}" = "1" ]] && return 1   # test hook: skip the retry
+  if [[ "${W_ENV_DONE:-0}" != "1" ]]; then      # once per shell (caller may have run it)
+    w_env
+    export W_ENV_DONE=1
+  fi
+  local cli="$1" i f
+  echo "  waiting up to 30s for $cli (install may still be running)…"
+  for i in $(seq 1 30); do
+    command -v "$cli" >/dev/null 2>&1 && return 0
+    f="$(w_find "$cli" 2>/dev/null)" && { export PATH="$(dirname "$f"):$PATH"; return 0; }
+    sleep 1
+  done
+  return 1
 }
 
 
@@ -89,12 +110,17 @@ w_find() { # last resort: the CLI in the NEWEST nvm version bin holding it
 }
 
 w_claude() {
-  w_env
   printf '\033[1;36m▸ window 1 — claude (Anthropic reviewer)\033[0m\n'
+  w_env
   if ! command -v claude >/dev/null 2>&1; then
-    RGC="$(w_find claude)" || { echo "claude not found — run ./setup-harness.sh --claude, then reopen this window"; hint; }
-    export PATH="$(dirname "$RGC"):$PATH"   # the CLI's shebang needs node on PATH
-    exec "$RGC"
+    w_wait_cli claude || {
+      echo ""
+      echo "  claude not reachable. Fix:"
+      echo "    cd ${TF_HOME:-$(pwd)} && ./setup-harness.sh --claude"
+      echo "    then here: tmux respawn-window -k"
+      echo ""
+      hint
+    }
   fi
   exec claude
 }
@@ -104,21 +130,31 @@ w_builder() { # claude-glm when wired (its exec fails closed by design); else pl
     printf '\033[1;36m▸ window 2 — claude-glm (builder, zai family · ruflo plugins loaded)\033[0m\n'
     exec claude-glm
   fi
-  printf '\033[1;36m▸ window 2 — claude + ruflo (same family as w1 until you wire GLM: ./setup-harness.sh --glm)\033[0m\n'
+  printf '\033[1;36m▸ window 2 — claude + ruflo (wire GLM for cross-family: ./setup-harness.sh --glm)\033[0m\n'
   if ! command -v claude >/dev/null 2>&1; then
-    RGC="$(w_find claude)" || { echo "no harness CLI found — run ./setup-harness.sh, then reopen this window"; hint; }
-    export PATH="$(dirname "$RGC"):$PATH"
-    exec "$RGC"
+    w_wait_cli claude || {
+      echo ""
+      echo "  claude not reachable. Fix:"
+      echo "    cd ${TF_HOME:-$(pwd)} && ./setup-harness.sh --claude"
+      echo "    then here: tmux respawn-window -k"
+      echo ""
+      hint
+    }
   fi
   exec claude
 }
 w_codex() {
-  w_env
   printf '\033[1;36m▸ window 3 — codex (OpenAI · ruflo via MCP)\033[0m\n'
+  w_env
   if ! command -v codex >/dev/null 2>&1; then
-    RGC="$(w_find codex)" || { echo "codex not found — run ./setup-harness.sh --codex, then reopen this window"; hint; }
-    export PATH="$(dirname "$RGC"):$PATH"
-    exec "$RGC"
+    w_wait_cli codex || {
+      echo ""
+      echo "  codex not reachable. Fix:"
+      echo "    cd ${TF_HOME:-$(pwd)} && ./setup-harness.sh --codex"
+      echo "    then here: tmux respawn-window -k"
+      echo ""
+      hint
+    }
   fi
   exec codex
 }

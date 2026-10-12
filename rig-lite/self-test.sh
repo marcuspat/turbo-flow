@@ -1222,11 +1222,30 @@ if [ -f "$RGWSH" ]; then
   grep -q "V9-ON-PATH" <<<"$RGWN3R" \
     && echo "✓ workspace: last-resort exec exports the CLI's own bin dir (older-bin case)" \
     || { echo "✗ workspace: older-bin PATH export missing (got: '$RGWN3R')"; FAIL=1; }
+  # .profile fallback: w_env layer 4 surfaces node when nvm has nothing
+  RGPR="$(mktemp -d)"; mkdir -p "$RGPR/.profile.d"
+  printf '#!/bin/sh\n' > "$RGPR/.profile.d/node"; chmod +x "$RGPR/.profile.d/node"
+  printf 'export PATH="$HOME/.profile.d:$PATH"\n' > "$RGPR/.profile"
+  RGPRR="$( env -u TMUX HOME="$RGPR" PATH="/usr/bin:/bin" bash -c '. "$1"; w_env >/dev/null 2>&1; command -v node' _ "$RGWSH" 2>/dev/null )"
+  [ "$RGPRR" = "$RGPR/.profile.d/node" ] \
+    && echo "✓ workspace: w_env .profile fallback surfaces node when nvm has nothing" \
+    || { echo "✗ workspace: .profile fallback broken (got: '$RGPRR')"; FAIL=1; }
+  rm -rf "$RGPR"
+  # retry succeeds: CLI appears after 3s
+  RGRW="$(mktemp -d)"; mkdir -p "$RGRW/.nvm/versions/node/v20.0.0/bin"
+  printf '#!/bin/sh\n' > "$RGRW/.nvm/versions/node/v20.0.0/bin/node"; chmod +x "$RGRW/.nvm/versions/node/v20.0.0/bin/node"
+  ( sleep 3 && printf '#!/bin/sh\necho LATE\n' > "$RGRW/.nvm/versions/node/v20.0.0/bin/claude" && chmod +x "$RGRW/.nvm/versions/node/v20.0.0/bin/claude" ) &
+  RGRWR="$( HOME="$RGRW" PATH="/usr/bin:/bin" bash -c '. "$1"; w_wait_cli claude && echo RETRY-CAUGHT' _ "$RGWSH" 2>/dev/null )"
+  wait
+  grep -q "RETRY-CAUGHT" <<<"$RGRWR" \
+    && echo "✓ workspace: w_wait_cli catches a CLI that appears after a delay" \
+    || { echo "✗ workspace: retry broken (got: '$RGRWR')"; FAIL=1; }
+  rm -rf "$RGRW"
   # no CLI anywhere: the not-found message prints, and the hint is reachable
   RGWN4="$(mktemp -d)"; mkdir -p "$RGWN4/.nvm/versions/node/v10.0.0/bin"
   printf '#!/bin/sh\n' > "$RGWN4/.nvm/versions/node/v10.0.0/bin/node"; chmod +x "$RGWN4/.nvm/versions/node/v10.0.0/bin/node"
-  RGWN4R="$( HOME="$RGWN4" PATH="/usr/bin:/bin" bash -c '. "$1"; hint() { echo HINT-REACHED; }; w_codex' _ "$RGWSH" 2>/dev/null )"
-  printf '%s' "$RGWN4R" | grep -q "codex not found" && printf '%s' "$RGWN4R" | grep -q "HINT-REACHED" \
+  RGWN4R="$( HOME="$RGWN4" PATH="/usr/bin:/bin" W_WAIT_SKIP=1 bash -c '. "$1"; hint() { echo HINT-REACHED; }; w_codex' _ "$RGWSH" 2>/dev/null )"
+  printf '%s' "$RGWN4R" | grep -q "codex not reachable" && printf '%s' "$RGWN4R" | grep -q "HINT-REACHED" \
     && echo "✓ workspace: no-CLI case — guidance message, then the hint shell (not a dead pane)" \
     || { echo "✗ workspace: no-CLI fallback broken (got: '$RGWN4R')"; FAIL=1; }
   rm -rf "$RGWN2" "$RGWN3" "$RGWN4"
