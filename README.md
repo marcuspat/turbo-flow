@@ -63,6 +63,63 @@ bash /path/to/turbo-flow/rig-lite/self-test.sh   # prove the kit on your machine
 
 No Codespace? Fine — it's bash. Want the 30-second container tour anyway? Open this repo in a Codespace; `postCreate` runs the self-test. That's the whole install surface.
 
+## Your first five minutes in the rig
+
+In a Codespace (or after running `bash workspace.sh`), you're inside a 5-window tmux session. Here's what to do:
+
+### 1. Log in (once per box — the only manual step)
+
+```
+Ctrl+B 0    → jump to the claude window, type /login (browser OAuth)
+Ctrl+B 4    → jump to the shell, type codex login (browser); then Ctrl+B 2
+```
+
+After that, every window opens ready for work, forever on this box.
+
+### 2. Look around
+
+| Keys | What you see |
+|---|---|
+| `Ctrl+B 0` | **claude** — reviewer when window 1 is claude-glm; otherwise use codex (window 2) to review |
+| `Ctrl+B 1` | **builder** — claude-glm if wired, else claude with ruflo plugins loaded |
+| `Ctrl+B 2` | **codex** — your OpenAI lane (ruflo reachable via MCP) |
+| `Ctrl+B 3` | **tokens** — live burn across all three harnesses, always updating |
+| `Ctrl+B 4` | **shell** — free bash for git, builds, anything |
+| `Ctrl+B d` | detach (come back any time — the session survives) |
+
+### 3. Gate your first change
+
+In the shell window (`Ctrl+B 4`), from any branch you or an agent built:
+
+```bash
+# prove the kit works:
+bash rig-lite/self-test.sh
+
+# gate a branch (the CLI that WROTE the code names itself — a different family reviews):
+rig-lite/gate.sh --builder claude --base main     # if claude wrote it → a non-Anthropic reviewer checks it
+rig-lite/gate.sh --builder glm --base main       # if claude-glm wrote it → claude reviews (cross-family)
+
+# gate a GitHub PR (verdict posted as a comment on the PR):
+rig-lite/gate.sh --pr 7 --builder codex           # codex wrote it → claude reviews
+
+# gate every open PR that has no verdict yet:
+rig-lite/gate.sh --sweep
+```
+
+The gate exits `0` (approved) or `1` (revise — fix and re-run). **It never merges; you do.**
+
+### 4. Your daily loop
+
+```bash
+rig-lite/wt.sh my-feature        # isolated worktree for parallel work
+# ... build in window 1, ask a DIFFERENT family (window 0 or 2) to read the diff ...
+rig-lite/gate.sh --builder <who-wrote-it> --base main  # gate before the PR
+# ... push, open the PR, gate it ...
+rig-lite/digest.sh               # fleet health: merge queue × verdicts × site liveness
+```
+
+Detached and want back in? In a Codespace, every new terminal auto-attaches. Locally: run `bash workspace.sh` again.
+
 ## Harnesses — installed by the boot, menu on demand
 
 The kit ships no harness, and the boot no longer asks: a fresh Codespace **auto-installs the default pair (Claude Code + Codex + the Ruflo wiring)** on the first shell, visibly, then drops you straight into the tmux rig. The interactive menu is still there on demand — [`setup-harness.sh`](setup-harness.sh) — for GLM, all-of-the-above, or skip:
