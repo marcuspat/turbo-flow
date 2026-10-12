@@ -94,7 +94,8 @@ En la ventana shell (`Ctrl+B 4`), desde cualquier rama que tú o un agente const
 bash rig-lite/self-test.sh
 
 # gatea una rama (el CLI que ESCRIBIÓ el código se identifica — otra familia revisa):
-rig-lite/gate.sh --builder claude --base main     # claude lo escribió → un revisor no-Anthropic lo revisa
+rig-lite/gate.sh --builder claude --base main     # si claude lo escribió → un revisor no-Anthropic lo revisa
+rig-lite/gate.sh --builder glm --base main       # si claude-glm lo escribió → claude revisa (entre familias)
 
 # gatea un PR de GitHub (el veredicto se publica como comentario en el PR):
 rig-lite/gate.sh --pr 7 --builder codex           # codex lo escribió → claude revisa
@@ -109,7 +110,7 @@ El gate sale `0` (aprobado) o `1` (revise — corrige y vuelve a correr). **Nunc
 
 ```bash
 rig-lite/wt.sh mi-feature         # worktree aislado para trabajo paralelo
-# ... construye en ventana 1, pide a ventana 0 (o 2) leer el diff ...
+# ... construye en ventana 1, pide a una familia DIFERENTE (ventana 0 o 2) leer el diff ...
 rig-lite/gate.sh --builder <quien-lo-escribio> --base main  # gatea antes del PR
 # ... push, abre el PR, gatealo ...
 rig-lite/digest.sh                # salud de la flota: cola de merges × veredictos × liveness
