@@ -77,6 +77,7 @@ w_env() { # make the installed CLIs reachable in a window that inherited NOTHING
 }
 
 w_wait_cli() { # wait up to 30s for a CLI to become findable (install may be running)
+  [[ "${W_WAIT_SKIP:-0}" = "1" ]] && return 1   # test hook: skip the retry
   local cli="$1" i f
   for i in $(seq 1 30); do
     w_env
