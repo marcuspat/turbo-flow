@@ -109,8 +109,8 @@ w_claude() {
     w_wait_cli claude || {
       echo ""
       echo "  claude not reachable. Fix:"
-      echo "    cd $TF_HOME && ./setup-harness.sh --claude"
-      echo "    then reopen: tmux respawn-window -t turboflow:0 -k"
+      echo "    cd ${TF_HOME:-$(pwd)} && ./setup-harness.sh --claude"
+      echo "    then here: tmux respawn-window -k"
       echo ""
       hint
     }
@@ -128,8 +128,8 @@ w_builder() { # claude-glm when wired (its exec fails closed by design); else pl
     w_wait_cli claude || {
       echo ""
       echo "  claude not reachable. Fix:"
-      echo "    cd $TF_HOME && ./setup-harness.sh --claude"
-      echo "    then reopen: tmux respawn-window -t turboflow:1 -k"
+      echo "    cd ${TF_HOME:-$(pwd)} && ./setup-harness.sh --claude"
+      echo "    then here: tmux respawn-window -k"
       echo ""
       hint
     }
@@ -143,8 +143,8 @@ w_codex() {
     w_wait_cli codex || {
       echo ""
       echo "  codex not reachable. Fix:"
-      echo "    cd $TF_HOME && ./setup-harness.sh --codex"
-      echo "    then reopen: tmux respawn-window -t turboflow:2 -k"
+      echo "    cd ${TF_HOME:-$(pwd)} && ./setup-harness.sh --codex"
+      echo "    then here: tmux respawn-window -k"
       echo ""
       hint
     }
