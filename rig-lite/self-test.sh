@@ -1226,10 +1226,10 @@ if [ -f "$RGWSH" ]; then
   RGPR="$(mktemp -d)"; mkdir -p "$RGPR/.profile.d"
   printf '#!/bin/sh\n' > "$RGPR/.profile.d/node"; chmod +x "$RGPR/.profile.d/node"
   printf 'export PATH="$HOME/.profile.d:$PATH"\n' > "$RGPR/.profile"
-  RGPRR="$( HOME="$RGPR" PATH="/usr/bin:/bin" bash -c '. "$1"; w_env >/dev/null 2>&1; command -v node' _ "$RGWSH" 2>/dev/null )"
+  RGPRR="$( env -u TMUX HOME="$RGPR" PATH="/usr/bin:/bin" bash -c '. "$1"; w_env >/dev/null 2>&1; command -v node' _ "$RGWSH" 2>/dev/null )"
   [ "$RGPRR" = "$RGPR/.profile.d/node" ] \
-    && echo "\u2713 workspace: w_env .profile fallback surfaces node when nvm has nothing" \
-    || { echo "\u2717 workspace: .profile fallback broken (got: '$RGPRR')"; FAIL=1; }
+    && echo "✓ workspace: w_env .profile fallback surfaces node when nvm has nothing" \
+    || { echo "✗ workspace: .profile fallback broken (got: '$RGPRR')"; FAIL=1; }
   rm -rf "$RGPR"
   # retry succeeds: CLI appears after 3s
   RGRW="$(mktemp -d)"; mkdir -p "$RGRW/.nvm/versions/node/v20.0.0/bin"
@@ -1238,8 +1238,8 @@ if [ -f "$RGWSH" ]; then
   RGRWR="$( HOME="$RGRW" PATH="/usr/bin:/bin" bash -c '. "$1"; w_wait_cli claude && echo RETRY-CAUGHT' _ "$RGWSH" 2>/dev/null )"
   wait
   grep -q "RETRY-CAUGHT" <<<"$RGRWR" \
-    && echo "\u2713 workspace: w_wait_cli catches a CLI that appears after a delay" \
-    || { echo "\u2717 workspace: retry broken (got: '$RGRWR')"; FAIL=1; }
+    && echo "✓ workspace: w_wait_cli catches a CLI that appears after a delay" \
+    || { echo "✗ workspace: retry broken (got: '$RGRWR')"; FAIL=1; }
   rm -rf "$RGRW"
   # no CLI anywhere: the not-found message prints, and the hint is reachable
   RGWN4="$(mktemp -d)"; mkdir -p "$RGWN4/.nvm/versions/node/v10.0.0/bin"
