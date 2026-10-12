@@ -96,7 +96,8 @@ In the shell window (`Ctrl+B 4`), from any branch you or an agent built:
 bash rig-lite/self-test.sh
 
 # gate a branch (the CLI that WROTE the code names itself — a different family reviews):
-rig-lite/gate.sh --builder claude --base main     # claude wrote it → a non-Anthropic reviewer checks it
+rig-lite/gate.sh --builder claude --base main     # if claude wrote it → a non-Anthropic reviewer checks it
+rig-lite/gate.sh --builder glm --base main       # if claude-glm wrote it → claude reviews (cross-family)
 
 # gate a GitHub PR (verdict posted as a comment on the PR):
 rig-lite/gate.sh --pr 7 --builder codex           # codex wrote it → claude reviews
@@ -111,8 +112,8 @@ The gate exits `0` (approved) or `1` (revise — fix and re-run). **It never mer
 
 ```bash
 rig-lite/wt.sh my-feature        # isolated worktree for parallel work
-# ... build in window 1, review in window 0 ...
-rig-lite/gate.sh --builder claude --base main    # gate before the PR
+# ... build in window 1, ask window 0 (or 2) to read the diff ...
+rig-lite/gate.sh --builder <who-wrote-it> --base main  # gate before the PR
 # ... push, open the PR, gate it ...
 rig-lite/digest.sh               # fleet health: merge queue × verdicts × site liveness
 ```

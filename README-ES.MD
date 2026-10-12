@@ -109,8 +109,8 @@ El gate sale `0` (aprobado) o `1` (revise — corrige y vuelve a correr). **Nunc
 
 ```bash
 rig-lite/wt.sh mi-feature         # worktree aislado para trabajo paralelo
-# ... construye en ventana 1, revisa en ventana 0 ...
-rig-lite/gate.sh --builder claude --base main    # gatea antes del PR
+# ... construye en ventana 1, pide a ventana 0 (o 2) leer el diff ...
+rig-lite/gate.sh --builder <quien-lo-escribio> --base main  # gatea antes del PR
 # ... push, abre el PR, gatealo ...
 rig-lite/digest.sh                # salud de la flota: cola de merges × veredictos × liveness
 ```
