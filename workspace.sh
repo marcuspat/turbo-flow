@@ -70,7 +70,8 @@ w_env() { # make the installed CLIs reachable in a window that inherited NOTHING
     done
     [ -n "$RGNB" ] && export PATH="$RGNB:$PATH"
   fi
-  if ! command -v node >/dev/null 2>&1 && [ -f "$HOME/.profile" ]; then
+  if [[ "${W_PROFILE_DONE:-0}" != "1" ]] && ! command -v node >/dev/null 2>&1 && [ -f "$HOME/.profile" ]; then
+    export W_PROFILE_DONE=1
     RGPP="$( set +u; . "$HOME/.profile" </dev/null >/dev/null 2>&1; printf '%s' "$PATH" )"
     [ -n "$RGPP" ] && export PATH="$RGPP"
   fi
@@ -79,8 +80,12 @@ w_env() { # make the installed CLIs reachable in a window that inherited NOTHING
 
 w_wait_cli() { # wait up to 30s for a CLI to become findable (install may be running)
   [[ "${W_WAIT_SKIP:-0}" = "1" ]] && return 1   # test hook: skip the retry
+  if [[ "${W_ENV_DONE:-0}" != "1" ]]; then      # once per shell (caller may have run it)
+    w_env
+    export W_ENV_DONE=1
+  fi
   local cli="$1" i f
-  w_env  # once — not per retry
+  echo "  waiting up to 30s for $cli (install may still be running)…"
   for i in $(seq 1 30); do
     command -v "$cli" >/dev/null 2>&1 && return 0
     f="$(w_find "$cli" 2>/dev/null)" && { export PATH="$(dirname "$f"):$PATH"; return 0; }
