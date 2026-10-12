@@ -65,13 +65,13 @@ No Codespace? Fine — it's bash. Want the 30-second container tour anyway? Open
 
 ## Your first five minutes in the rig
 
-The boot puts you inside a 5-window tmux session. Here's what to do:
+In a Codespace (or after running `bash workspace.sh`), you're inside a 5-window tmux session. Here's what to do:
 
 ### 1. Log in (once per box — the only manual step)
 
 ```
 Ctrl+B 0    → jump to the claude window, type /login (browser OAuth)
-Ctrl+B 2    → jump to the codex window, type codex login (browser)
+Ctrl+B 4    → jump to the shell, type codex login (browser); then Ctrl+B 2
 ```
 
 After that, every window opens ready for work, forever on this box.
@@ -80,7 +80,7 @@ After that, every window opens ready for work, forever on this box.
 
 | Keys | What you see |
 |---|---|
-| `Ctrl+B 0` | **claude** — your Anthropic reviewer (ask it to read code, find bugs) |
+| `Ctrl+B 0` | **claude** — reviewer when window 1 is claude-glm; otherwise use codex (window 2) to review |
 | `Ctrl+B 1` | **builder** — claude-glm if wired, else claude with ruflo plugins loaded |
 | `Ctrl+B 2` | **codex** — your OpenAI lane (ruflo reachable via MCP) |
 | `Ctrl+B 3` | **tokens** — live burn across all three harnesses, always updating |
@@ -118,7 +118,7 @@ rig-lite/gate.sh --builder <who-wrote-it> --base main  # gate before the PR
 rig-lite/digest.sh               # fleet health: merge queue × verdicts × site liveness
 ```
 
-Detached and want back in? Just open a terminal — every new shell auto-attaches to the rig.
+Detached and want back in? In a Codespace, every new terminal auto-attaches. Locally: run `bash workspace.sh` again.
 
 ## Harnesses — installed by the boot, menu on demand
 

@@ -63,13 +63,13 @@ Sin Codespace no pasa nada — es bash. ¿Quieres el tour de 30 segundos en cont
 
 ## Tus primeros cinco minutos en el rig
 
-El arranque te deja dentro de una sesión tmux de 5 ventanas. Esto es lo que sigue:
+En un Codespace (o tras correr `bash workspace.sh`), estás dentro de una sesión tmux de 5 ventanas. Esto es lo que sigue:
 
 ### 1. Inicia sesión (una vez por máquina — el único paso manual)
 
 ```
 Ctrl+B 0    → salta a la ventana claude, escribe /login (OAuth en navegador)
-Ctrl+B 2    → salta a la ventana codex, escribe codex login (navegador)
+Ctrl+B 4    → salta al shell, escribe codex login (navegador); luego Ctrl+B 2
 ```
 
 Después de eso, cada ventana abre lista para trabajar, para siempre en esta máquina.
@@ -78,7 +78,7 @@ Después de eso, cada ventana abre lista para trabajar, para siempre en esta má
 
 | Teclas | Qué ves |
 |---|---|
-| `Ctrl+B 0` | **claude** — tu revisor Anthropic (pídele leer código, encontrar bugs) |
+| `Ctrl+B 0` | **claude** — tu revisor cuando la ventana 1 es claude-glm; si no, usa codex (ventana 2) para revisar |
 | `Ctrl+B 1` | **constructor** — claude-glm si está cableado, si no claude con ruflo cargado |
 | `Ctrl+B 2` | **codex** — tu carril OpenAI (ruflo accesible vía MCP) |
 | `Ctrl+B 3` | **tokens** — consumo en vivo de los tres harnesses, siempre actualizando |
@@ -116,7 +116,7 @@ rig-lite/gate.sh --builder <quien-lo-escribio> --base main  # gatea antes del PR
 rig-lite/digest.sh                # salud de la flota: cola de merges × veredictos × liveness
 ```
 
-¿Desconectado y quieres volver? Abre una terminal — cada shell nuevo se auto-conecta al rig.
+¿Desconectado y quieres volver? En un Codespace, cada terminal nuevo se auto-conecta. En local: `bash workspace.sh` de nuevo.
 
 ## A dónde se fue el entorno v4
 
