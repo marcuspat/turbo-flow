@@ -71,7 +71,7 @@ w_env() { # make the installed CLIs reachable in a window that inherited NOTHING
     [ -n "$RGNB" ] && export PATH="$RGNB:$PATH"
   fi
   if ! command -v node >/dev/null 2>&1 && [ -f "$HOME/.profile" ]; then
-    RGPP="$( set +u; . "$HOME/.profile" >/dev/null 2>&1; printf '%s' "$PATH" )"
+    RGPP="$( set +u; . "$HOME/.profile" </dev/null >/dev/null 2>&1; printf '%s' "$PATH" )"
     [ -n "$RGPP" ] && export PATH="$RGPP"
   fi
   return 0
