@@ -1226,7 +1226,7 @@ if [ -f "$RGWSH" ]; then
   RGWN4="$(mktemp -d)"; mkdir -p "$RGWN4/.nvm/versions/node/v10.0.0/bin"
   printf '#!/bin/sh\n' > "$RGWN4/.nvm/versions/node/v10.0.0/bin/node"; chmod +x "$RGWN4/.nvm/versions/node/v10.0.0/bin/node"
   RGWN4R="$( HOME="$RGWN4" PATH="/usr/bin:/bin" bash -c '. "$1"; hint() { echo HINT-REACHED; }; w_codex' _ "$RGWSH" 2>/dev/null )"
-  printf '%s' "$RGWN4R" | grep -q "codex not found" && printf '%s' "$RGWN4R" | grep -q "HINT-REACHED" \
+  printf '%s' "$RGWN4R" | grep -q "codex not reachable" && printf '%s' "$RGWN4R" | grep -q "HINT-REACHED" \
     && echo "✓ workspace: no-CLI case — guidance message, then the hint shell (not a dead pane)" \
     || { echo "✗ workspace: no-CLI fallback broken (got: '$RGWN4R')"; FAIL=1; }
   rm -rf "$RGWN2" "$RGWN3" "$RGWN4"
