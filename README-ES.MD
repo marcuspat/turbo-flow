@@ -61,6 +61,62 @@ bash /ruta/a/turbo-flow/rig-lite/self-test.sh   # demuestra el kit en tu máquin
 
 Sin Codespace no pasa nada — es bash. ¿Quieres el tour de 30 segundos en contenedor? Abre este repo en un Codespace; el `postCreate` corre el self-test.
 
+## Tus primeros cinco minutos en el rig
+
+El arranque te deja dentro de una sesión tmux de 5 ventanas. Esto es lo que sigue:
+
+### 1. Inicia sesión (una vez por máquina — el único paso manual)
+
+```
+Ctrl+B 0    → salta a la ventana claude, escribe /login (OAuth en navegador)
+Ctrl+B 2    → salta a la ventana codex, escribe codex login (navegador)
+```
+
+Después de eso, cada ventana abre lista para trabajar, para siempre en esta máquina.
+
+### 2. Mira alrededor
+
+| Teclas | Qué ves |
+|---|---|
+| `Ctrl+B 0` | **claude** — tu revisor Anthropic (pídele leer código, encontrar bugs) |
+| `Ctrl+B 1` | **constructor** — claude-glm si está cableado, si no claude con ruflo cargado |
+| `Ctrl+B 2` | **codex** — tu carril OpenAI (ruflo accesible vía MCP) |
+| `Ctrl+B 3` | **tokens** — consumo en vivo de los tres harnesses, siempre actualizando |
+| `Ctrl+B 4` | **shell** — bash libre para git, builds, lo que sea |
+| `Ctrl+B d` | desconéctate (vuelve cuando quieras — la sesión sobrevive) |
+
+### 3. Gatea tu primer cambio
+
+En la ventana shell (`Ctrl+B 4`), desde cualquier rama que tú o un agente construyeron:
+
+```bash
+# demuestra que el kit funciona:
+bash rig-lite/self-test.sh
+
+# gatea una rama (el CLI que ESCRIBIÓ el código se identifica — otra familia revisa):
+rig-lite/gate.sh --builder claude --base main     # claude lo escribió → un revisor no-Anthropic lo revisa
+
+# gatea un PR de GitHub (el veredicto se publica como comentario en el PR):
+rig-lite/gate.sh --pr 7 --builder codex           # codex lo escribió → claude revisa
+
+# gatea todos los PRs abiertos sin veredicto:
+rig-lite/gate.sh --sweep
+```
+
+El gate sale `0` (aprobado) o `1` (revise — corrige y vuelve a correr). **Nunca fusiona; eso lo haces tú.**
+
+### 4. Tu ciclo diario
+
+```bash
+rig-lite/wt.sh mi-feature         # worktree aislado para trabajo paralelo
+# ... construye en ventana 1, revisa en ventana 0 ...
+rig-lite/gate.sh --builder claude --base main    # gatea antes del PR
+# ... push, abre el PR, gatealo ...
+rig-lite/digest.sh                # salud de la flota: cola de merges × veredictos × liveness
+```
+
+¿Desconectado y quieres volver? Abre una terminal — cada shell nuevo se auto-conecta al rig.
+
 ## A dónde se fue el entorno v4
 
 Turbo Flow v4 empaquetaba y cableaba un entorno Claude Code + Ruflo. Ruflo creció su propio onboarding (`npx ruflo@latest init wizard`, marketplace de plugins, memoria y consola integradas), lo que jubiló la razón de ser de un repo envoltorio. La cadena de instalación v4 vive en los tags `v1.0.1 → v4.0`; la línea v5 es gobernanza-primero y agnóstica de orquestación.
