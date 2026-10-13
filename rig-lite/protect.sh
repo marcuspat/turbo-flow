@@ -24,10 +24,12 @@ set -euo pipefail
 
 DRY_RUN=0
 STATUS_ONLY=0
+REQUIRE_REVIEW=0
 REPO_PATH=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --require-review) REQUIRE_REVIEW=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --status)  STATUS_ONLY=1; shift ;;
     -C)        [[ $# -ge 2 ]] || { echo "protect: -C needs a value" >&2; exit 2; }; REPO_PATH="$2"; shift 2 ;;
@@ -75,19 +77,25 @@ except:
 fi
 
 # build the protection payload
-PAYLOAD='{
+# default: 0 required reviews (the gate-verdict check IS the enforcement —
+# works for solo-owner repos where GitHub won't let you approve your own PRs)
+# --require-review: 1 human approval (for teams with a second reviewer)
+RGREVIEWS=0
+[[ "${REQUIRE_REVIEW:-0}" = "1" ]] && RGREVIEWS=1
+PAYLOAD="$(printf '{
   "required_status_checks": {
     "strict": true,
     "contexts": ["gate-verdict"]
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {
-    "required_approving_review_count": 1
+    "required_approving_review_count": %d,
+    "dismiss_stale_reviews": true
   },
   "restrictions": null,
   "allow_force_pushes": false,
   "allow_deletions": false
-}'
+}' "$RGREVIEWS")"
 
 if [[ $DRY_RUN -eq 1 ]]; then
   echo "protect: DRY RUN — would apply:"
