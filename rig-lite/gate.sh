@@ -168,6 +168,7 @@ if [[ $PR -ne 0 ]]; then
   command -v gh >/dev/null 2>&1 || { echo "gate: --pr needs gh installed" >&2; exit 2; }
   # REST check (gh pr view breaks on the Projects(classic) GraphQL deprecation)
   gh api "repos/{owner}/{repo}/pulls/$PR" --jq .number >/dev/null 2>&1 || { echo "gate: PR #$PR not found in this repo" >&2; exit 2; }
+  GATE_SHA="$(gh api "repos/{owner}/{repo}/pulls/$PR" --jq .head.sha 2>/dev/null)" # captured BEFORE the diff — the status lands on THIS SHA even if new commits push during review
   DIFF="$(gh pr diff "$PR" 2>/dev/null)" || { echo "gate: gh pr diff #$PR failed" >&2; exit 2; }
   if [[ -z "$DIFF" ]]; then
     echo "gate: PR #$PR has an empty diff — nothing to gate"
