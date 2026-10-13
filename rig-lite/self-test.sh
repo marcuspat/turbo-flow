@@ -1524,14 +1524,17 @@ if [ -f "$RGPT" ]; then
     || { echo "✗ protect: gate-check.yml missing — protect.sh would block ALL merges"; FAIL=1; }
   # gate-check.yml: parses as YAML and checks for the verdict marker
   python3 -c "
-import yaml, sys
+import yaml
 with open('$KIT/../.github/workflows/gate-check.yml') as f:
     d = yaml.safe_load(f)
-assert 'gate-verdict' in d['name'].lower() or 'gate-verdict' in str(d), 'name missing'
-assert 'pull_request' in d[True]['on'] or 'pull_request' in d.get('on', {}), 'trigger missing'
+name = str(d.get('name', ''))
+assert 'gate-verdict' in name.lower(), 'name missing gate-verdict'
+on = d.get(True) or d.get('on') or {}
+assert 'pull_request' in on, 'pull_request trigger missing'
+assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
 " 2>/dev/null \
-    && echo "✓ protect: gate-check.yml parses and has the right trigger" \
-    || { echo "⚠ protect: gate-check.yml YAML parse skipped (pyyaml unavailable)"; }
+    && echo "✓ protect: gate-check.yml parses, has both triggers" \
+    || { python3 -c "import yaml" 2>/dev/null && { echo "✗ protect: gate-check.yml YAML assertion FAILED"; FAIL=1; } || echo "⚠ protect: gate-check.yml YAML parse skipped (pyyaml unavailable)"; }
   # constitution mentions protect.sh (the law points at the enforcement)
   grep -q "protect.sh" "$KIT/constitution.md" \
     && echo "✓ protect: constitution references protect.sh (Law 2 → enforcement)" \

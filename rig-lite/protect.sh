@@ -82,7 +82,7 @@ PAYLOAD='{
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {
-    "required_approving_review_count": 0
+    "required_approving_review_count": 1
   },
   "restrictions": null,
   "allow_force_pushes": false,
@@ -100,6 +100,10 @@ if [[ $DRY_RUN -eq 1 ]]; then
   exit 0
 fi
 
+echo "protect: WARNING — this REPLACES existing branch protection on $BRANCH."
+echo "  Any currently-required checks, review rules, or CODEOWNERS will be replaced."
+echo "  Existing required checks will be lost. Add them back alongside gate-verdict if needed."
+echo ""
 echo "protect: applying branch protection..."
 RESULT="$(gh api -X PUT "repos/$SLUG/branches/$BRANCH/protection" \
   --input - 2>&1 <<< "$PAYLOAD")" || {
@@ -112,6 +116,7 @@ echo ""
 echo "protect: ✓ $SLUG/$BRANCH is now protected:"
 echo "  • No direct pushes — PRs required"
 echo "  • gate-verdict must pass — no merge without gate APPROVED"
+  echo "  • 1 human review approval required — the merge is human-only"
 echo "  • Admins are subject to the same rules"
 echo "  • Force pushes and deletions blocked"
 echo ""
