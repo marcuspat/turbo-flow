@@ -110,6 +110,24 @@ post_comment() { # $1 = PR number, $2 = body
   fi
 }
 
+# set a commit status (the ACTUAL enforcement — branch protection reads this).
+# Ties the verdict to a specific SHA, set by the gate's own gh identity.
+# This is what makes "agents never merge" server-side enforced.
+set_commit_status() { # $1 = PR number, $2 = state (success/failure), $3 = description
+  local pr="$1" state="$2" desc="$3" sha slug err
+  command -v gh >/dev/null 2>&1 || return 0   # no gh = no status (comment is the fallback)
+  sha="$(gh pr view "$pr" --json headRefOid --jq .headRefOid 2>/dev/null)" || return 0
+  slug="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null)" || return 0
+  if err="$(gh api -X POST "repos/$slug/statuses/$sha" \
+    -f state="$state" \
+    -f context="gate-verdict" \
+    -f description="$desc" 2>&1 >/dev/null)"; then
+    echo "(commit status set: $state on ${sha:0:7})"
+  else
+    echo "WARN: commit status NOT set — gh said: $(printf '%s' "$err" | tail -2 | redact)" >&2
+  fi
+}
+
 # ── sweep mode: gate every open PR lacking a verdict comment ────────────────
 if [[ $SWEEP -eq 1 ]]; then
   command -v gh >/dev/null 2>&1 || { echo "gate: --sweep needs gh installed" >&2; exit 2; }
@@ -372,6 +390,7 @@ if [[ "$LAST_LINE" == "VERDICT: APPROVED" ]]; then
   log_verdict "APPROVED"
   if [[ $PR -ne 0 ]]; then
     post_comment "$PR" "$(pr_comment_body APPROVED)"
+    set_commit_status "$PR" "success" "Gate APPROVED — merge allowed (by a human)"
   fi
   exit 0
 else
@@ -380,6 +399,7 @@ else
   log_verdict "REVISE"
   if [[ $PR -ne 0 ]]; then
     post_comment "$PR" "$(pr_comment_body REVISE)"
+    set_commit_status "$PR" "failure" "Gate REVISE — fix findings and re-gate"
   fi
   exit 1
 fi

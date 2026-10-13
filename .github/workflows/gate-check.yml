@@ -1,59 +1,60 @@
 name: gate-verdict
 
 # Turns the gate's verdict into a required status check.
-# With branch protection requiring this check, GitHub itself blocks
-# merges until the gate has posted APPROVED — no agent can bypass it.
+# gate.sh sets a commit status directly on the PR's head SHA (context: gate-verdict).
+# This workflow is a fallback that verifies the status exists and is current.
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
 
 permissions:
   pull-requests: read
   contents: read
+  statuses: read
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || contains(github.event.comment.body, 'VERDICT')
     steps:
-      - name: Check for gate APPROVED verdict
+      - name: Check gate-verdict commit status
         uses: actions/github-script@v7
         with:
           script: |
-            // Fetch ALL PR comments, find gate verdicts, take the LATEST
-            const comments = await github.rest.issues.listComments({
+            // Get the PR's head SHA
+            const pr = context.payload.pull_request || 
+              (await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+              })).data;
+
+            const sha = pr.head.sha;
+            console.log(`Checking gate-verdict status for SHA: ${sha}`);
+
+            // Check commit statuses (the gate sets these directly)
+            const statuses = await github.rest.repos.listCommitStatusesForRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
-              per_page: 100,
+              ref: sha,
             });
 
-            const verdicts = [];
-            for (const c of comments.data) {
-              // The gate's verdict line: "VERDICT: APPROVED" or "VERDICT· REVISE"
-              const m = c.body.match(/VERDICT[·:]?\s*(APPROVED|REVISE)/);
-              if (m) {
-                verdicts.push({
-                  verdict: m[1],
-                  author: c.user.login,
-                  createdAt: c.created_at,
-                  body: c.body.substring(0, 100),
-                });
-              }
-            }
+            const gateStatus = statuses.data.find(s => s.context === 'gate-verdict');
 
-            if (verdicts.length === 0) {
-              core.setFailed('No gate verdict found — run rig-lite/gate.sh --pr ' + context.issue.number + ' and merge is blocked until APPROVED.');
+            if (!gateStatus) {
+              core.setFailed('No gate-verdict commit status found — run rig-lite/gate.sh --pr ' + pr.number + '. Merge blocked until the gate sets APPROVED.');
               return;
             }
 
-            const latest = verdicts[verdicts.length - 1];
-            console.log(`Latest verdict: ${latest.verdict} by @${latest.author} at ${latest.createdAt}`);
-            console.log(`Total gate verdicts on this PR: ${verdicts.length}`);
+            console.log(`Gate status: ${gateStatus.state} (set by @${gateStatus.creator.login})`);
+            console.log(`Description: ${gateStatus.description}`);
 
-            if (latest.verdict !== 'APPROVED') {
-              core.setFailed(`Gate verdict: ${latest.verdict} — fix the findings and re-gate. Merge is blocked until APPROVED.`);
+            if (gateStatus.state !== 'success') {
+              core.setFailed(`Gate verdict: ${gateStatus.state} — fix the findings and re-gate. Merge blocked until APPROVED.`);
               return;
             }
 
-            console.log('✓ Gate APPROVED — merge is allowed (by a human).');
+            console.log('✓ Gate APPROVED on this commit SHA — merge is allowed (by a human).');
