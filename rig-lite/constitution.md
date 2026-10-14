@@ -3,7 +3,8 @@
 > Fill in the brackets, drop this where your agents read instructions
 > (CLAUDE.md, AGENTS.md, system prompt), and hold the line. A
 > constitution is only real if it is enforced — pair it with
-> `gate.sh` so the laws have teeth.
+> `gate.sh` so the laws have teeth, and `protect.sh` so Law 2 is
+> enforced by GitHub, not by agent restraint.
 
 ## The Laws
 
@@ -12,6 +13,11 @@
    Same-family self-review does not count as review.
 2. **Agents never merge.** No agent force-pushes, merges, or pushes to
    the mainline. Humans hold the merge button. Always.
+   **Enforced by `protect.sh`** — which turns this law into GitHub
+   branch protection: the `gate-verdict` status check must pass before
+   any merge, and only the gate's APPROVED verdict makes it pass. An
+   agent with merge-capable credentials is still blocked, because
+   GitHub's servers refuse the merge, not the agent's good behavior.
 3. **Parallel writers get isolated worktrees.** Two agents never write
    the same checkout. One writer per worktree, one lane per branch.
 4. **Secrets never touch git.** Credentials live in the OS keychain or

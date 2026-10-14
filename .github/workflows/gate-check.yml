@@ -1,0 +1,60 @@
+name: gate-verdict
+
+# Turns the gate's verdict into a required status check.
+# gate.sh sets a commit status directly on the PR's head SHA (context: gate-verdict).
+# This workflow is a fallback that verifies the status exists and is current.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  pull-requests: read
+  contents: read
+  statuses: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || contains(github.event.comment.body, 'VERDICT')
+    steps:
+      - name: Check gate-verdict commit status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get the PR's head SHA
+            const pr = context.payload.pull_request || 
+              (await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+              })).data;
+
+            const sha = pr.head.sha;
+            console.log(`Checking gate-verdict status for SHA: ${sha}`);
+
+            // Check commit statuses (the gate sets these directly)
+            const statuses = await github.rest.repos.listCommitStatusesForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: sha,
+            });
+
+            const gateStatus = statuses.data.find(s => s.context === 'gate-verdict');
+
+            if (!gateStatus) {
+              core.setFailed('No gate-verdict commit status found — run rig-lite/gate.sh --pr ' + pr.number + '. Merge blocked until the gate sets APPROVED.');
+              return;
+            }
+
+            console.log(`Gate status: ${gateStatus.state} (set by @${gateStatus.creator.login})`);
+            console.log(`Description: ${gateStatus.description}`);
+
+            if (gateStatus.state !== 'success') {
+              core.setFailed(`Gate verdict: ${gateStatus.state} — fix the findings and re-gate. Merge blocked until APPROVED.`);
+              return;
+            }
+
+            console.log('✓ Gate APPROVED on this commit SHA — merge is allowed (by a human).');
