@@ -124,7 +124,7 @@ if [[ -f "$KIT/tf" ]]; then
       echo "init-repo: $BIN_DIR/tf already exists (not ours) — left untouched" >&2
     else
       [[ -L "$BIN_DIR/tf" ]] && rm -f "$BIN_DIR/tf"  # remove symlink, don't write through it
-      if printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\nexec %q "\$@"\n' "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
+      if printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\nexec %q -- "$@"\n' "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
         echo "init-repo: tf wrapper installed to $BIN_DIR/tf (points at $KIT/tf)"
       else
         echo "init-repo: tf not installed — use $KIT/tf directly" >&2
