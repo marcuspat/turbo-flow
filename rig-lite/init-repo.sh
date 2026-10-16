@@ -118,12 +118,17 @@ echo "Fill the cheat-sheet lines in AGENTS.md whenever convenient — better che
 if [[ -f "$KIT/tf" ]]; then
   BIN_DIR="$HOME/.local/bin"
   if mkdir -p "$BIN_DIR" 2>/dev/null; then
-    if [[ -e "$BIN_DIR/tf" && ! -L "$BIN_DIR/tf" ]] && ! grep -q 'exec .*"/tf" "\$@"' "$BIN_DIR/tf" 2>/dev/null; then
+    # ownership check: look for our marker comment (fixed-string grep, reliable)
+    # symlinks: rm first (writing through a symlink would clobber the target)
+    if [[ -f "$BIN_DIR/tf" && ! -L "$BIN_DIR/tf" ]] && ! grep -qF '# rig-lite tf wrapper' "$BIN_DIR/tf" 2>/dev/null; then
       echo "init-repo: $BIN_DIR/tf already exists (not ours) — left untouched" >&2
-    elif printf '#!/usr/bin/env bash\nexec %q "\$@"\n' "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
-      echo "init-repo: tf wrapper installed to $BIN_DIR/tf (points at $KIT/tf)"
     else
-      echo "init-repo: tf not installed — use $KIT/tf directly" >&2
+      [[ -L "$BIN_DIR/tf" ]] && rm -f "$BIN_DIR/tf"  # remove symlink, don't write through it
+      if printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\nexec %q "\$@"\n' "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
+        echo "init-repo: tf wrapper installed to $BIN_DIR/tf (points at $KIT/tf)"
+      else
+        echo "init-repo: tf not installed — use $KIT/tf directly" >&2
+      fi
     fi
   else
     echo "init-repo: cannot create $BIN_DIR — use $KIT/tf directly" >&2
