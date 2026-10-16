@@ -70,8 +70,8 @@ cmd_status() {
   if [[ -f "$logf" ]]; then
     local t a r
     t=$(wc -l < "$logf" | tr -d ' ')
-    a=$(grep -c '"APPROVED"' "$logf" 2>/dev/null || echo 0)
-    r=$(grep -c '"REVISE"' "$logf" 2>/dev/null || echo 0)
+    a=$(grep -c '"APPROVED"' "$logf" 2>/dev/null); a="${a:-0}"
+    r=$(grep -c '"REVISE"' "$logf" 2>/dev/null); r="${r:-0}"
     printf '\033[1mgate:\033[0m %s verdicts / %s approved / %s revised\n' "$t" "$a" "$r"
   fi
   if command -v tmux >/dev/null 2>&1 && tmux has-session -t turboflow 2>/dev/null; then

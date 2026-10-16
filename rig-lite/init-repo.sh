@@ -118,9 +118,9 @@ echo "Fill the cheat-sheet lines in AGENTS.md whenever convenient — better che
 if [[ -f "$KIT/tf" ]]; then
   BIN_DIR="$HOME/.local/bin"
   if mkdir -p "$BIN_DIR" 2>/dev/null; then
-    if [[ -e "$BIN_DIR/tf" && ! -L "$BIN_DIR/tf" ]] && ! grep -q "rig-lite/tf" "$BIN_DIR/tf" 2>/dev/null; then
+    if [[ -e "$BIN_DIR/tf" && ! -L "$BIN_DIR/tf" ]] && ! grep -q 'exec .*"/tf" "\$@"' "$BIN_DIR/tf" 2>/dev/null; then
       echo "init-repo: $BIN_DIR/tf already exists (not ours) — left untouched" >&2
-    elif printf '#!/usr/bin/env bash\nexec "%s/tf" "$@"\n' "$KIT" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
+    elif printf '#!/usr/bin/env bash\nexec %q "\$@"\n' "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
       echo "init-repo: tf wrapper installed to $BIN_DIR/tf (points at $KIT/tf)"
     else
       echo "init-repo: tf not installed — use $KIT/tf directly" >&2
