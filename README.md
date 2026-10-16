@@ -19,11 +19,19 @@ Turbo Flow bundles no agent and no orchestrator. It names harnesses by **role**,
 
 **ZCode builds · Claude Code reviews (Ruflo mod installed when you want orchestration) · Codex backs up the review.** That loop runs in production on this repo today: every PR since rig-lite landed (v5.0) was built by one family, reviewed by another, merged by a human.
 
-## 🎬 The demo — recorded in a fresh Codespace, nothing preinstalled
+## 🎬 The demos — the boot and the daily driver
 
-![rig-lite demo](demo/rig-lite-demo.gif)
+### The boot (recorded in a fresh Codespace)
 
-A clean Codespace boots this repo's devcontainer and the kit proves itself in-container — fail-closed self-test suite and a live gate run (reviewer CLI stubbed; no API keys on the recording box). Not a mockup. The recording predates the lean pivot (it shows the repo's earlier container); the current container's `postCreate` runs the self-test directly, and the recorder now walks that flow. Reproducible via [`demo/record-rig-lite-demo.sh`](demo/record-rig-lite-demo.sh).
+![harness boot demo](demo/harness-boot-demo.gif)
+
+A fresh Codespace from `main` (unauthenticated): the first shell triggers the boot (no menu), **Claude Code + Codex + Ruflo install visibly**, then tmux fires with all 5 windows — each landing **inside** its harness.
+
+### The daily driver — `tf` (one command for everything)
+
+![tf demo](demo/tf-demo.gif)
+
+Recorded on the same Codespace: `tf help` shows every subcommand, `tf status` gives the at-a-glance view (repo, gate verdict counts, tree health), `tf gate` fails closed without `--builder`, `tf tokens` shows the live dashboard, and `tf test` runs the full suite. The `tf` command is installed automatically in Codespaces and by `init-repo.sh` anywhere else.
 
 ## 🎬 The boot demo — no menu, just the rig
 
