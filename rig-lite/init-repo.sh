@@ -124,12 +124,15 @@ if [[ -f "$KIT/tf" ]]; then
       echo "init-repo: $BIN_DIR/tf already exists (not ours) — left untouched" >&2
     else
       # only remove symlinks that point at OUR kit — never delete a user's own link
+      # (same rule as the wrapper file check: a foreign target that exists is left alone)
       if [[ -L "$BIN_DIR/tf" ]]; then
         RGTARGET="$(readlink "$BIN_DIR/tf" 2>/dev/null)"
-        case "$RGTARGET" in
-          */rig-lite/tf) rm -f "$BIN_DIR/tf" ;;  # ours — safe to replace
-          *) echo "init-repo: $BIN_DIR/tf is a symlink to $RGTARGET (not ours) — left untouched" >&2; RGSKIP=1 ;;
-        esac
+        if [[ "$RGTARGET" == */rig-lite/tf && ( "$RGTARGET" == "$KIT/tf" || ! -f "$RGTARGET" ) ]]; then
+          rm -f "$BIN_DIR/tf"  # ours or dead — safe to replace
+        else
+          echo "init-repo: $BIN_DIR/tf is a symlink to $RGTARGET (not ours or still live) — left untouched" >&2
+          RGSKIP=1
+        fi
       fi
       # don't re-point if the existing wrapper targets a DIFFERENT kit that still exists
       if [[ "${RGSKIP:-0}" != "1" && -f "$BIN_DIR/tf" ]]; then
