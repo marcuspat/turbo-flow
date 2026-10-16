@@ -1509,6 +1509,41 @@ else
   echo "⚠ setup-harness checks SKIPPED (script not present — kit running outside its home repo)"
 fi
 
+# ── tf CLI contract ─────────────────────────────────────────────────────────
+RGTF="$KIT/tf"
+if [ -f "$RGTF" ]; then
+  bash -n "$RGTF" 2>/dev/null && echo "✓ tf: bash -n clean" || { echo "✗ tf: syntax"; FAIL=1; }
+  RGTFO="$("$RGTF" help 2>&1)"; RC=$?
+  t "tf: help exits 0" 0 $RC
+  grep -q "gate" <<<"$RGTFO" && grep -q "status" <<<"$RGTFO" && grep -q "tokens" <<<"$RGTFO" \
+    && echo "✓ tf: help documents the key subcommands" \
+    || { echo "✗ tf: help missing subcommands"; FAIL=1; }
+  "$RGTF" --bogus >/dev/null 2>&1; RC=$?
+  [ "$RC" -ne 0 ] && echo "✓ tf: unknown command fails closed" || { echo "✗ tf: unknown accepted"; FAIL=1; }
+  RGTC="$("$RGTF" completion bash 2>&1)"
+  grep -q "complete -F _tf tf" <<<"$RGTC" \
+    && echo "✓ tf: bash completion emitted" \
+    || { echo "✗ tf: completion broken"; FAIL=1; }
+  RGTFS="$("$RGTF" status 2>&1)"
+  grep -q "rig:" <<<"$RGTFS" && grep -q "tree:" <<<"$RGTFS" \
+    && echo "✓ tf: status shows rig + tree state" \
+    || { echo "✗ tf: status incomplete"; FAIL=1; }
+  # wrapper: init-repo writes a wrapper that exec's the kit tf
+  RGTW="$(mktemp -d)"; mkdir -p "$RGTW/bin"
+  KIT="$KIT" BIN_DIR="$RGTW/bin" bash -c 'printf "#!/usr/bin/env bash\n# rig-lite tf wrapper\nexec %q \"\$@\"\n" "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"'
+  if [ -x "$RGTW/bin/tf" ] && grep -q "rig-lite tf wrapper" "$RGTW/bin/tf"; then
+    RGTWR="$(TF_SELF="$KIT" "$RGTW/bin/tf" help 2>&1 | head -1)"
+    grep -q "one command" <<<"$RGTWR" \
+      && echo "✓ tf: wrapper delegates to the kit correctly" \
+      || { echo "✗ tf: wrapper delegation broken (got: '$RGTWR')"; FAIL=1; }
+  else
+    echo "✗ tf: wrapper not created"; FAIL=1
+  fi
+  rm -rf "$RGTW"
+else
+  echo "⚠ tf CLI checks SKIPPED (script not present)"
+fi
+
 # ── protect.sh contract (Law 2 enforcement) ─────────────────────────────────
 RGPT="$KIT/protect.sh"
 if [ -f "$RGPT" ]; then

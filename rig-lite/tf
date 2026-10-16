@@ -11,13 +11,29 @@ die()  { printf '\033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 
 detect_builder() {
   [[ -n "${TF_BUILDER:-}" ]] && { printf '%s' "$TF_BUILDER"; return 0; }
-  local a
-  a="$(git log -1 --format='%ae' 2>/dev/null)" || return 1
-  case "$a" in
-    *@anthropic.com|*@claude.ai|*noreply.claude*) printf 'claude'; return 0 ;;
-    *@openai.com|*codex@*|*@codex.ai)     printf 'codex';  return 0 ;;
-    *@z.ai|*@zai.com|*@glm.*)             printf 'glm';    return 0 ;;
-  esac
+  # scan ALL commit authors + Co-Authored-By trailers in base..HEAD.
+  # If MORE THAN ONE family appears, refuse (a mixed branch can't be auto-attributed).
+  local families="" a
+  while IFS= read -r a; do
+    case "$a" in
+      *@anthropic.com|*@claude.ai|*noreply.claude*) echo "claude" >> /tmp/.tf_fam ;;
+      *@openai.com|*codex@*|*@codex.ai)     echo "codex"  >> /tmp/.tf_fam ;;
+      *@z.ai|*@zai.com|*@glm.*)             echo "glm"    >> /tmp/.tf_fam ;;
+    esac
+  done < <(git log --format='%ae%n%(trailers:key=Co-Authored-By,valueonly,separator=%x00)' --all -20 2>/dev/null)
+  if [[ -f /tmp/.tf_fam ]]; then
+    families="$(sort -u /tmp/.tf_fam | tr '\n' ' ')"
+    rm -f /tmp/.tf_fam
+    local count
+    count=$(printf '%s' "$families" | wc -w | tr -d ' ')
+    if [[ "$count" -eq 1 ]]; then
+      printf '%s' "$(printf '%s' "$families" | tr -d ' ')"
+      return 0
+    elif [[ "$count" -gt 1 ]]; then
+      warn "mixed builders on this branch: $families— use --builder explicitly"
+      return 1
+    fi
+  fi
   return 1
 }
 
