@@ -1524,7 +1524,7 @@ if [ -f "$RGTF" ]; then
   grep -q "complete -F _tf tf" <<<"$RGTC" \
     && echo "✓ tf: bash completion emitted" \
     || { echo "✗ tf: completion broken"; FAIL=1; }
-  RGTFS="$("$RGTF" status 2>&1)"
+  RGTFS="$(cd "$KIT/.." && "$RGTF" status 2>&1)"
   grep -q "rig:" <<<"$RGTFS" && grep -q "tree:" <<<"$RGTFS" \
     && echo "✓ tf: status shows rig + tree state" \
     || { echo "✗ tf: status incomplete"; FAIL=1; }

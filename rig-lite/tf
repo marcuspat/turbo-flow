@@ -21,12 +21,17 @@ cmd_gate() {
     esac
   done
   if [[ -z "$b" ]]; then
-    # The builder names itself per change — via --builder only.
-    # No auto-detect (fragile), no TF_BUILDER env var (stale values weaken Law 1:
-    # a profile-inherited value from a different session can mislabel the family).
     warn "builder required: tf gate --builder <cli>"
     warn "known families: claude, codex, glm/zcode/zai, gemini, grok, xai"
     return 1
+  fi
+  # default to branch mode (--base main) when no mode flag is given
+  local has_mode=0
+  for a in "${args[@]}"; do
+    case "$a" in --pr*|--base*|--sweep*) has_mode=1 ;; esac
+  done
+  if [[ $has_mode -eq 0 ]]; then
+    args+=(--base main)
   fi
   exec bash "$TF_SELF/gate.sh" --builder "$b" ${args[@]+"${args[@]}"}
 }
@@ -91,7 +96,7 @@ cmd_completion() {
 cmd_help() {
   echo "tf — one command for the rig-lite kit"
   echo ""
-  echo "  tf gate [--pr N] [--builder <cli>]   gate a PR or branch"
+  echo "  tf gate --builder <cli>             gate the current branch (vs main)"
   echo "  tf wt <name>                         worktree"
   echo "  tf test                              self-test"
   echo "  tf digest                            fleet health"
