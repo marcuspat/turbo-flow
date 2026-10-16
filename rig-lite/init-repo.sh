@@ -103,10 +103,22 @@ if [[ -n "$(git config core.hooksPath 2>/dev/null)" ]]; then
 fi
 
 echo
-echo "Done. From now on: build on branches, gate with:"
-echo "  $KIT/gate.sh --builder <cli> --base main   # reviewer ≠ builder's family"
+echo "Done. From now on, use tf (one command for everything):"
+echo "  tf gate          # gate the current branch (builder auto-detected)"
+echo "  tf status        # everything at a glance"
+echo "  tf test          # self-test"
 if [[ -n "$CREATED" ]]; then
   echo "Commit the onboarding files (uncommitted, the constitution pointer dead-ends in every other clone):"
   echo "  git add$CREATED"
 fi
 echo "Fill the cheat-sheet lines in AGENTS.md whenever convenient — better cheat-sheet, better agents."
+
+# 4. install the tf CLI to ~/.local/bin (optional — never fails the init)
+if [[ -f "$KIT/tf" ]]; then
+  BIN_DIR="$HOME/.local/bin"
+  if mkdir -p "$BIN_DIR" 2>/dev/null && cp "$KIT/tf" "$BIN_DIR/tf" 2>/dev/null && chmod +x "$BIN_DIR/tf" 2>/dev/null; then
+    echo "init-repo: tf installed to $BIN_DIR/tf"
+  else
+    echo "init-repo: tf not installed (use $KIT/tf directly)" >&2
+  fi
+fi
