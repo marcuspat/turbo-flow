@@ -12,10 +12,8 @@
 //   'approved'     gate-verdict is success; nothing needed re-running
 //   'rerun'        re-ran the PR's own pull_request run(s)
 //   'timeout'      a PR run never completed inside waitMs (fails the job, says how to finish by hand)
-//   'ambiguous'    fork runs match but can't be pinned to this PR alone — >1 fork run at this SHA
-//                  (another PR, open or since closed, fired here too) or >1 open PR on this head
-//                  (fails the job, lists the manual reruns)
-//   'unattributed' stale run(s) at this SHA belong to no PR we can name (fails the job, lists the manual reruns)
+//   'unattributed' stale/in-flight run(s) at this SHA carry no PR link (fork PRs) — fails the
+//                  job and lists the manual reruns; never re-runs on a guess
 module.exports = async function reconcile({ github, context, core, sleep, waitMs = 120000, pollMs = 10000 }) {
   if (context.eventName !== 'issue_comment') {
     throw new Error(`gate-check.js reconciles the gate's verdict comment; it was wired to a ${context.eventName} event`);
@@ -52,38 +50,21 @@ module.exports = async function reconcile({ github, context, core, sleep, waitMs
   // which fired seconds after the push, before the gate, and failed. Re-run that one.
   //
   // Checks are keyed by SHA and two PRs can share a head SHA (one branch, two bases),
-  // so a SHA-only lookup can pick the other PR's run. Attribute runs to THIS PR through
-  // the run's own pull_requests list, and walk every page.
+  // so a SHA-only lookup can pick the other PR's run. The ONLY evidence tying a run to a
+  // PR is the run's own pull_requests list; attribute by that and walk every page.
   const all = await github.paginate(github.rest.actions.listWorkflowRuns, {
     ...repo, workflow_id: 'gate-check.yml', event: 'pull_request', head_sha: sha, per_page: 100,
   });
-  const listed = r => (r.pull_requests || []).some(p => p.number === pr.number);
-  let mine = all.filter(listed);
-
-  // GitHub leaves pull_requests EMPTY on fork-PR runs — forks are the normal contribution
-  // path and must not be left red. Branch + head repository is all such a run carries,
-  // and that cannot separate one fork branch opened against two bases. Every PR on a
-  // head fires its own run, so more than one fork-matched run at this SHA means more
-  // than one PR (open, or since closed) owns runs here and nothing on a run says which;
-  // more than one open PR on this head means the same. Either way: stop, don't guess.
-  const forkMatch = r => (r.pull_requests || []).length === 0
-    && r.head_branch === pr.head.ref
-    && !!pr.head.repo && r.head_repository?.full_name === pr.head.repo.full_name;
-  const forkRuns = all.filter(forkMatch);
-  if (forkRuns.length) {
-    const open = await github.paginate(github.rest.pulls.list, { ...repo, state: 'open', head: pr.head.label, per_page: 100 });
-    if (forkRuns.length > 1 || open.length > 1) {
-      core.setFailed(`Fork runs at this SHA can't be attributed to PR #${pr.number} alone (${forkRuns.length} fork-triggered run(s) here, ${open.length} open PR(s) on head ${pr.head.label}) — finish by hand: ${forkRuns.map(r => `gh run rerun ${r.id}`).join(' ; ')}`);
-      return 'ambiguous';
-    }
-    mine = mine.concat(forkRuns);
-  }
+  const mine = all.filter(r => (r.pull_requests || []).some(p => p.number === pr.number));
 
   if (mine.length === 0) {
-    // Stale runs here that belong to no PR we can name: don't guess, don't go green.
-    const stray = all.filter(r => (r.pull_requests || []).length === 0 && r.status === 'completed' && r.conclusion !== 'success');
+    // GitHub attaches NO pull_requests to fork-PR runs, and nothing else on a run proves
+    // which PR fired it (branch + repo can't separate one fork branch opened against two
+    // bases, or a since-closed PR's run from a live one). So: never re-run on a guess.
+    // Any run here that isn't already green is handed to the human with the exact command.
+    const stray = all.filter(r => (r.pull_requests || []).length === 0 && !(r.status === 'completed' && r.conclusion === 'success'));
     if (stray.length) {
-      core.setFailed(`Could not attribute the stale check run(s) at this SHA to PR #${pr.number} — finish by hand: ${stray.map(r => `gh run rerun ${r.id}`).join(' ; ')}`);
+      core.setFailed(`GitHub does not link fork-PR runs to their PR, so the check run(s) at this SHA can't be attributed to PR #${pr.number} automatically. Re-run from the PR's Checks tab ("Re-run failed jobs") or: ${stray.map(r => `gh run rerun ${r.id}`).join(' ; ')}`);
       return 'unattributed';
     }
     core.info(`No pull_request run attributable to PR #${pr.number} at this SHA — nothing to re-run.`);

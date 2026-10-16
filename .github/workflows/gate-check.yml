@@ -18,6 +18,10 @@ name: gate-verdict
 #             PR's verify run (waiting first if it's still in flight), which now finds the
 #             status. That re-run is a pull_request event and posts no comment, so it
 #             cannot re-trigger this path (no loop).
+#             Known limit: GitHub attaches no PR link to fork-PR runs, and nothing else on
+#             a run proves which PR fired it — so for forks this job fails closed and
+#             prints the exact re-run (one click: "Re-run failed jobs" on the PR's Checks
+#             tab). Same-repo PRs heal hands-free.
 #
 # The reconcile logic lives in .github/scripts/gate-check.js so rig-lite/self-test.sh
 # can run it under node with a mocked GitHub — the race and attribution cases are there.

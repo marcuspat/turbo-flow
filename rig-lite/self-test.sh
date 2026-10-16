@@ -1637,8 +1637,11 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
   if grep -qE '^[[:space:]]*actions:[[:space:]]*write' "$RGGC" && grep -q 'actions/checkout' "$RGGC" \
      && grep -q "require('./.github/scripts/gate-check.js')" "$RGGC" \
      && [ -f "$RGGCJS" ] && grep -q 'reRunWorkflow' "$RGGCJS" && grep -q 'head_sha: sha' "$RGGCJS" && grep -q 'getWorkflowRun' "$RGGCJS" \
-     && grep -q 'github.paginate' "$RGGCJS" && grep -q 'pull_requests' "$RGGCJS" && grep -q 'head_branch' "$RGGCJS" && grep -q 'pulls.list' "$RGGCJS"; then
-    echo "✓ protect: gate-check.yml wires actions: write + checkout + gate-check.js (runs attributed to THIS PR via pull_requests; fork fallback by branch+repo, disambiguated via pulls.list; paginated; waits on in-flight runs)"
+     && grep -q 'github.paginate' "$RGGCJS" && grep -q 'pull_requests' "$RGGCJS" \
+     && ! grep -q 'pulls.list' "$RGGCJS" && ! grep -q 'head_branch' "$RGGCJS"; then
+    # the two negatives lock a decision: five gate rounds showed no fork heuristic (branch+repo,
+    # open-PR counts) is provable from GitHub's data — unlinked runs fail closed instead.
+    echo "✓ protect: gate-check.yml wires actions: write + checkout + gate-check.js (runs attributed ONLY via pull_requests, no fork heuristics; paginated; waits on in-flight runs; unlinked runs fail closed)"
   else
     echo "✗ protect: gate-check wiring broken (PR check would stay red after APPROVED)"; FAIL=1
   fi
@@ -1661,8 +1664,8 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
     node - "$RGGCABS" <<'JS' || FAIL=1
 const reconcile = require(process.argv[2]);
 let fails = 0;
-function mk({ event = 'issue_comment', isPr = true, status, runs = [], getSeq = [], headRepo = 'o/r', openPRs }) {
-  const calls = { rerun: [], failed: [], list: 0 };
+function mk({ event = 'issue_comment', isPr = true, status, runs = [], getSeq = [], headRepo = 'o/r' }) {
+  const calls = { rerun: [], failed: [] };
   const core = { info() {}, setFailed(m) { calls.failed.push(m); } };
   const owner = headRepo ? headRepo.split('/')[0] : 'gone';
   const prObj = { number: 7, head: { sha: 'abc', ref: 'feat', label: `${owner}:feat`, repo: headRepo ? { full_name: headRepo } : null } };
@@ -1671,10 +1674,9 @@ function mk({ event = 'issue_comment', isPr = true, status, runs = [], getSeq = 
     payload: event === 'pull_request' ? { pull_request: prObj } : { issue: isPr ? { pull_request: {} } : {} },
   };
   const github = { rest: {
-    pulls: {
-      get: async () => ({ data: prObj }),
-      list: async (a) => { calls.list++; if (a.head !== prObj.head.label || a.state !== 'open') throw new Error('open-PR lookup not pinned to this head label'); return { data: openPRs || [prObj] }; },
-    },
+    // pulls.list deliberately absent: fork attribution by open-PR lookup was removed —
+    // if reconcile ever calls it again, this mock throws and the scenarios go red.
+    pulls: { get: async () => ({ data: prObj }) },
     repos: { listCommitStatusesForRef: async () => ({ data: status ? [{ context: 'gate-verdict', state: status, creator: { login: 'bot' }, description: 'd' }] : [] }) },
     actions: {
       listWorkflowRuns: async (a) => { if (a.head_sha !== 'abc' || a.event !== 'pull_request') throw new Error('run lookup not pinned to the PR head SHA / pull_request'); return { data: { workflow_runs: runs } }; },
@@ -1692,8 +1694,8 @@ async function t(name, cfg, want) {
   catch (e) { got = 'THREW: ' + e.message; }
   const wantIds = JSON.stringify(want.rerun || []), gotIds = JSON.stringify(m.calls.rerun);
   const retOk = want.throws ? String(got).startsWith('THREW: ') : got === want.ret;
-  const ok = retOk && gotIds === wantIds && (m.calls.failed.length > 0) === !!want.failed && (!want.noList || m.calls.list === 0);
-  console.log((ok ? '✓' : '✗') + ' gate-check.js: ' + name + (ok ? '' : ` (got ${got}, rerun=${gotIds} want ${wantIds}, failed=${m.calls.failed.length}, pulls.list calls=${m.calls.list})`));
+  const ok = retOk && gotIds === wantIds && (m.calls.failed.length > 0) === !!want.failed;
+  console.log((ok ? '✓' : '✗') + ' gate-check.js: ' + name + (ok ? '' : ` (got ${got}, rerun=${gotIds} want ${wantIds}, failed=${m.calls.failed.length})`));
   if (!ok) fails++;
 }
 const mine = [{ number: 7 }], theirs = [{ number: 9 }], here = { full_name: 'o/r' }, fork = { full_name: 'someone/r' };
@@ -1713,23 +1715,23 @@ const forkRedClosedPR = { id: 57, status: 'completed', conclusion: 'failure', pu
   await t('verdict comment on a plain issue → skipped', { isPr: false, status: 'success' }, { ret: 'skipped' });
   await t('comment + no status yet → fails (not gated), never re-runs', { runs: [red] }, { ret: 'not-approved', failed: true });
   await t('comment + REVISE → fails, never re-runs', { status: 'failure', runs: [red] }, { ret: 'not-approved', failed: true });
-  await t('comment + APPROVED + PR run red → re-runs that run; same-repo PR never consults pulls.list', { status: 'success', runs: [red] }, { ret: 'rerun', rerun: [42], noList: true });
+  await t('comment + APPROVED + PR run red → re-runs that run', { status: 'success', runs: [red] }, { ret: 'rerun', rerun: [42] });
   await t('comment + APPROVED + PR run already green → no re-run', { status: 'success', runs: [green] }, { ret: 'approved' });
   await t('comment + APPROVED + PR run in flight → waits, then re-runs (race)', { status: 'success', runs: [live], getSeq: [live, red] }, { ret: 'rerun', rerun: [42] });
   await t('comment + APPROVED + PR run never settles → fails with the manual rerun, no blind re-run', { status: 'success', runs: [live], waitMs: 0 }, { ret: 'timeout', failed: true });
   await t('comment + APPROVED + no PR run exists → passes, nothing to re-run', { status: 'success', runs: [] }, { ret: 'approved' });
   await t('two PRs share the SHA, other PR listed first + red → re-runs only OUR run', { status: 'success', runs: [otherRed, red] }, { ret: 'rerun', rerun: [42] });
   await t('two PRs share the SHA, other PR green + ours red → still re-runs ours (no early green exit)', { status: 'success', runs: [otherGreen, red] }, { ret: 'rerun', rerun: [42] });
-  await t('only the OTHER PR has a run at this SHA → nothing attributable, no re-run', { status: 'success', runs: [otherRed] }, { ret: 'approved' });
-  await t('fork PR (empty pull_requests), one open PR on that head → attributed by branch+repo, re-runs it', { status: 'success', headRepo: 'someone/r', runs: [forkRed] }, { ret: 'rerun', rerun: [55] });
-  await t('fork PR + its run already green → no re-run', { status: 'success', headRepo: 'someone/r', runs: [forkGreen] }, { ret: 'approved' });
-  await t('fork PR + its run in flight → waits, then re-runs', { status: 'success', headRepo: 'someone/r', runs: [forkLive], getSeq: [forkRed] }, { ret: 'rerun', rerun: [55] });
-  await t('fork branch opened against TWO bases (2 open PRs share the head) → ambiguous, fails with the manual reruns, no blind re-run', { status: 'success', headRepo: 'someone/r', runs: [forkRed], openPRs: [{ number: 7 }, { number: 8 }] }, { ret: 'ambiguous', failed: true });
-  await t('one open PR, but TWO fork runs at this SHA (the other from a since-closed PR) → ambiguous, no blind re-run of either', { status: 'success', headRepo: 'someone/r', runs: [forkRed, forkRedClosedPR] }, { ret: 'ambiguous', failed: true });
-  await t('fork PR, stale run is on a DIFFERENT branch → unattributable, fails with the manual rerun, no blind re-run', { status: 'success', headRepo: 'someone/r', runs: [forkOtherBranch] }, { ret: 'unattributed', failed: true });
-  await t('unattributed stale run from a different repo than the PR head → fails with the manual rerun', { status: 'success', headRepo: 'o/r', runs: [forkRed] }, { ret: 'unattributed', failed: true });
-  await t('fork deleted (PR head repo null) + stale unattributed run → fails with the manual rerun', { status: 'success', headRepo: null, runs: [forkRed] }, { ret: 'unattributed', failed: true });
-  await t('unattributed run that is GREEN → nothing stale, passes', { status: 'success', headRepo: 'o/r', runs: [forkGreen] }, { ret: 'approved' });
+  await t('only the OTHER PR has a run at this SHA (linked to it) → not ours, not stray, no re-run', { status: 'success', runs: [otherRed] }, { ret: 'approved' });
+  await t('our listed run red + a stray fork run alongside → re-runs only OUR run, never the stray', { status: 'success', runs: [forkRed, red] }, { ret: 'rerun', rerun: [42] });
+  // fork-PR runs carry no pull_requests link; GitHub offers no other proof of which PR fired them → fail closed, hand over the command
+  await t('fork PR run (no pull_requests) red → never auto-attributed: fails with the manual rerun, no blind re-run', { status: 'success', headRepo: 'someone/r', runs: [forkRed] }, { ret: 'unattributed', failed: true });
+  await t('sole fork run at this SHA could be a since-closed PR\'s, one open PR → still fails closed (r8 finding)', { status: 'success', headRepo: 'someone/r', runs: [forkRedClosedPR] }, { ret: 'unattributed', failed: true });
+  await t('fork PR run in flight → fails closed with the manual rerun (no waiting on a run we cannot attribute)', { status: 'success', headRepo: 'someone/r', runs: [forkLive] }, { ret: 'unattributed', failed: true });
+  await t('two unlinked fork runs at this SHA → both listed in the manual rerun, none re-run', { status: 'success', headRepo: 'someone/r', runs: [forkRed, forkRedClosedPR] }, { ret: 'unattributed', failed: true });
+  await t('unlinked run on a different branch → same answer: unattributed, manual rerun', { status: 'success', headRepo: 'someone/r', runs: [forkOtherBranch] }, { ret: 'unattributed', failed: true });
+  await t('fork deleted (PR head repo null) + unlinked run → unattributed, manual rerun', { status: 'success', headRepo: null, runs: [forkRed] }, { ret: 'unattributed', failed: true });
+  await t('unlinked run that is already GREEN → nothing stale, passes', { status: 'success', headRepo: 'someone/r', runs: [forkGreen] }, { ret: 'approved' });
   process.exit(fails ? 1 : 0);
 })();
 JS
