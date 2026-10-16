@@ -26,7 +26,9 @@ cmd_gate() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --builder) b="$2"; shift 2 ;;
+      --builder=*) b="${1#--builder=}"; shift ;;
       --pr) has_pr=1; args+=("$1" "$2"); shift 2 ;;
+      --pr=*) has_pr=1; args+=("$1"); shift ;;
       *) args+=("$1"); shift ;;
     esac
   done
