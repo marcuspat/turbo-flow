@@ -1571,6 +1571,15 @@ if [ -f "$RGTF" ]; then
     || { echo "✗ tf: existing wrapper was re-pointed"; FAIL=1; }
   rm -rf "$RGRP"
 
+  # tf status gate stats from a fixture JSONL log
+  RGLOG="$(mktemp -d)"
+  printf '{"ts":"2026-01-01","result":"GATE: APPROVED"}\n{"ts":"2026-01-02","result":"GATE: REVISE"}\n{"ts":"2026-01-03","result":"GATE: APPROVED"}\n' > "$RGLOG/gate-log.jsonl"
+  RGSTATS="$(GATE_LOG="$RGLOG/gate-log.jsonl" "$RGTF" status 2>&1 | grep 'gate:')"
+  echo "$RGSTATS" | grep -q "3 verdicts" && echo "$RGSTATS" | grep -q "2 approved" && echo "$RGSTATS" | grep -q "1 revised" \
+    && echo "✓ tf: status counts gate verdicts from JSONL correctly" \
+    || { echo "✗ tf: gate stats wrong (got: $RGSTATS)"; FAIL=1; }
+  rm -rf "$RGLOG"
+
   # foreign regular file at ~/.local/bin/tf: left untouched by init
   RGTW2="$(mktemp -d)"; mkdir -p "$RGTW2/.local/bin"
   printf '#!/bin/bash\necho not-ours\n' > "$RGTW2/.local/bin/tf"
