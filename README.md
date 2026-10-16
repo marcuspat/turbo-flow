@@ -29,7 +29,7 @@ A clean Codespace boots this repo's devcontainer and the kit proves itself in-co
 
 ![harness boot demo](demo/harness-boot-demo.gif)
 
-A fresh Codespace from `main` (nothing authenticated — keys and account details never touch the recording): the first shell triggers the boot (no menu — that's the point), **Claude Code + Codex + Ruflo install visibly**, then tmux fires with all 5 windows — each one landing **inside** its harness. The GIF cycles through every window: claude (first-run welcome), claude+ruflo (with the plugins loaded), codex (sign-in prompt on this fresh box), the live token dashboard, and a free shell with the gate help. The reviewer is whichever window has a **different model family** than the builder — cross-family review is the kit's law.
+A fresh Codespace from `main` (unauthenticated): the first shell triggers the boot (no menu — that's the point), **Claude Code + Codex + Ruflo install visibly**, then tmux fires with all 5 windows — each one landing **inside** its harness. The GIF cycles through every window: claude (first-run welcome), claude+ruflo (with the plugins loaded), codex (sign-in prompt on this fresh box), the live token dashboard, and a free shell with the gate help. The reviewer is whichever window has a **different model family** than the builder — cross-family review is the kit's law.
 
 ## The gate survived 17 rounds of review
 
