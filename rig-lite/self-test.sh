@@ -1528,17 +1528,18 @@ if [ -f "$RGTF" ]; then
   grep -q "rig:" <<<"$RGTFS" && grep -q "tree:" <<<"$RGTFS" \
     && echo "✓ tf: status shows rig + tree state" \
     || { echo "✗ tf: status incomplete"; FAIL=1; }
-  # wrapper: init-repo writes a wrapper that exec's the kit tf
-  RGTW="$(mktemp -d)"; mkdir -p "$RGTW/bin"
-  KIT="$KIT" BIN_DIR="$RGTW/bin" bash -c 'printf "#!/usr/bin/env bash\n# rig-lite tf wrapper\nexec %q \"\$@\"\n" "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"'
-  if [ -x "$RGTW/bin/tf" ] && grep -q "rig-lite tf wrapper" "$RGTW/bin/tf"; then
-    RGTWR="$(TF_SELF="$KIT" "$RGTW/bin/tf" help 2>&1 | head -1)"
+  # wrapper: run init-repo.sh's ACTUAL install step in a sandbox HOME and test the result
+  RGTW="$(mktemp -d)"; mkdir -p "$RGTW/bin" "$RGTW/repo"; cd "$RGTW/repo"; git init -q
+  HOME="$RGTW" KIT="$KIT" bash "$KIT/init-repo.sh" TestProj >/dev/null 2>&1
+  if [ -x "$RGTW/.local/bin/tf" ] && grep -q "rig-lite tf wrapper" "$RGTW/.local/bin/tf" 2>/dev/null; then
+    RGTWR="$(HOME="$RGTW" "$RGTW/.local/bin/tf" help 2>&1 | head -1)"
     grep -q "one command" <<<"$RGTWR" \
-      && echo "✓ tf: wrapper delegates to the kit correctly" \
+      && echo "✓ tf: init-repo wrapper delegates to the kit correctly" \
       || { echo "✗ tf: wrapper delegation broken (got: '$RGTWR')"; FAIL=1; }
   else
-    echo "✗ tf: wrapper not created"; FAIL=1
+    echo "✗ tf: init-repo did not install the wrapper"; FAIL=1
   fi
+  cd "$KIT/.."  # return to the repo root
   rm -rf "$RGTW"
 else
   echo "⚠ tf CLI checks SKIPPED (script not present)"

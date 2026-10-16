@@ -104,7 +104,7 @@ fi
 
 echo
 echo "Done. From now on, use tf (one command for everything):"
-echo "  tf gate          # gate the current branch (builder auto-detected)"
+echo "  tf gate --builder <cli>   # gate the current branch (builder names itself)"
 echo "  tf status        # everything at a glance"
 echo "  tf test          # self-test"
 if [[ -n "$CREATED" ]]; then
