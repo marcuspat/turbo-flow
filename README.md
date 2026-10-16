@@ -89,7 +89,7 @@ After that, every window opens ready for work, forever on this box.
 
 ### 3. Gate your first change
 
-In the shell window (`Ctrl+B 4`), from any branch you or an agent built:
+The `tf` command is installed automatically in Codespaces (and by `init-repo.sh` anywhere else). In the shell window (`Ctrl+B 4`), from any branch you or an agent built:
 
 ```bash
 # prove the kit works:
