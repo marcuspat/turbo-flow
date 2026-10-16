@@ -14,6 +14,9 @@ cd "$(dirname "$0")/.."
 
 bash demo/auth-guard.sh
 
+# kill any leftover tmux session — a stale one would make the boot look complete
+tmux kill-session -t turboflow 2>/dev/null || true
+
 exec python3 - <<'PYEOF'
 import os, sys, time, pexpect, json
 
@@ -51,16 +54,16 @@ child.send("source ~/.bashrc\r")
 
 tmux_up = False
 for i in range(60):
-    drain(5)
+    # combined drain + marker check: read for 5s, checking markers IN the stream
+    # (not after a separate drain that would swallow them)
+    idx = child.expect(["install FAILED", "done WITH GAPS", "✗ npm", pexpect.TIMEOUT], timeout=5)
+    if idx in (0, 1, 2):
+        die(f"boot failure marker at {(i+1)*5}s (idx {idx})")
+    # idx == 3 means TIMEOUT — 5s passed with no markers, check tmux out-of-band
     r = os.popen("tmux has-session -t turboflow 2>/dev/null && echo YES || echo NO").read().strip()
     if r == "YES":
         tmux_up = True
         break
-    try:
-        idx = child.expect(["install FAILED", "done WITH GAPS", "✗ npm"], timeout=1)
-        die(f"boot failure marker at {(i+1)*5}s (idx {idx})")
-    except pexpect.TIMEOUT:
-        pass
 if not tmux_up:
     die("tmux session 'turboflow' never appeared within 300s")
 
