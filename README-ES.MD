@@ -39,7 +39,7 @@ Un Codespace limpio desde `main` (sin autenticar): el primer shell dispara el ar
 | [`wt.sh`](rig-lite/wt.sh) | un worktree aislado por escritor en paralelo. |
 | [`init-repo.sh`](rig-lite/init-repo.sh) | onboarding de un comando para cualquier repo: un `AGENTS.md` delgado + el symlink `CLAUDE.md → AGENTS.md`. Nunca pisa archivos existentes. |
 | [`specs/`](rig-lite/specs/) | plantillas de spec + contrato UAT: plan antes de construir, verificar contra la app desplegada. |
-| [`digest.sh`](rig-lite/digest.sh) | salud de tu flota de repos en un comando: cola de merges unida a veredictos del gate, working copies sucios, liveness de sitios, codespaces viejos. |
+| [`digest.sh`](tf digest) | salud de tu flota de repos en un comando: cola de merges unida a veredictos del gate, working copies sucios, liveness de sitios, codespaces viejos. |
 | [`automations/`](rig-lite/automations/README.md) | el tier de fondo como pack portable de prompts: 9 tareas programadas + dos formas de agendarlas. |
 | [`secret.sh`](rig-lite/secret.sh) | secretos cifrados en reposo, backend autodetectado (Keychain → libsecret → age → texto plano con advertencia). `list` muestra nombres, nunca valores. |
 | [`memory.md`](rig-lite/memory.md) + [`memory/`](rig-lite/memory/) | el patrón de memoria versionado en git: índice, decisiones, gotchas, inbox. |
@@ -91,17 +91,17 @@ En la ventana shell (`Ctrl+B 4`), desde cualquier rama que tú o un agente const
 
 ```bash
 # demuestra que el kit funciona:
-bash rig-lite/self-test.sh
+tf test
 
 # gatea una rama (el CLI que ESCRIBIÓ el código se identifica — otra familia revisa):
-rig-lite/gate.sh --builder claude --base main     # si claude lo escribió → un revisor no-Anthropic lo revisa
-rig-lite/gate.sh --builder glm --base main       # si claude-glm lo escribió → claude revisa (entre familias)
+tf gate --builder claude     # si claude lo escribió → un revisor no-Anthropic lo revisa
+tf gate --builder glm       # si claude-glm lo escribió → claude revisa (entre familias)
 
 # gatea un PR de GitHub (el veredicto se publica como comentario en el PR):
-rig-lite/gate.sh --pr 7 --builder codex           # codex lo escribió → claude revisa
+tf gate --pr 7 --builder codex           # codex lo escribió → claude revisa
 
 # gatea todos los PRs abiertos sin veredicto:
-rig-lite/gate.sh --sweep
+tf gate --sweep
 ```
 
 El gate sale `0` (aprobado) o `1` (revise — corrige y vuelve a correr). **Nunca fusiona; eso lo haces tú.**
@@ -109,11 +109,11 @@ El gate sale `0` (aprobado) o `1` (revise — corrige y vuelve a correr). **Nunc
 ### 4. Tu ciclo diario
 
 ```bash
-rig-lite/wt.sh mi-feature         # worktree aislado para trabajo paralelo
+tf wt mi-feature         # worktree aislado para trabajo paralelo
 # ... construye en ventana 1, pide a una familia DIFERENTE (ventana 0 o 2) leer el diff ...
-rig-lite/gate.sh --builder <quien-lo-escribio> --base main  # gatea antes del PR
+tf gate --builder <quien-lo-escribio>  # gatea antes del PR
 # ... push, abre el PR, gatealo ...
-rig-lite/digest.sh                # salud de la flota: cola de merges × veredictos × liveness
+tf digest                # salud de la flota: cola de merges × veredictos × liveness
 ```
 
 ¿Desconectado y quieres volver? En un Codespace, cada terminal nuevo se auto-conecta. En local: `bash workspace.sh` de nuevo.

@@ -93,29 +93,31 @@ In the shell window (`Ctrl+B 4`), from any branch you or an agent built:
 
 ```bash
 # prove the kit works:
-bash rig-lite/self-test.sh
+tf test
 
-# gate a branch (the CLI that WROTE the code names itself — a different family reviews):
-rig-lite/gate.sh --builder claude --base main     # if claude wrote it → a non-Anthropic reviewer checks it
-rig-lite/gate.sh --builder glm --base main       # if claude-glm wrote it → claude reviews (cross-family)
+# gate a branch — the builder names itself (--builder is required):
+tf gate --builder claude    # if claude wrote it → a non-Anthropic reviewer checks it
+tf gate --builder glm       # if claude-glm wrote it → claude reviews (cross-family)
 
 # gate a GitHub PR (verdict posted as a comment on the PR):
-rig-lite/gate.sh --pr 7 --builder codex           # codex wrote it → claude reviews
+tf gate --pr 7 --builder codex    # codex wrote it → claude reviews
 
-# gate every open PR that has no verdict yet:
-rig-lite/gate.sh --sweep
+# everything at a glance:
+tf status
 ```
 
 The gate exits `0` (approved) or `1` (revise — fix and re-run). **It never merges; you do.**
 
+Full command list: `tf help`
+
 ### 4. Your daily loop
 
 ```bash
-rig-lite/wt.sh my-feature        # isolated worktree for parallel work
+tf wt my-feature             # isolated worktree for parallel work
 # ... build in window 1, ask a DIFFERENT family (window 0 or 2) to read the diff ...
-rig-lite/gate.sh --builder <who-wrote-it> --base main  # gate before the PR
+tf gate --builder <who-wrote-it>  # gate before the PR (defaults to --base main)
 # ... push, open the PR, gate it ...
-rig-lite/digest.sh               # fleet health: merge queue × verdicts × site liveness
+tf digest                         # fleet health: merge queue × verdicts × site liveness
 ```
 
 Detached and want back in? In a Codespace, every new terminal auto-attaches. Locally: run `bash workspace.sh` again.
