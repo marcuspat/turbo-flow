@@ -48,36 +48,42 @@ module.exports = async function gateCheck({ github, context, core, sleep, waitMs
   // Comment path: GitHub ran this workflow against the default branch, so this run's
   // green attaches to main. The PR displays only its own pull_request run — which fired
   // seconds after the push, before the gate, and failed. Re-run that one so it flips.
-  let run = (await github.rest.actions.listWorkflowRuns({
-    ...repo, workflow_id: 'gate-check.yml', event: 'pull_request', head_sha: sha, per_page: 5,
-  })).data.workflow_runs[0];
+  //
+  // Checks are keyed by SHA and two PRs can share a head SHA (one branch, two bases),
+  // so a SHA-only lookup can pick the other PR's run. Attribute runs to THIS PR through
+  // the run's own pull_requests list, and walk every page.
+  const all = await github.paginate(github.rest.actions.listWorkflowRuns, {
+    ...repo, workflow_id: 'gate-check.yml', event: 'pull_request', head_sha: sha, per_page: 100,
+  });
+  const mine = all.filter(r => (r.pull_requests || []).some(p => p.number === pr.number));
 
-  if (!run) {
-    core.info('No pull_request run exists for this SHA — nothing to re-run.');
+  if (mine.length === 0) {
+    core.info(`No pull_request run attributable to PR #${pr.number} at this SHA — nothing to re-run.`);
     return 'approved';
   }
 
-  // The PR run may still be in flight (queued/in_progress). Re-running a live run is
-  // rejected, and giving up here would leave it to finish red with no event to retry —
+  // A run may still be in flight (queued/in_progress). Re-running a live run is
+  // rejected, and giving up would leave it to finish red with no event to retry —
   // so wait for it to settle, bounded.
   const deadline = Date.now() + waitMs;
-  while (run.status !== 'completed' && Date.now() < deadline) {
-    core.info(`PR run ${run.id} is ${run.status} — waiting for it to finish before reconciling.`);
-    await sleep(pollMs);
-    run = (await github.rest.actions.getWorkflowRun({ ...repo, run_id: run.id })).data;
+  let rerun = 0;
+  for (let run of mine) {
+    while (run.status !== 'completed' && Date.now() < deadline) {
+      core.info(`PR run ${run.id} is ${run.status} — waiting for it to finish before reconciling.`);
+      await sleep(pollMs);
+      run = (await github.rest.actions.getWorkflowRun({ ...repo, run_id: run.id })).data;
+    }
+    if (run.status !== 'completed') {
+      core.setFailed(`PR run ${run.id} still ${run.status} after ${Math.round(waitMs / 1000)}s — finish by hand: gh run rerun ${run.id}`);
+      return 'timeout';
+    }
+    if (run.conclusion === 'success') {
+      core.info(`PR run ${run.id} is already green — nothing to re-run.`);
+      continue;
+    }
+    await github.rest.actions.reRunWorkflow({ ...repo, run_id: run.id });
+    core.info(`Re-ran pull_request run ${run.id} so the PR's check reflects APPROVED.`);
+    rerun++;
   }
-
-  if (run.status !== 'completed') {
-    core.setFailed(`PR run ${run.id} still ${run.status} after ${Math.round(waitMs / 1000)}s — finish by hand: gh run rerun ${run.id}`);
-    return 'timeout';
-  }
-
-  if (run.conclusion === 'success') {
-    core.info(`PR check for this SHA is already green (run ${run.id}) — nothing to re-run.`);
-    return 'approved';
-  }
-
-  await github.rest.actions.reRunWorkflow({ ...repo, run_id: run.id });
-  core.info(`Re-ran pull_request run ${run.id} so the PR's check reflects APPROVED.`);
-  return 'rerun';
+  return rerun ? 'rerun' : 'approved';
 };

@@ -1636,8 +1636,9 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
   RGGCJS="$KIT/../.github/scripts/gate-check.js"
   if grep -qE '^[[:space:]]*actions:[[:space:]]*write' "$RGGC" && grep -q 'actions/checkout' "$RGGC" \
      && grep -q "require('./.github/scripts/gate-check.js')" "$RGGC" \
-     && [ -f "$RGGCJS" ] && grep -q 'reRunWorkflow' "$RGGCJS" && grep -q 'head_sha: sha' "$RGGCJS" && grep -q 'getWorkflowRun' "$RGGCJS"; then
-    echo "✓ protect: gate-check.yml wires actions: write + checkout + gate-check.js (re-run pinned to head SHA, waits on in-flight runs)"
+     && [ -f "$RGGCJS" ] && grep -q 'reRunWorkflow' "$RGGCJS" && grep -q 'head_sha: sha' "$RGGCJS" && grep -q 'getWorkflowRun' "$RGGCJS" \
+     && grep -q 'github.paginate' "$RGGCJS" && grep -q 'pull_requests' "$RGGCJS"; then
+    echo "✓ protect: gate-check.yml wires actions: write + checkout + gate-check.js (runs attributed to THIS PR via pull_requests, paginated, waits on in-flight runs)"
   else
     echo "✗ protect: gate-check wiring broken (PR check would stay red after APPROVED)"; FAIL=1
   fi
@@ -1663,30 +1664,41 @@ function mk({ event, isPr = true, status, runs = [], getSeq = [] }) {
       reRunWorkflow: async (a) => { calls.rerun.push(a.run_id); },
     },
   } };
+  // octokit's paginate flattens {total_count, workflow_runs} pages into one array
+  github.paginate = async (fn, params) => (await fn(params)).data.workflow_runs;
   return { github, context, core, calls };
 }
 async function t(name, cfg, want) {
   const m = mk(cfg); let got;
   try { got = await gateCheck({ github: m.github, context: m.context, core: m.core, sleep: async () => {}, waitMs: cfg.waitMs ?? 5000, pollMs: 0 }); }
   catch (e) { got = 'THREW: ' + e.message; }
-  const ok = got === want.ret && m.calls.rerun.length === (want.rerun || 0) && (m.calls.failed.length > 0) === !!want.failed;
-  console.log((ok ? '✓' : '✗') + ' gate-check.js: ' + name + (ok ? '' : ` (got ${got}, rerun=${m.calls.rerun.length}, failed=${m.calls.failed.length})`));
+  const wantIds = JSON.stringify(want.rerun || []), gotIds = JSON.stringify(m.calls.rerun);
+  const ok = got === want.ret && gotIds === wantIds && (m.calls.failed.length > 0) === !!want.failed;
+  console.log((ok ? '✓' : '✗') + ' gate-check.js: ' + name + (ok ? '' : ` (got ${got}, rerun=${gotIds} want ${wantIds}, failed=${m.calls.failed.length})`));
   if (!ok) fails++;
 }
-const live = { id: 42, status: 'in_progress', conclusion: null };
-const red = { id: 42, status: 'completed', conclusion: 'failure' };
-const green = { id: 42, status: 'completed', conclusion: 'success' };
+const mine = [{ number: 7 }], theirs = [{ number: 9 }];
+const live = { id: 42, status: 'in_progress', conclusion: null, pull_requests: mine };
+const red = { id: 42, status: 'completed', conclusion: 'failure', pull_requests: mine };
+const green = { id: 42, status: 'completed', conclusion: 'success', pull_requests: mine };
+const otherRed = { id: 99, status: 'completed', conclusion: 'failure', pull_requests: theirs };
+const otherGreen = { id: 99, status: 'completed', conclusion: 'success', pull_requests: theirs };
+const orphan = { id: 55, status: 'completed', conclusion: 'failure', pull_requests: [] };
 (async () => {
   await t('push with no status → fails (not gated yet)', { event: 'pull_request' }, { ret: 'missing', failed: true });
   await t('push with REVISE status → fails', { event: 'pull_request', status: 'failure' }, { ret: 'not-approved', failed: true });
   await t('push with APPROVED status → passes, never re-runs', { event: 'pull_request', status: 'success' }, { ret: 'approved' });
   await t('verdict comment on a plain issue → skipped', { event: 'issue_comment', isPr: false, status: 'success' }, { ret: 'skipped' });
   await t('comment + REVISE → fails, never re-runs', { event: 'issue_comment', status: 'failure', runs: [red] }, { ret: 'not-approved', failed: true });
-  await t('comment + APPROVED + PR run red → re-runs that run', { event: 'issue_comment', status: 'success', runs: [red] }, { ret: 'rerun', rerun: 1 });
+  await t('comment + APPROVED + PR run red → re-runs that run', { event: 'issue_comment', status: 'success', runs: [red] }, { ret: 'rerun', rerun: [42] });
   await t('comment + APPROVED + PR run already green → no re-run', { event: 'issue_comment', status: 'success', runs: [green] }, { ret: 'approved' });
-  await t('comment + APPROVED + PR run in flight → waits, then re-runs (race)', { event: 'issue_comment', status: 'success', runs: [live], getSeq: [live, red] }, { ret: 'rerun', rerun: 1 });
+  await t('comment + APPROVED + PR run in flight → waits, then re-runs (race)', { event: 'issue_comment', status: 'success', runs: [live], getSeq: [live, red] }, { ret: 'rerun', rerun: [42] });
   await t('comment + APPROVED + PR run never settles → fails with the manual rerun, no blind re-run', { event: 'issue_comment', status: 'success', runs: [live], waitMs: 0 }, { ret: 'timeout', failed: true });
   await t('comment + APPROVED + no PR run exists → passes, nothing to re-run', { event: 'issue_comment', status: 'success', runs: [] }, { ret: 'approved' });
+  await t('two PRs share the SHA, other PR listed first + red → re-runs only OUR run', { event: 'issue_comment', status: 'success', runs: [otherRed, red] }, { ret: 'rerun', rerun: [42] });
+  await t('two PRs share the SHA, other PR green + ours red → still re-runs ours (no early green exit)', { event: 'issue_comment', status: 'success', runs: [otherGreen, red] }, { ret: 'rerun', rerun: [42] });
+  await t('only the OTHER PR has a run at this SHA → nothing attributable, no re-run', { event: 'issue_comment', status: 'success', runs: [otherRed] }, { ret: 'approved' });
+  await t('run with no pull_requests attribution (fork-style) → not ours, no blind re-run', { event: 'issue_comment', status: 'success', runs: [orphan] }, { ret: 'approved' });
   process.exit(fails ? 1 : 0);
 })();
 JS
