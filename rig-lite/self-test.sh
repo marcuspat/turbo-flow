@@ -1707,6 +1707,7 @@ const forkRed = { id: 55, status: 'completed', conclusion: 'failure', pull_reque
 const forkGreen = { id: 55, status: 'completed', conclusion: 'success', pull_requests: [], head_branch: 'feat', head_repository: fork };
 const forkLive = { id: 55, status: 'in_progress', conclusion: null, pull_requests: [], head_branch: 'feat', head_repository: fork };
 const forkOtherBranch = { id: 56, status: 'completed', conclusion: 'failure', pull_requests: [], head_branch: 'other', head_repository: fork };
+const forkRedClosedPR = { id: 57, status: 'completed', conclusion: 'failure', pull_requests: [], head_branch: 'feat', head_repository: fork };
 (async () => {
   await t('wired to a pull_request event → refuses (that path must stay read-only, no PR code)', { event: 'pull_request', status: 'success' }, { throws: true });
   await t('verdict comment on a plain issue → skipped', { isPr: false, status: 'success' }, { ret: 'skipped' });
@@ -1724,6 +1725,7 @@ const forkOtherBranch = { id: 56, status: 'completed', conclusion: 'failure', pu
   await t('fork PR + its run already green → no re-run', { status: 'success', headRepo: 'someone/r', runs: [forkGreen] }, { ret: 'approved' });
   await t('fork PR + its run in flight → waits, then re-runs', { status: 'success', headRepo: 'someone/r', runs: [forkLive], getSeq: [forkRed] }, { ret: 'rerun', rerun: [55] });
   await t('fork branch opened against TWO bases (2 open PRs share the head) → ambiguous, fails with the manual reruns, no blind re-run', { status: 'success', headRepo: 'someone/r', runs: [forkRed], openPRs: [{ number: 7 }, { number: 8 }] }, { ret: 'ambiguous', failed: true });
+  await t('one open PR, but TWO fork runs at this SHA (the other from a since-closed PR) → ambiguous, no blind re-run of either', { status: 'success', headRepo: 'someone/r', runs: [forkRed, forkRedClosedPR] }, { ret: 'ambiguous', failed: true });
   await t('fork PR, stale run is on a DIFFERENT branch → unattributable, fails with the manual rerun, no blind re-run', { status: 'success', headRepo: 'someone/r', runs: [forkOtherBranch] }, { ret: 'unattributed', failed: true });
   await t('unattributed stale run from a different repo than the PR head → fails with the manual rerun', { status: 'success', headRepo: 'o/r', runs: [forkRed] }, { ret: 'unattributed', failed: true });
   await t('fork deleted (PR head repo null) + stale unattributed run → fails with the manual rerun', { status: 'success', headRepo: null, runs: [forkRed] }, { ret: 'unattributed', failed: true });

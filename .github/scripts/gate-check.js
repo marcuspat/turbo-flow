@@ -12,7 +12,9 @@
 //   'approved'     gate-verdict is success; nothing needed re-running
 //   'rerun'        re-ran the PR's own pull_request run(s)
 //   'timeout'      a PR run never completed inside waitMs (fails the job, says how to finish by hand)
-//   'ambiguous'    fork runs match, but >1 open PR shares this head (fails the job, lists the manual reruns)
+//   'ambiguous'    fork runs match but can't be pinned to this PR alone — >1 fork run at this SHA
+//                  (another PR, open or since closed, fired here too) or >1 open PR on this head
+//                  (fails the job, lists the manual reruns)
 //   'unattributed' stale run(s) at this SHA belong to no PR we can name (fails the job, lists the manual reruns)
 module.exports = async function reconcile({ github, context, core, sleep, waitMs = 120000, pollMs = 10000 }) {
   if (context.eventName !== 'issue_comment') {
@@ -60,17 +62,18 @@ module.exports = async function reconcile({ github, context, core, sleep, waitMs
 
   // GitHub leaves pull_requests EMPTY on fork-PR runs — forks are the normal contribution
   // path and must not be left red. Branch + head repository is all such a run carries,
-  // and that cannot separate one fork branch opened against two bases: so when a fork
-  // run matches, ask GitHub how many open PRs share this head. One → it's ours. More →
-  // ambiguous: stop and say how to finish by hand rather than re-run the wrong PR.
+  // and that cannot separate one fork branch opened against two bases. Every PR on a
+  // head fires its own run, so more than one fork-matched run at this SHA means more
+  // than one PR (open, or since closed) owns runs here and nothing on a run says which;
+  // more than one open PR on this head means the same. Either way: stop, don't guess.
   const forkMatch = r => (r.pull_requests || []).length === 0
     && r.head_branch === pr.head.ref
     && !!pr.head.repo && r.head_repository?.full_name === pr.head.repo.full_name;
   const forkRuns = all.filter(forkMatch);
   if (forkRuns.length) {
     const open = await github.paginate(github.rest.pulls.list, { ...repo, state: 'open', head: pr.head.label, per_page: 100 });
-    if (open.length > 1) {
-      core.setFailed(`PR #${pr.number} shares its head ${pr.head.label} with ${open.length - 1} other open PR(s); fork runs can't be attributed — finish by hand: ${forkRuns.map(r => `gh run rerun ${r.id}`).join(' ; ')}`);
+    if (forkRuns.length > 1 || open.length > 1) {
+      core.setFailed(`Fork runs at this SHA can't be attributed to PR #${pr.number} alone (${forkRuns.length} fork-triggered run(s) here, ${open.length} open PR(s) on head ${pr.head.label}) — finish by hand: ${forkRuns.map(r => `gh run rerun ${r.id}`).join(' ; ')}`);
       return 'ambiguous';
     }
     mine = mine.concat(forkRuns);
