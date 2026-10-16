@@ -25,7 +25,7 @@ Un Codespace limpio arranca el devcontainer de este repo y el kit se prueba a s�
 
 ![demo de arranque](demo/harness-boot-demo.gif)
 
-Un Codespace limpio desde `main`: el primer shell dispara el arranque (sin menú — ese es el punto), **Claude Code + Codex + Ruflo se instalan de forma visible**, luego tmux arranca con las 5 ventanas — cada una aterrizando **dentro** de su harness. El GIF recorre todas las ventanas: claude (revisor), claude+ruflo (constructor), codex (carril OpenAI), el dashboard de tokens en vivo, y un shell libre. Una sola toma, grabada en el flujo real de arranque.
+Un Codespace limpio desde `main` (nada autenticado — las keys y datos de cuenta nunca tocan la grabación): el primer shell dispara el arranque (sin menú — ese es el punto), **Claude Code + Codex + Ruflo se instalan de forma visible**, luego tmux arranca con las 5 ventanas — cada una aterrizando **dentro** de su harness. El GIF recorre todas las ventanas: claude (revisor, mostrando su bienvenida de primer uso), claude+ruflo (constructor), codex (mostrando su pantalla de inicio de sesión), el dashboard de tokens en vivo, y un shell libre con la ayuda del gate. Reproducible con [`demo/record-harness-boot-demo.sh`](demo/record-harness-boot-demo.sh).
 
 ## El gate sobrevivió 17 rondas de revisión
 
