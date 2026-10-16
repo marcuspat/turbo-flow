@@ -1627,15 +1627,71 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
 " 2>/dev/null \
     && echo "✓ protect: gate-check.yml parses, has both triggers" \
     || { python3 -c "import yaml" 2>/dev/null && { echo "✗ protect: gate-check.yml YAML assertion FAILED"; FAIL=1; } || echo "⚠ protect: gate-check.yml YAML parse skipped (pyyaml unavailable)"; }
-  # gate-check.yml: the comment path must flip the PR's OWN check. Comment-triggered runs
+  # gate-check: the comment path must flip the PR's OWN check. Comment-triggered runs
   # attach to main, so only a re-run of the PR's pull_request run (pinned to its head SHA,
   # which needs actions: write) ever turns the PR green — without it every gated PR keeps
-  # the stale red X from the push-time run that beat the gate.
+  # the stale red X from the push-time run that beat the gate. The logic lives in
+  # gate-check.js precisely so it can be driven here with a mocked GitHub.
   RGGC="$KIT/../.github/workflows/gate-check.yml"
-  if grep -qE '^[[:space:]]*actions:[[:space:]]*write' "$RGGC" && grep -q 'reRunWorkflow' "$RGGC" && grep -q 'head_sha: sha' "$RGGC"; then
-    echo "✓ protect: gate-check.yml comment path re-runs the PR's own check (actions: write + reRunWorkflow pinned to head SHA)"
+  RGGCJS="$KIT/../.github/scripts/gate-check.js"
+  if grep -qE '^[[:space:]]*actions:[[:space:]]*write' "$RGGC" && grep -q 'actions/checkout' "$RGGC" \
+     && grep -q "require('./.github/scripts/gate-check.js')" "$RGGC" \
+     && [ -f "$RGGCJS" ] && grep -q 'reRunWorkflow' "$RGGCJS" && grep -q 'head_sha: sha' "$RGGCJS" && grep -q 'getWorkflowRun' "$RGGCJS"; then
+    echo "✓ protect: gate-check.yml wires actions: write + checkout + gate-check.js (re-run pinned to head SHA, waits on in-flight runs)"
   else
-    echo "✗ protect: gate-check.yml can't flip the PR check after APPROVED (needs actions: write + reRunWorkflow on head_sha)"; FAIL=1
+    echo "✗ protect: gate-check wiring broken (PR check would stay red after APPROVED)"; FAIL=1
+  fi
+  if command -v node >/dev/null 2>&1 && [ -f "$RGGCJS" ]; then
+    RGGCABS="$(cd "$(dirname "$RGGCJS")" && pwd)/gate-check.js"
+    node - "$RGGCABS" <<'JS' || FAIL=1
+const gateCheck = require(process.argv[2]);
+let fails = 0;
+function mk({ event, isPr = true, status, runs = [], getSeq = [] }) {
+  const calls = { rerun: [], failed: [] };
+  const core = { info() {}, setFailed(m) { calls.failed.push(m); } };
+  const prObj = { number: 7, head: { sha: 'abc' } };
+  const context = {
+    eventName: event, repo: { owner: 'o', repo: 'r' }, issue: { number: 7 },
+    payload: event === 'pull_request' ? { pull_request: prObj } : { issue: isPr ? { pull_request: {} } : {} },
+  };
+  const github = { rest: {
+    pulls: { get: async () => ({ data: prObj }) },
+    repos: { listCommitStatusesForRef: async () => ({ data: status ? [{ context: 'gate-verdict', state: status, creator: { login: 'bot' }, description: 'd' }] : [] }) },
+    actions: {
+      listWorkflowRuns: async (a) => { if (a.head_sha !== 'abc' || a.event !== 'pull_request') throw new Error('run lookup not pinned to the PR head SHA / pull_request'); return { data: { workflow_runs: runs } }; },
+      getWorkflowRun: async () => ({ data: getSeq.length ? getSeq.shift() : runs[0] }),
+      reRunWorkflow: async (a) => { calls.rerun.push(a.run_id); },
+    },
+  } };
+  return { github, context, core, calls };
+}
+async function t(name, cfg, want) {
+  const m = mk(cfg); let got;
+  try { got = await gateCheck({ github: m.github, context: m.context, core: m.core, sleep: async () => {}, waitMs: cfg.waitMs ?? 5000, pollMs: 0 }); }
+  catch (e) { got = 'THREW: ' + e.message; }
+  const ok = got === want.ret && m.calls.rerun.length === (want.rerun || 0) && (m.calls.failed.length > 0) === !!want.failed;
+  console.log((ok ? '✓' : '✗') + ' gate-check.js: ' + name + (ok ? '' : ` (got ${got}, rerun=${m.calls.rerun.length}, failed=${m.calls.failed.length})`));
+  if (!ok) fails++;
+}
+const live = { id: 42, status: 'in_progress', conclusion: null };
+const red = { id: 42, status: 'completed', conclusion: 'failure' };
+const green = { id: 42, status: 'completed', conclusion: 'success' };
+(async () => {
+  await t('push with no status → fails (not gated yet)', { event: 'pull_request' }, { ret: 'missing', failed: true });
+  await t('push with REVISE status → fails', { event: 'pull_request', status: 'failure' }, { ret: 'not-approved', failed: true });
+  await t('push with APPROVED status → passes, never re-runs', { event: 'pull_request', status: 'success' }, { ret: 'approved' });
+  await t('verdict comment on a plain issue → skipped', { event: 'issue_comment', isPr: false, status: 'success' }, { ret: 'skipped' });
+  await t('comment + REVISE → fails, never re-runs', { event: 'issue_comment', status: 'failure', runs: [red] }, { ret: 'not-approved', failed: true });
+  await t('comment + APPROVED + PR run red → re-runs that run', { event: 'issue_comment', status: 'success', runs: [red] }, { ret: 'rerun', rerun: 1 });
+  await t('comment + APPROVED + PR run already green → no re-run', { event: 'issue_comment', status: 'success', runs: [green] }, { ret: 'approved' });
+  await t('comment + APPROVED + PR run in flight → waits, then re-runs (race)', { event: 'issue_comment', status: 'success', runs: [live], getSeq: [live, red] }, { ret: 'rerun', rerun: 1 });
+  await t('comment + APPROVED + PR run never settles → fails with the manual rerun, no blind re-run', { event: 'issue_comment', status: 'success', runs: [live], waitMs: 0 }, { ret: 'timeout', failed: true });
+  await t('comment + APPROVED + no PR run exists → passes, nothing to re-run', { event: 'issue_comment', status: 'success', runs: [] }, { ret: 'approved' });
+  process.exit(fails ? 1 : 0);
+})();
+JS
+  else
+    echo "⚠ protect: gate-check.js behavioral scenarios skipped (node unavailable)"
   fi
   # constitution mentions protect.sh (the law points at the enforcement)
   grep -q "protect.sh" "$KIT/constitution.md" \

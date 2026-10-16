@@ -11,9 +11,13 @@ name: gate-verdict
 #   issue_comment — fires when the gate posts its VERDICT comment. GitHub runs
 #                   comment-triggered workflows against the DEFAULT branch, so this
 #                   run's own green attaches to main, never to the PR. The only way to
-#                   flip the PR's check is to re-run its pull_request run, which now
-#                   finds the status. That re-run is a pull_request event and posts no
-#                   comment, so it cannot re-trigger this path (no loop).
+#                   flip the PR's check is to re-run its pull_request run (waiting first
+#                   if that run is still in flight), which now finds the status. The
+#                   re-run is a pull_request event and posts no comment, so it cannot
+#                   re-trigger this path (no loop).
+#
+# The logic lives in .github/scripts/gate-check.js so rig-lite/self-test.sh can run it
+# under node with a mocked GitHub — the race above is covered there.
 
 on:
   pull_request:
@@ -32,71 +36,10 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || contains(github.event.comment.body, 'VERDICT')
     steps:
+      - uses: actions/checkout@v4
       - name: Check gate-verdict commit status
         uses: actions/github-script@v7
         with:
           script: |
-            // A VERDICT-bearing comment on a plain issue has no PR to check.
-            if (context.eventName === 'issue_comment' && !context.payload.issue.pull_request) {
-              console.log('Comment is on an issue, not a PR — nothing to check.');
-              return;
-            }
-
-            // Get the PR's head SHA
-            const pr = context.payload.pull_request ||
-              (await github.rest.pulls.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.issue.number,
-              })).data;
-
-            const sha = pr.head.sha;
-            console.log(`Checking gate-verdict status for SHA: ${sha}`);
-
-            // Check commit statuses (the gate sets these directly)
-            const statuses = await github.rest.repos.listCommitStatusesForRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: sha,
-            });
-
-            const gateStatus = statuses.data.find(s => s.context === 'gate-verdict');
-
-            if (!gateStatus) {
-              core.setFailed('No gate-verdict commit status found — run rig-lite/gate.sh --pr ' + pr.number + '. Merge blocked until the gate sets APPROVED.');
-              return;
-            }
-
-            console.log(`Gate status: ${gateStatus.state} (set by @${gateStatus.creator.login})`);
-            console.log(`Description: ${gateStatus.description}`);
-
-            if (gateStatus.state !== 'success') {
-              core.setFailed(`Gate verdict: ${gateStatus.state} — fix the findings and re-gate. Merge blocked until APPROVED.`);
-              return;
-            }
-
-            console.log('✓ Gate APPROVED on this commit SHA — merge is allowed (by a human).');
-
-            // Comment path: this run's green lives on main. Re-run the PR's own
-            // pull_request run for this exact head SHA so the PR's check flips too.
-            if (context.eventName === 'issue_comment') {
-              const runs = await github.rest.actions.listWorkflowRuns({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: 'gate-check.yml',
-                event: 'pull_request',
-                head_sha: sha,
-                per_page: 5,
-              });
-              const stale = runs.data.workflow_runs.find(r => r.status === 'completed' && r.conclusion !== 'success');
-              if (!stale) {
-                console.log('PR check for this SHA is already green (or not finished yet) — nothing to re-run.');
-                return;
-              }
-              await github.rest.actions.reRunWorkflow({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                run_id: stale.id,
-              });
-              console.log(`Re-ran pull_request run ${stale.id} so the PR's check reflects APPROVED.`);
-            }
+            const gateCheck = require('./.github/scripts/gate-check.js');
+            await gateCheck({ github, context, core, sleep: ms => new Promise(r => setTimeout(r, ms)) });
