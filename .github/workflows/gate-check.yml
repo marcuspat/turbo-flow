@@ -4,20 +4,23 @@ name: gate-verdict
 # gate.sh sets a commit status directly on the PR's head SHA (context: gate-verdict).
 # This workflow is a fallback that verifies the status exists and is current.
 #
-# Why two triggers, and why the comment path re-runs the other one:
-#   pull_request  — fires on every push, seconds before any gate could have run, so a
-#                   fresh push always fails here ("not gated yet"). That result is the
-#                   one attached to the PR's head SHA — the only check a PR displays.
-#   issue_comment — fires when the gate posts its VERDICT comment. GitHub runs
-#                   comment-triggered workflows against the DEFAULT branch, so this
-#                   run's own green attaches to main, never to the PR. The only way to
-#                   flip the PR's check is to re-run its pull_request run (waiting first
-#                   if that run is still in flight), which now finds the status. The
-#                   re-run is a pull_request event and posts no comment, so it cannot
-#                   re-trigger this path (no loop).
+# Two triggers, two jobs, two trust levels:
+#   verify    (pull_request) — fires on every push, seconds before any gate could have
+#             run, so a fresh push always fails here ("not gated yet"). That result is the
+#             one attached to the PR's head SHA — the only check a PR displays. On this
+#             event GitHub runs the PR's copy of everything, so this job holds a
+#             read-only token and checks out nothing: no PR-controlled code can run with
+#             any privilege here.
+#   reconcile (issue_comment) — fires when the gate posts its VERDICT comment. GitHub runs
+#             comment-triggered workflows against the DEFAULT branch, so this job runs
+#             main's code — the only job allowed actions: write. Its own green attaches to
+#             main, never to the PR; the only way to flip the PR's check is to re-run the
+#             PR's verify run (waiting first if it's still in flight), which now finds the
+#             status. That re-run is a pull_request event and posts no comment, so it
+#             cannot re-trigger this path (no loop).
 #
-# The logic lives in .github/scripts/gate-check.js so rig-lite/self-test.sh can run it
-# under node with a mocked GitHub — the race above is covered there.
+# The reconcile logic lives in .github/scripts/gate-check.js so rig-lite/self-test.sh
+# can run it under node with a mocked GitHub — the race and attribution cases are there.
 
 on:
   pull_request:
@@ -25,21 +28,51 @@ on:
   issue_comment:
     types: [created]
 
-permissions:
-  pull-requests: read
-  contents: read
-  statuses: read
-  actions: write   # comment path re-runs the PR's own pull_request check
+permissions: {}
 
 jobs:
-  check:
+  verify:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || contains(github.event.comment.body, 'VERDICT')
+    permissions:
+      statuses: read
     steps:
-      - uses: actions/checkout@v4
-      - name: Check gate-verdict commit status
+      - name: Require gate-verdict = success on the PR head SHA
         uses: actions/github-script@v7
         with:
           script: |
-            const gateCheck = require('./.github/scripts/gate-check.js');
-            await gateCheck({ github, context, core, sleep: ms => new Promise(r => setTimeout(r, ms)) });
+            const pr = context.payload.pull_request;
+            const sha = pr.head.sha;
+            console.log(`Checking gate-verdict status for SHA: ${sha}`);
+            const { data } = await github.rest.repos.listCommitStatusesForRef({
+              owner: context.repo.owner, repo: context.repo.repo, ref: sha,
+            });
+            const s = data.find(x => x.context === 'gate-verdict');
+            if (!s) {
+              core.setFailed(`No gate-verdict commit status found — run rig-lite/gate.sh --pr ${pr.number}. Merge blocked until the gate sets APPROVED.`);
+              return;
+            }
+            console.log(`Gate status: ${s.state} (set by @${s.creator.login})`);
+            console.log(`Description: ${s.description}`);
+            if (s.state !== 'success') {
+              core.setFailed(`Gate verdict: ${s.state} — fix the findings and re-gate. Merge blocked until APPROVED.`);
+              return;
+            }
+            console.log('✓ Gate APPROVED on this commit SHA — merge is allowed (by a human).');
+
+  reconcile:
+    if: github.event_name == 'issue_comment' && contains(github.event.comment.body, 'VERDICT')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write   # re-runs the PR's own verify run — main's code only (see above)
+      pull-requests: read
+      statuses: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Flip the PR's own check to match the verdict
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const reconcile = require('./.github/scripts/gate-check.js');
+            await reconcile({ github, context, core, sleep: ms => new Promise(r => setTimeout(r, ms)) });
