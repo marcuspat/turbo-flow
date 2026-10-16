@@ -132,6 +132,9 @@ if [[ -f "$KIT/tf" ]]; then
         esac
       fi
       if [[ "${RGSKIP:-0}" != "1" ]] && printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\nexec bash %q "$@"\n' "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
+        if grep -qF '# rig-lite tf wrapper' "$BIN_DIR/tf" 2>/dev/null && [[ "$BIN_DIR/tf" -nt "$KIT/tf" ]]; then
+          echo "init-repo: tf wrapper re-pointed to this repo's kit ($KIT/tf)" >&2
+        fi
         echo "init-repo: tf wrapper installed to $BIN_DIR/tf (points at $KIT/tf)"
         case ":$PATH:" in
           *":$BIN_DIR:"*) : ;;
