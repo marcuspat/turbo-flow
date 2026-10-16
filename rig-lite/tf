@@ -21,17 +21,12 @@ cmd_gate() {
     esac
   done
   if [[ -z "$b" ]]; then
-    # No auto-detect: it's fragile (mixed branches, Co-Authored-By parsing,
-    # unmarked commits). The builder ALWAYS names itself — via --builder or
-    # TF_BUILDER env var. Fail closed if neither is set.
-    if [[ -n "${TF_BUILDER:-}" ]]; then
-      b="$TF_BUILDER"
-      say "builder: $b (from TF_BUILDER)"
-    else
-      warn "builder required: use --builder <cli> or set TF_BUILDER"
-      warn "known families: claude, codex, glm/zcode/zai, gemini, grok, xai"
-      return 1
-    fi
+    # The builder names itself per change — via --builder only.
+    # No auto-detect (fragile), no TF_BUILDER env var (stale values weaken Law 1:
+    # a profile-inherited value from a different session can mislabel the family).
+    warn "builder required: tf gate --builder <cli>"
+    warn "known families: claude, codex, glm/zcode/zai, gemini, grok, xai"
+    return 1
   fi
   exec bash "$TF_SELF/gate.sh" --builder "$b" ${args[@]+"${args[@]}"}
 }
@@ -103,7 +98,7 @@ cmd_help() {
   echo "  tf protect                           branch protection"
   echo "  tf completion bash|zsh               completion"
   echo ""
-  echo "builder comes from --builder <cli> or TF_BUILDER env var (set it once, forget it)"
+  echo "builder names itself per change: --builder <cli> (no env var — stale values mislabel the family)"
 }
 
 case "${1:-help}" in
