@@ -33,12 +33,6 @@ A fresh Codespace from `main` (unauthenticated): the first shell triggers the bo
 
 Recorded on the same Codespace: `tf help` shows every subcommand, `tf status` gives the at-a-glance view (repo, gate verdict counts, tree health), `tf gate` fails closed without `--builder`, `tf tokens` shows the live dashboard, and `tf test` runs the full suite. The `tf` command is installed automatically in Codespaces and by `init-repo.sh` anywhere else.
 
-## 🎬 The boot demo — no menu, just the rig
-
-![harness boot demo](demo/harness-boot-demo.gif)
-
-A fresh Codespace from `main` (unauthenticated): the first shell triggers the boot (no menu — that's the point), **Claude Code + Codex + Ruflo install visibly**, then tmux fires with all 5 windows — each one landing **inside** its harness. The GIF cycles through every window: claude (first-run welcome), claude+ruflo (with the plugins loaded), codex (sign-in prompt on this fresh box), the live token dashboard, and a free shell with the gate help. The reviewer is whichever window has a **different model family** than the builder — cross-family review is the kit's law.
-
 ## The gate survived 17 rounds of review
 
 `rig-lite/gate.sh` was itself reviewed by a model family that didn't write it — and got **REVISE'd seventeen times** before earning APPROVED (counted from the gate's own JSONL log). The findings are exactly the class the gate exists to catch: a prompt-injection hole that let a diff approve itself, a fail-open path that skipped review entirely, a quoting bug that swallowed failing tests, a silent-reviewer misdiagnosis. Every fix became a self-test. **Builder ≠ reviewer isn't a slogan in this repo — it's the reason this script is trustworthy.**
@@ -66,12 +60,13 @@ A fresh Codespace from `main` (unauthenticated): the first shell triggers the bo
 ```bash
 # from any repo you want to govern:
 bash /path/to/turbo-flow/rig-lite/init-repo.sh   # writes AGENTS.md + installs tf, never clobbers
+export PATH="$HOME/.local/bin:$PATH"              # tf lives here (init warns if not on PATH)
 tf test                                            # prove the kit (322 checks)
 tf gate --builder <your-cli>                       # gate your first change
 tf status                                          # everything at a glance
 ```
 
-No Codespace? Fine — it's bash. Want the 30-second container tour anyway? Open this repo in a Codespace; `postCreate` runs the self-test and installs `tf`. That's the whole install surface.
+No Codespace? Fine — it's bash. Want the 30-second container tour anyway? Open this repo in a Codespace; `postCreate` runs the self-test and installs `tf` on PATH automatically. That's the whole install surface.
 
 ## Your first five minutes in the rig
 
