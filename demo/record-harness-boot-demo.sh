@@ -92,14 +92,17 @@ child.expect(pexpect.TIMEOUT, timeout=2)  # drain
 child.send("exit\r")
 time.sleep(2)
 
+RGFORCED = False
 try:
     child.expect(pexpect.EOF, timeout=10)
 except (pexpect.TIMEOUT, pexpect.EOF):
     child.terminate(force=True)
+    RGFORCED = True  # the cast may be truncated — check size more strictly
 
 size = os.path.getsize("/tmp/harness-boot.cast") if os.path.exists("/tmp/harness-boot.cast") else 0
-if size < 10000:  # a real boot recording is 30KB+; less means something went wrong
-    die(f"cast too small ({size} bytes) — the recording likely captured an incomplete session")
+RGMIN = 10000 if not RGFORCED else 30000  # force-terminated casts need a higher floor
+if size < RGMIN:
+    die(f"cast too small ({size} bytes, minimum {RGMIN}{' — force-terminated' if RGFORCED else ''}) — the recording likely captured an incomplete session")
 print(f"cast written: /tmp/harness-boot.cast ({size} bytes)")
 print("render with: ~/bin/agg /tmp/harness-boot.cast demo/harness-boot-demo.gif --speed 1.8 --font-size 12")
 PYEOF
