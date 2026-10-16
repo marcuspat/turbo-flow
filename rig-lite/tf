@@ -62,7 +62,7 @@ cmd_status() {
   local logf="${GATE_LOG:-$HOME/.local/state/rig-lite/gate-log.jsonl}"
   if [[ -f "$logf" ]] && command -v python3 >/dev/null 2>&1; then
     local stats
-    stats="$(python3 -c "
+    stats="$(python3 -I -c "
 import json, sys
 total = approved = revised = 0
 for line in open(sys.argv[1]):
