@@ -25,11 +25,11 @@ Turbo Flow bundles no agent and no orchestrator. It names harnesses by **role**,
 
 A clean Codespace boots this repo's devcontainer and the kit proves itself in-container — fail-closed self-test suite and a live gate run (reviewer CLI stubbed; no API keys on the recording box). Not a mockup. The recording predates the lean pivot (it shows the repo's earlier container); the current container's `postCreate` runs the self-test directly, and the recorder now walks that flow. Reproducible via [`demo/record-rig-lite-demo.sh`](demo/record-rig-lite-demo.sh).
 
-## 🎬 The boot demo — pick a harness, get a rig
+## 🎬 The boot demo — no menu, just the rig
 
 ![harness boot demo](demo/harness-boot-demo.gif)
 
-A fresh Codespace, nothing preinstalled (the recorder's three prereqs — asciinema, pexpect, agg — are documented in its header): [`setup-harness.sh`](setup-harness.sh) presents the harness menu, we pick **Claude Code**, and node + the CLI + the **Ruflo marketplace, console and mods** install for real on camera — ending on the honest "claude is logged out" nudge (keys never touch the recording). One take, reproducible via [`demo/record-harness-boot-demo.sh`](demo/record-harness-boot-demo.sh).
+A fresh Codespace from `main` (unauthenticated): the first shell triggers the boot (no menu — that's the point), **Claude Code + Codex + Ruflo install visibly**, then tmux fires with all 5 windows — each one landing **inside** its harness. The GIF cycles through every window: claude (first-run welcome), claude+ruflo (with the plugins loaded), codex (sign-in prompt on this fresh box), the live token dashboard, and a free shell with the gate help. The reviewer is whichever window has a **different model family** than the builder — cross-family review is the kit's law.
 
 ## The gate survived 17 rounds of review
 
