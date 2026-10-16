@@ -131,10 +131,16 @@ if [[ -f "$KIT/tf" ]]; then
           *) echo "init-repo: $BIN_DIR/tf is a symlink to $RGTARGET (not ours) — left untouched" >&2; RGSKIP=1 ;;
         esac
       fi
-      if [[ "${RGSKIP:-0}" != "1" ]] && printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\nexec bash %q "$@"\n' "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
-        if grep -qF '# rig-lite tf wrapper' "$BIN_DIR/tf" 2>/dev/null && [[ "$BIN_DIR/tf" -nt "$KIT/tf" ]]; then
-          echo "init-repo: tf wrapper re-pointed to this repo's kit ($KIT/tf)" >&2
+      # don't re-point if the existing wrapper targets a DIFFERENT kit that still exists
+      if [[ "${RGSKIP:-0}" != "1" && -f "$BIN_DIR/tf" ]]; then
+        RGOLD="$(grep -o 'exec bash [^ ]*' "$BIN_DIR/tf" 2>/dev/null | head -1 | sed 's/exec bash //; s/"//g' || true)"
+        if [[ -n "$RGOLD" && "$RGOLD" != "$KIT/tf" && -f "$RGOLD" ]]; then
+          echo "init-repo: tf wrapper already points at $RGOLD (a different kit that exists) — NOT re-pointing" >&2
+          echo "init-repo: to re-point, rm $BIN_DIR/tf and re-run init" >&2
+          RGSKIP=1
         fi
+      fi
+      if [[ "${RGSKIP:-0}" != "1" ]] && printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\nexec bash %q "$@"\n' "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
         echo "init-repo: tf wrapper installed to $BIN_DIR/tf (points at $KIT/tf)"
         case ":$PATH:" in
           *":$BIN_DIR:"*) : ;;

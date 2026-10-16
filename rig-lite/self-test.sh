@@ -1540,6 +1540,23 @@ if [ -f "$RGTF" ]; then
     echo "✗ tf: init-repo did not install the wrapper"; FAIL=1
   fi
   rm -rf "$RGTW"
+  # foreign regular file at ~/.local/bin/tf: left untouched by init
+  RGTW2="$(mktemp -d)"; mkdir -p "$RGTW2/.local/bin"
+  printf '#!/bin/bash\necho not-ours\n' > "$RGTW2/.local/bin/tf"
+  ( cd "$RGTW2" && git init -q && HOME="$RGTW2" bash "$KIT/init-repo.sh" T2 ) >/dev/null 2>&1
+  grep -q "not-ours" "$RGTW2/.local/bin/tf" 2>/dev/null \
+    && echo "✓ tf: foreign ~/.local/bin/tf left untouched by init" \
+    || { echo "✗ tf: foreign file was clobbered"; FAIL=1; }
+  rm -rf "$RGTW2"
+  # foreign symlink at ~/.local/bin/tf: left untouched by init
+  RGTW3="$(mktemp -d)"; mkdir -p "$RGTW3/.local/bin" "$RGTW3/target"
+  printf '#!/bin/bash\n' > "$RGTW3/target/tf"
+  ln -s "$RGTW3/target/tf" "$RGTW3/.local/bin/tf"
+  ( cd "$RGTW3" && git init -q && HOME="$RGTW3" bash "$KIT/init-repo.sh" T3 ) >/dev/null 2>&1
+  [ -L "$RGTW3/.local/bin/tf" ] && [ "$(readlink "$RGTW3/.local/bin/tf")" = "$RGTW3/target/tf" ] \
+    && echo "✓ tf: foreign symlink left untouched by init" \
+    || { echo "✗ tf: foreign symlink was clobbered"; FAIL=1; }
+  rm -rf "$RGTW3"
 else
   echo "⚠ tf CLI checks SKIPPED (script not present)"
 fi
