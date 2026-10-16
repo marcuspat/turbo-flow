@@ -1540,6 +1540,37 @@ if [ -f "$RGTF" ]; then
     echo "✗ tf: init-repo did not install the wrapper"; FAIL=1
   fi
   rm -rf "$RGTW"
+  # tf gate fail-closed paths (the Law 1 entry point)
+  "$RGTF" gate >/dev/null 2>&1; RC=$?
+  [ "$RC" -ne 0 ] && echo "✓ tf: gate without --builder fails closed" || { echo "✗ tf: gate without builder accepted"; FAIL=1; }
+  "$RGTF" gate --builder --pr 5 >/dev/null 2>&1; RC=$?
+  [ "$RC" -ne 0 ] && echo "✓ tf: --builder with flag-like value rejected" || { echo "✗ tf: flag-like builder accepted"; FAIL=1; }
+  "$RGTF" gate --pr= >/dev/null 2>&1; RC=$?
+  [ "$RC" -ne 0 ] && echo "✓ tf: empty --pr= rejected" || { echo "✗ tf: empty --pr= accepted"; FAIL=1; }
+  # tf gate passes --base main when no mode flag is present (stub gate.sh captures argv)
+  RGSTUB="$(mktemp -d)"
+  mkdir -p "$RGSTUB/rig-lite"
+  printf '#!/usr/bin/env bash\necho "$@" >> "%s/argv"\n' "$RGSTUB" > "$RGSTUB/rig-lite/gate.sh"
+  chmod +x "$RGSTUB/rig-lite/gate.sh"
+  cp "$KIT/tf" "$RGSTUB/rig-lite/tf"
+  ( cd "$RGSTUB" && bash "$RGSTUB/rig-lite/tf" gate --builder claude >/dev/null 2>&1 )
+  if [ -f "$RGSTUB/argv" ] && grep -q -- '--base main' "$RGSTUB/argv" && grep -q -- '--builder claude' "$RGSTUB/argv"; then
+    echo "✓ tf: gate adds --base main when no mode flag present"
+  else
+    echo "✗ tf: --base main default missing (argv: $(cat "$RGSTUB/argv" 2>/dev/null))"; FAIL=1
+  fi
+  rm -rf "$RGSTUB"
+  # re-point refusal: a wrapper pointing at a different live kit is left alone
+  RGRP="$(mktemp -d)"; mkdir -p "$RGRP/.local/bin" "$RGRP/other-kit" "$RGRP/repo"
+  printf '#!/usr/bin/env/bash\necho stub\n' > "$RGRP/other-kit/tf"; chmod +x "$RGRP/other-kit/tf"
+  printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\n# rig-lite tf target: %s/tf\nexec bash %s/tf "$@"\n' "$RGRP/other-kit" "$RGRP/other-kit" > "$RGRP/.local/bin/tf"
+  chmod +x "$RGRP/.local/bin/tf"
+  ( cd "$RGRP/repo" && git init -q && HOME="$RGRP" bash "$KIT/init-repo.sh" RP ) >/dev/null 2>&1
+  grep -q "other-kit" "$RGRP/.local/bin/tf" 2>/dev/null \
+    && echo "✓ tf: wrapper pointing at a different live kit NOT re-pointed" \
+    || { echo "✗ tf: existing wrapper was re-pointed"; FAIL=1; }
+  rm -rf "$RGRP"
+
   # foreign regular file at ~/.local/bin/tf: left untouched by init
   RGTW2="$(mktemp -d)"; mkdir -p "$RGTW2/.local/bin"
   printf '#!/bin/bash\necho not-ours\n' > "$RGTW2/.local/bin/tf"
