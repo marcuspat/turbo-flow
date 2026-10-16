@@ -1627,6 +1627,117 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
 " 2>/dev/null \
     && echo "✓ protect: gate-check.yml parses, has both triggers" \
     || { python3 -c "import yaml" 2>/dev/null && { echo "✗ protect: gate-check.yml YAML assertion FAILED"; FAIL=1; } || echo "⚠ protect: gate-check.yml YAML parse skipped (pyyaml unavailable)"; }
+  # gate-check: the comment path must flip the PR's OWN check. Comment-triggered runs
+  # attach to main, so only a re-run of the PR's pull_request run (pinned to its head SHA,
+  # which needs actions: write) ever turns the PR green — without it every gated PR keeps
+  # the stale red X from the push-time run that beat the gate. The logic lives in
+  # gate-check.js precisely so it can be driven here with a mocked GitHub.
+  RGGC="$KIT/../.github/workflows/gate-check.yml"
+  RGGCJS="$KIT/../.github/scripts/gate-check.js"
+  if grep -qE '^[[:space:]]*actions:[[:space:]]*write' "$RGGC" && grep -q 'actions/checkout' "$RGGC" \
+     && grep -q "require('./.github/scripts/gate-check.js')" "$RGGC" \
+     && [ -f "$RGGCJS" ] && grep -q 'reRunWorkflow' "$RGGCJS" && grep -q 'head_sha: sha' "$RGGCJS" && grep -q 'getWorkflowRun' "$RGGCJS" \
+     && grep -q 'github.paginate' "$RGGCJS" && grep -q 'pull_requests' "$RGGCJS" \
+     && ! grep -q 'pulls.list' "$RGGCJS" && ! grep -q 'head_branch' "$RGGCJS"; then
+    # the two negatives lock a decision: five gate rounds showed no fork heuristic (branch+repo,
+    # open-PR counts) is provable from GitHub's data — unlinked runs fail closed instead.
+    echo "✓ protect: gate-check.yml wires actions: write + checkout + gate-check.js (runs attributed ONLY via pull_requests, no fork heuristics; paginated; waits on in-flight runs; unlinked runs fail closed)"
+  else
+    echo "✗ protect: gate-check wiring broken (PR check would stay red after APPROVED)"; FAIL=1
+  fi
+  # permission boundary: on pull_request GitHub runs the PR's copy of the workflow, so the
+  # PR-path job must hold NO write permission and must not check out (PR-controlled) code;
+  # only the comment-path job — which GitHub runs from main — may hold actions: write.
+  RGGCV="$(awk '/^  verify:/{f=1;next} /^  [a-z]/{f=0} f' "$RGGC")"
+  RGGCR="$(awk '/^  reconcile:/{f=1;next} /^  [a-z]/{f=0} f' "$RGGC")"
+  if grep -qE '^permissions: \{\}' "$RGGC" \
+     && [ -n "$RGGCV" ] && ! grep -q 'write' <<<"$RGGCV" && ! grep -q 'actions/checkout' <<<"$RGGCV" && ! grep -q 'require(' <<<"$RGGCV" \
+     && grep -q "event_name == 'pull_request'" <<<"$RGGCV" && grep -q 'statuses: read' <<<"$RGGCV" \
+     && [ -n "$RGGCR" ] && grep -qE '^[[:space:]]*actions: write' <<<"$RGGCR" && grep -q 'actions/checkout' <<<"$RGGCR" \
+     && grep -q "event_name == 'issue_comment'" <<<"$RGGCR" && grep -q 'author_association' <<<"$RGGCR"; then
+    echo "✓ protect: gate-check permission boundary — PR job is read-only with no checkout/require; only the comment job (main's code, member comments only) holds actions: write; top-level permissions empty"
+  else
+    echo "✗ protect: gate-check permission boundary broken (a write token could reach PR-controlled code)"; FAIL=1
+  fi
+  if command -v node >/dev/null 2>&1 && [ -f "$RGGCJS" ]; then
+    RGGCABS="$(cd "$(dirname "$RGGCJS")" && pwd)/gate-check.js"
+    node - "$RGGCABS" <<'JS' || FAIL=1
+const reconcile = require(process.argv[2]);
+let fails = 0;
+function mk({ event = 'issue_comment', isPr = true, status, runs = [], getSeq = [], headRepo = 'o/r' }) {
+  const calls = { rerun: [], failed: [] };
+  const core = { info() {}, setFailed(m) { calls.failed.push(m); } };
+  const owner = headRepo ? headRepo.split('/')[0] : 'gone';
+  const prObj = { number: 7, head: { sha: 'abc', ref: 'feat', label: `${owner}:feat`, repo: headRepo ? { full_name: headRepo } : null } };
+  const context = {
+    eventName: event, repo: { owner: 'o', repo: 'r' }, issue: { number: 7 },
+    payload: event === 'pull_request' ? { pull_request: prObj } : { issue: isPr ? { pull_request: {} } : {} },
+  };
+  const github = { rest: {
+    // pulls.list deliberately absent: fork attribution by open-PR lookup was removed —
+    // if reconcile ever calls it again, this mock throws and the scenarios go red.
+    pulls: { get: async () => ({ data: prObj }) },
+    repos: { listCommitStatusesForRef: async () => ({ data: status ? [{ context: 'gate-verdict', state: status, creator: { login: 'bot' }, description: 'd' }] : [] }) },
+    actions: {
+      listWorkflowRuns: async (a) => { if (a.head_sha !== 'abc' || a.event !== 'pull_request') throw new Error('run lookup not pinned to the PR head SHA / pull_request'); return { data: { workflow_runs: runs } }; },
+      getWorkflowRun: async () => ({ data: getSeq.length ? getSeq.shift() : runs[0] }),
+      reRunWorkflow: async (a) => { calls.rerun.push(a.run_id); },
+    },
+  } };
+  // octokit's paginate flattens pages into one array ({total_count, workflow_runs} or a bare list)
+  github.paginate = async (fn, params) => { const d = (await fn(params)).data; return Array.isArray(d) ? d : d.workflow_runs; };
+  return { github, context, core, calls };
+}
+async function t(name, cfg, want) {
+  const m = mk(cfg); let got;
+  try { got = await reconcile({ github: m.github, context: m.context, core: m.core, sleep: async () => {}, waitMs: cfg.waitMs ?? 5000, pollMs: 0 }); }
+  catch (e) { got = 'THREW: ' + e.message; }
+  const wantIds = JSON.stringify(want.rerun || []), gotIds = JSON.stringify(m.calls.rerun);
+  const retOk = want.throws ? String(got).startsWith('THREW: ') : got === want.ret;
+  const ok = retOk && gotIds === wantIds && (m.calls.failed.length > 0) === !!want.failed;
+  console.log((ok ? '✓' : '✗') + ' gate-check.js: ' + name + (ok ? '' : ` (got ${got}, rerun=${gotIds} want ${wantIds}, failed=${m.calls.failed.length})`));
+  if (!ok) fails++;
+}
+const mine = [{ number: 7 }], theirs = [{ number: 9 }], here = { full_name: 'o/r' }, fork = { full_name: 'someone/r' };
+const live = { id: 42, status: 'in_progress', conclusion: null, pull_requests: mine, head_branch: 'feat', head_repository: here };
+const red = { id: 42, status: 'completed', conclusion: 'failure', pull_requests: mine, head_branch: 'feat', head_repository: here };
+const green = { id: 42, status: 'completed', conclusion: 'success', pull_requests: mine, head_branch: 'feat', head_repository: here };
+const otherRed = { id: 99, status: 'completed', conclusion: 'failure', pull_requests: theirs, head_branch: 'feat', head_repository: here };
+const otherGreen = { id: 99, status: 'completed', conclusion: 'success', pull_requests: theirs, head_branch: 'feat', head_repository: here };
+// fork-PR runs: GitHub leaves pull_requests empty; only head branch + head repository identify them
+const forkRed = { id: 55, status: 'completed', conclusion: 'failure', pull_requests: [], head_branch: 'feat', head_repository: fork };
+const forkGreen = { id: 55, status: 'completed', conclusion: 'success', pull_requests: [], head_branch: 'feat', head_repository: fork };
+const forkLive = { id: 55, status: 'in_progress', conclusion: null, pull_requests: [], head_branch: 'feat', head_repository: fork };
+const forkOtherBranch = { id: 56, status: 'completed', conclusion: 'failure', pull_requests: [], head_branch: 'other', head_repository: fork };
+const forkRedClosedPR = { id: 57, status: 'completed', conclusion: 'failure', pull_requests: [], head_branch: 'feat', head_repository: fork };
+(async () => {
+  await t('wired to a pull_request event → refuses (that path must stay read-only, no PR code)', { event: 'pull_request', status: 'success' }, { throws: true });
+  await t('verdict comment on a plain issue → skipped', { isPr: false, status: 'success' }, { ret: 'skipped' });
+  await t('comment + no status yet → fails (not gated), never re-runs', { runs: [red] }, { ret: 'not-approved', failed: true });
+  await t('comment + REVISE → fails, never re-runs', { status: 'failure', runs: [red] }, { ret: 'not-approved', failed: true });
+  await t('comment + APPROVED + PR run red → re-runs that run', { status: 'success', runs: [red] }, { ret: 'rerun', rerun: [42] });
+  await t('comment + APPROVED + PR run already green → no re-run', { status: 'success', runs: [green] }, { ret: 'approved' });
+  await t('comment + APPROVED + PR run in flight → waits, then re-runs (race)', { status: 'success', runs: [live], getSeq: [live, red] }, { ret: 'rerun', rerun: [42] });
+  await t('comment + APPROVED + PR run never settles → fails with the manual rerun, no blind re-run', { status: 'success', runs: [live], waitMs: 0 }, { ret: 'timeout', failed: true });
+  await t('comment + APPROVED + no PR run exists → passes, nothing to re-run', { status: 'success', runs: [] }, { ret: 'approved' });
+  await t('two PRs share the SHA, other PR listed first + red → re-runs only OUR run', { status: 'success', runs: [otherRed, red] }, { ret: 'rerun', rerun: [42] });
+  await t('two PRs share the SHA, other PR green + ours red → still re-runs ours (no early green exit)', { status: 'success', runs: [otherGreen, red] }, { ret: 'rerun', rerun: [42] });
+  await t('only the OTHER PR has a run at this SHA (linked to it) → not ours, not stray, no re-run', { status: 'success', runs: [otherRed] }, { ret: 'approved' });
+  await t('our listed run red + a stray fork run alongside → re-runs only OUR run, never the stray', { status: 'success', runs: [forkRed, red] }, { ret: 'rerun', rerun: [42] });
+  // fork-PR runs carry no pull_requests link; GitHub offers no other proof of which PR fired them → fail closed, hand over the command
+  await t('fork PR run (no pull_requests) red → never auto-attributed: fails with the manual rerun, no blind re-run', { status: 'success', headRepo: 'someone/r', runs: [forkRed] }, { ret: 'unattributed', failed: true });
+  await t('sole fork run at this SHA could be a since-closed PR\'s, one open PR → still fails closed (r8 finding)', { status: 'success', headRepo: 'someone/r', runs: [forkRedClosedPR] }, { ret: 'unattributed', failed: true });
+  await t('fork PR run in flight → fails closed with the manual rerun (no waiting on a run we cannot attribute)', { status: 'success', headRepo: 'someone/r', runs: [forkLive] }, { ret: 'unattributed', failed: true });
+  await t('two unlinked fork runs at this SHA → both listed in the manual rerun, none re-run', { status: 'success', headRepo: 'someone/r', runs: [forkRed, forkRedClosedPR] }, { ret: 'unattributed', failed: true });
+  await t('unlinked run on a different branch → same answer: unattributed, manual rerun', { status: 'success', headRepo: 'someone/r', runs: [forkOtherBranch] }, { ret: 'unattributed', failed: true });
+  await t('fork deleted (PR head repo null) + unlinked run → unattributed, manual rerun', { status: 'success', headRepo: null, runs: [forkRed] }, { ret: 'unattributed', failed: true });
+  await t('unlinked run that is already GREEN → nothing stale, passes', { status: 'success', headRepo: 'someone/r', runs: [forkGreen] }, { ret: 'approved' });
+  process.exit(fails ? 1 : 0);
+})();
+JS
+  else
+    echo "⚠ protect: gate-check.js behavioral scenarios skipped (node unavailable)"
+  fi
   # constitution mentions protect.sh (the law points at the enforcement)
   grep -q "protect.sh" "$KIT/constitution.md" \
     && echo "✓ protect: constitution references protect.sh (Law 2 → enforcement)" \
