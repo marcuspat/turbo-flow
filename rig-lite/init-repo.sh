@@ -127,6 +127,8 @@ if [[ -f "$KIT/tf" ]]; then
       # (same rule as the wrapper file check: a foreign target that exists is left alone)
       if [[ -L "$BIN_DIR/tf" ]]; then
         RGTARGET="$(readlink "$BIN_DIR/tf" 2>/dev/null)"
+        # resolve relative targets against $BIN_DIR (readlink returns the raw path)
+        [[ "$RGTARGET" != /* ]] && RGTARGET="$BIN_DIR/$RGTARGET"
         if [[ "$RGTARGET" == */rig-lite/tf && ( "$RGTARGET" == "$KIT/tf" || ! -f "$RGTARGET" ) ]]; then
           rm -f "$BIN_DIR/tf"  # ours or dead — safe to replace
         else
@@ -136,14 +138,14 @@ if [[ -f "$KIT/tf" ]]; then
       fi
       # don't re-point if the existing wrapper targets a DIFFERENT kit that still exists
       if [[ "${RGSKIP:-0}" != "1" && -f "$BIN_DIR/tf" ]]; then
-        RGOLD="$(grep -o 'exec bash [^ ]*' "$BIN_DIR/tf" 2>/dev/null | head -1 | sed 's/exec bash //; s/"//g' || true)"
+        RGOLD="$(sed -n 's/^# rig-lite tf target: //p' "$BIN_DIR/tf" 2>/dev/null | head -1 || true)"
         if [[ -n "$RGOLD" && "$RGOLD" != "$KIT/tf" && -f "$RGOLD" ]]; then
           echo "init-repo: tf wrapper already points at $RGOLD (a different kit that exists) — NOT re-pointing" >&2
           echo "init-repo: to re-point, rm $BIN_DIR/tf and re-run init" >&2
           RGSKIP=1
         fi
       fi
-      if [[ "${RGSKIP:-0}" != "1" ]] && printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\nexec bash %q "$@"\n' "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
+      if [[ "${RGSKIP:-0}" != "1" ]] && printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\n# rig-lite tf target: %s\nexec bash %q "$@"\n' "$KIT/tf" "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
         echo "init-repo: tf wrapper installed to $BIN_DIR/tf (points at $KIT/tf)"
         case ":$PATH:" in
           *":$BIN_DIR:"*) : ;;
