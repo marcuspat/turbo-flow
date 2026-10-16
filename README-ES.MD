@@ -54,12 +54,12 @@ Cuando la instalación termina, aterrizas **dentro de un rig tmux de 5 ventanas*
 
 ```bash
 # desde cualquier repo que quieras gobernar:
-bash /ruta/a/turbo-flow/rig-lite/init-repo.sh   # escribe AGENTS.md + symlink, nunca pisa
-bash /ruta/a/turbo-flow/rig-lite/self-test.sh   # demuestra el kit en tu máquina
-/ruta/a/turbo-flow/rig-lite/gate.sh --pr 1 --builder <tu-cli>
+bash /ruta/a/turbo-flow/rig-lite/init-repo.sh   # escribe AGENTS.md + instala tf, nunca pisa
+tf test                                            # demuestra el kit (322 checks)
+tf gate --builder <tu-cli>                       # gatea tu primer cambio
 ```
 
-Sin Codespace no pasa nada — es bash. ¿Quieres el tour de 30 segundos en contenedor? Abre este repo en un Codespace; el `postCreate` corre el self-test.
+Sin Codespace no pasa nada — es bash. ¿Quieres el tour de 30 segundos en contenedor? Abre este repo en un Codespace; el `postCreate` corre el self-test e instala `tf`.
 
 ## Tus primeros cinco minutos en el rig
 

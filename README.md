@@ -39,6 +39,7 @@ A fresh Codespace from `main` (unauthenticated): the first shell triggers the bo
 
 | file | what it gives you |
 |---|---|
+| [`tf`](rig-lite/tf) | **one command for everything** — `tf gate`, `tf test`, `tf status`, `tf wt`, `tf secrets`, `tf tokens`, `tf digest`, `tf init`, `tf protect`. Installed by `init-repo.sh` and by the Codespace boot. |
 | [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. `--pr <n>` gates a GitHub PR and posts the verdict as a comment; `--sweep` gates every open PR that has no verdict yet; `-C <repo>` gates another checkout. Every verdict lands in a local JSONL log the digest joins. |
 | [`wt.sh`](rig-lite/wt.sh) | an isolated worktree per parallel writer: `wt <name>` creates `.worktrees/<name>` + branch, `--clean` tidies up after merge. |
 | [`init-repo.sh`](rig-lite/init-repo.sh) | one-command onboarding for any repo: a thin `AGENTS.md` (constitution pointer + project cheat-sheet) and the `CLAUDE.md → AGENTS.md` symlink. Never clobbers existing files. |
@@ -56,12 +57,13 @@ A fresh Codespace from `main` (unauthenticated): the first shell triggers the bo
 
 ```bash
 # from any repo you want to govern:
-bash /path/to/turbo-flow/rig-lite/init-repo.sh   # writes AGENTS.md + symlink, never clobbers
-bash /path/to/turbo-flow/rig-lite/self-test.sh   # prove the kit on your machine
-/path/to/turbo-flow/rig-lite/gate.sh --pr 1 --builder <your-cli>
+bash /path/to/turbo-flow/rig-lite/init-repo.sh   # writes AGENTS.md + installs tf, never clobbers
+tf test                                            # prove the kit (322 checks)
+tf gate --builder <your-cli>                       # gate your first change
+tf status                                          # everything at a glance
 ```
 
-No Codespace? Fine — it's bash. Want the 30-second container tour anyway? Open this repo in a Codespace; `postCreate` runs the self-test. That's the whole install surface.
+No Codespace? Fine — it's bash. Want the 30-second container tour anyway? Open this repo in a Codespace; `postCreate` runs the self-test and installs `tf`. That's the whole install surface.
 
 ## Your first five minutes in the rig
 
