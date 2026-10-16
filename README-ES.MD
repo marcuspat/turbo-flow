@@ -21,11 +21,11 @@ Turbo Flow no empaqueta ningún agente ni orquestador. Nombra los harnesses por 
 
 Un Codespace limpio arranca el devcontainer de este repo y el kit se prueba a sí mismo: suite de auto-tests fail-closed y una corrida del gate en vivo (CLI del revisor stubbeado; sin API keys en la máquina de grabación). La grabación es anterior al lean pivot (muestra el contenedor previo del repo); el contenedor actual corre el self-test directamente en su `postCreate`, y el grabador ahora recorre ese flujo. Reproducible con [`demo/record-rig-lite-demo.sh`](demo/record-rig-lite-demo.sh).
 
-## 🎬 El demo de arranque — elige un harness, obtén un rig
+## 🎬 El demo de arranque — sin menú, directo al rig
 
 ![demo de arranque](demo/harness-boot-demo.gif)
 
-Un Codespace limpio, nada preinstalado (los tres prerequisitos del grabador — asciinema, pexpect, agg — están documentados en su encabezado): [`setup-harness.sh`](setup-harness.sh) presenta el menú de harnesses, elegimos **Claude Code**, y node + el CLI + el **marketplace de Ruflo, console y mods** se instalan de verdad en cámara — cerrando con el honesto aviso de "claude is logged out" (las keys nunca tocan la grabación). Una sola toma, reproducible con [`demo/record-harness-boot-demo.sh`](demo/record-harness-boot-demo.sh).
+Un Codespace limpio desde `main`: el primer shell dispara el arranque (sin menú — ese es el punto), **Claude Code + Codex + Ruflo se instalan de forma visible**, luego tmux arranca con las 5 ventanas — cada una aterrizando **dentro** de su harness. El GIF recorre todas las ventanas: claude (revisor), claude+ruflo (constructor), codex (carril OpenAI), el dashboard de tokens en vivo, y un shell libre. Una sola toma, grabada en el flujo real de arranque.
 
 ## El gate sobrevivió 17 rondas de revisión
 
