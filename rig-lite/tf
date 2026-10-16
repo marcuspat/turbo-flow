@@ -22,7 +22,7 @@ cmd_gate() {
   done
   # --sweep doesn't need a builder (it resolves per PR); everything else does
   local is_sweep=0
-  for a in "${args[@]}"; do
+  for a in ${args[@]+"${args[@]}"}; do
     case "$a" in --sweep*) is_sweep=1 ;; esac
   done
   if [[ -z "$b" && $is_sweep -eq 0 ]]; then
@@ -33,7 +33,7 @@ cmd_gate() {
   if [[ -n "$b" || $is_sweep -eq 1 ]]; then
   # default to branch mode (--base main) when no mode flag is given
   local has_mode=0
-  for a in "${args[@]}"; do
+  for a in ${args[@]+"${args[@]}"}; do
     case "$a" in --pr*|--base*|--sweep*|--stdin*) has_mode=1 ;; esac
   done
   if [[ $has_mode -eq 0 ]]; then
