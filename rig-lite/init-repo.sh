@@ -128,10 +128,10 @@ if [[ -f "$KIT/tf" ]]; then
         RGTARGET="$(readlink "$BIN_DIR/tf" 2>/dev/null)"
         case "$RGTARGET" in
           */rig-lite/tf) rm -f "$BIN_DIR/tf" ;;  # ours — safe to replace
-          *) echo "init-repo: $BIN_DIR/tf is a symlink to $RGTARGET (not ours) — left untouched" >&2; exit 0 ;;
+          *) echo "init-repo: $BIN_DIR/tf is a symlink to $RGTARGET (not ours) — left untouched" >&2; RGSKIP=1 ;;
         esac
       fi
-      if printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\nexec %q "$@"\n' "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
+      if [[ "${RGSKIP:-0}" != "1" ]] && printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\nexec %q "$@"\n' "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
         echo "init-repo: tf wrapper installed to $BIN_DIR/tf (points at $KIT/tf)"
       else
         echo "init-repo: tf not installed — use $KIT/tf directly" >&2

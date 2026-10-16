@@ -13,8 +13,8 @@ cmd_gate() {
   local args=() b=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --builder) b="$2"; shift 2 ;;
-      --builder=*) b="${1#--builder=}"; shift ;;
+      --builder) [[ "${2:-}" == -* || -z "${2:-}" ]] && { warn "--builder needs a value"; return 1; }; b="$2"; shift 2 ;;
+      --builder=*) b="${1#--builder=}"; [[ "$b" == -* ]] && { warn "--builder value looks like a flag"; return 1; }; shift ;;
       --pr) args+=("$1" "$2"); shift 2 ;;
       --pr=*) args+=("$1"); shift ;;
       *) args+=("$1"); shift ;;
