@@ -61,7 +61,13 @@ jobs:
             console.log('✓ Gate APPROVED on this commit SHA — merge is allowed (by a human).');
 
   reconcile:
-    if: github.event_name == 'issue_comment' && contains(github.event.comment.body, 'VERDICT')
+    # Only a repo member's VERDICT comment may wake the write-capable job: gate.sh posts
+    # through `gh` as the operator, so OWNER/MEMBER/COLLABORATOR is the real population;
+    # a drive-by "VERDICT" from anyone else does nothing.
+    if: >-
+      github.event_name == 'issue_comment'
+      && contains(github.event.comment.body, 'VERDICT')
+      && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     permissions:
       actions: write   # re-runs the PR's own verify run — main's code only (see above)

@@ -1651,8 +1651,8 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
      && [ -n "$RGGCV" ] && ! grep -q 'write' <<<"$RGGCV" && ! grep -q 'actions/checkout' <<<"$RGGCV" && ! grep -q 'require(' <<<"$RGGCV" \
      && grep -q "event_name == 'pull_request'" <<<"$RGGCV" && grep -q 'statuses: read' <<<"$RGGCV" \
      && [ -n "$RGGCR" ] && grep -qE '^[[:space:]]*actions: write' <<<"$RGGCR" && grep -q 'actions/checkout' <<<"$RGGCR" \
-     && grep -q "event_name == 'issue_comment'" <<<"$RGGCR"; then
-    echo "✓ protect: gate-check permission boundary — PR job is read-only with no checkout/require; only the comment job (main's code) holds actions: write; top-level permissions empty"
+     && grep -q "event_name == 'issue_comment'" <<<"$RGGCR" && grep -q 'author_association' <<<"$RGGCR"; then
+    echo "✓ protect: gate-check permission boundary — PR job is read-only with no checkout/require; only the comment job (main's code, member comments only) holds actions: write; top-level permissions empty"
   else
     echo "✗ protect: gate-check permission boundary broken (a write token could reach PR-controlled code)"; FAIL=1
   fi
