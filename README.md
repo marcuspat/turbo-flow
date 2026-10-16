@@ -19,17 +19,19 @@ Turbo Flow bundles no agent and no orchestrator. It names harnesses by **role**,
 
 **ZCode builds · Claude Code reviews (Ruflo mod installed when you want orchestration) · Codex backs up the review.** That loop runs in production on this repo today: every PR since rig-lite landed (v5.0) was built by one family, reviewed by another, merged by a human.
 
-## 🎬 The demo — recorded in a fresh Codespace, nothing preinstalled
+## 🎬 The demos — the boot and the daily driver
 
-![rig-lite demo](demo/rig-lite-demo.gif)
-
-A clean Codespace boots this repo's devcontainer and the kit proves itself in-container — fail-closed self-test suite and a live gate run (reviewer CLI stubbed; no API keys on the recording box). Not a mockup. The recording predates the lean pivot (it shows the repo's earlier container); the current container's `postCreate` runs the self-test directly, and the recorder now walks that flow. Reproducible via [`demo/record-rig-lite-demo.sh`](demo/record-rig-lite-demo.sh).
-
-## 🎬 The boot demo — no menu, just the rig
+### The boot (recorded in a fresh Codespace)
 
 ![harness boot demo](demo/harness-boot-demo.gif)
 
-A fresh Codespace from `main` (unauthenticated): the first shell triggers the boot (no menu — that's the point), **Claude Code + Codex + Ruflo install visibly**, then tmux fires with all 5 windows — each one landing **inside** its harness. The GIF cycles through every window: claude (first-run welcome), claude+ruflo (with the plugins loaded), codex (sign-in prompt on this fresh box), the live token dashboard, and a free shell with the gate help. The reviewer is whichever window has a **different model family** than the builder — cross-family review is the kit's law.
+A fresh Codespace from `main` (unauthenticated): the first shell triggers the boot (no menu), **Claude Code + Codex + Ruflo install visibly**, then tmux fires with all 5 windows — each landing **inside** its harness.
+
+### The daily driver — `tf` (one command for everything)
+
+![tf demo](demo/tf-demo.gif)
+
+Recorded on the same Codespace: `tf help` shows every subcommand, `tf status` gives the at-a-glance view (repo, gate verdict counts, tree health), `tf gate` fails closed without `--builder`, `tf tokens` shows the live dashboard, and `tf test` runs the full suite. The `tf` command is installed automatically in Codespaces and by `init-repo.sh` anywhere else.
 
 ## The gate survived 17 rounds of review
 
@@ -39,6 +41,7 @@ A fresh Codespace from `main` (unauthenticated): the first shell triggers the bo
 
 | file | what it gives you |
 |---|---|
+| [`tf`](rig-lite/tf) | **one command for everything** — `tf gate`, `tf test`, `tf status`, `tf wt`, `tf secrets`, `tf tokens`, `tf digest`, `tf init`, `tf protect`. Installed by `init-repo.sh` and by the Codespace boot. |
 | [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. `--pr <n>` gates a GitHub PR and posts the verdict as a comment; `--sweep` gates every open PR that has no verdict yet; `-C <repo>` gates another checkout. Every verdict lands in a local JSONL log the digest joins. |
 | [`wt.sh`](rig-lite/wt.sh) | an isolated worktree per parallel writer: `wt <name>` creates `.worktrees/<name>` + branch, `--clean` tidies up after merge. |
 | [`init-repo.sh`](rig-lite/init-repo.sh) | one-command onboarding for any repo: a thin `AGENTS.md` (constitution pointer + project cheat-sheet) and the `CLAUDE.md → AGENTS.md` symlink. Never clobbers existing files. |
@@ -56,12 +59,14 @@ A fresh Codespace from `main` (unauthenticated): the first shell triggers the bo
 
 ```bash
 # from any repo you want to govern:
-bash /path/to/turbo-flow/rig-lite/init-repo.sh   # writes AGENTS.md + symlink, never clobbers
-bash /path/to/turbo-flow/rig-lite/self-test.sh   # prove the kit on your machine
-/path/to/turbo-flow/rig-lite/gate.sh --pr 1 --builder <your-cli>
+bash /path/to/turbo-flow/rig-lite/init-repo.sh   # writes AGENTS.md + installs tf, never clobbers
+export PATH="$HOME/.local/bin:$PATH"              # tf lives here (init warns if not on PATH)
+tf test                                            # prove the kit (322 checks)
+tf gate --builder <your-cli>                       # gate your first change
+tf status                                          # everything at a glance
 ```
 
-No Codespace? Fine — it's bash. Want the 30-second container tour anyway? Open this repo in a Codespace; `postCreate` runs the self-test. That's the whole install surface.
+No Codespace? Fine — it's bash. Want the 30-second container tour anyway? Open this repo in a Codespace; `postCreate` runs the self-test and installs `tf` on PATH automatically. That's the whole install surface.
 
 ## Your first five minutes in the rig
 
