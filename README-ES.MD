@@ -25,7 +25,7 @@ Un Codespace limpio arranca el devcontainer de este repo y el kit se prueba a s�
 
 ![demo de arranque](demo/harness-boot-demo.gif)
 
-Un Codespace limpio desde `main` (nada autenticado — las keys y datos de cuenta nunca tocan la grabación): el primer shell dispara el arranque (sin menú — ese es el punto), **Claude Code + Codex + Ruflo se instalan de forma visible**, luego tmux arranca con las 5 ventanas — cada una aterrizando **dentro** de su harness. El GIF recorre todas las ventanas: claude (bienvenida de primer uso), claude+ruflo (con los plugins cargados), codex (pantalla de inicio de sesión en esta máquina nueva), el dashboard de tokens en vivo, y un shell libre con la ayuda del gate. El revisor es la ventana con una **familia de modelo diferente** al constructor — la revisión entre familias es la ley del kit. Para grabar: [`demo/record-harness-boot-demo.sh`](demo/record-harness-boot-demo.sh) conduce el flujo completo de arranque (prerequisitos documentados en su encabezado).
+Un Codespace limpio desde `main` (nada autenticado — las keys y datos de cuenta nunca tocan la grabación): el primer shell dispara el arranque (sin menú — ese es el punto), **Claude Code + Codex + Ruflo se instalan de forma visible**, luego tmux arranca con las 5 ventanas — cada una aterrizando **dentro** de su harness. El GIF recorre todas las ventanas: claude (bienvenida de primer uso), claude+ruflo (con los plugins cargados), codex (pantalla de inicio de sesión en esta máquina nueva), el dashboard de tokens en vivo, y un shell libre con la ayuda del gate. El revisor es la ventana con una **familia de modelo diferente** al constructor — la revisión entre familias es la ley del kit.
 
 ## El gate sobrevivió 17 rondas de revisión
 
