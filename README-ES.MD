@@ -39,7 +39,7 @@ Un Codespace limpio desde `main` (sin autenticar): el primer shell dispara el ar
 | [`wt.sh`](rig-lite/wt.sh) | un worktree aislado por escritor en paralelo. |
 | [`init-repo.sh`](rig-lite/init-repo.sh) | onboarding de un comando para cualquier repo: un `AGENTS.md` delgado + el symlink `CLAUDE.md → AGENTS.md`. Nunca pisa archivos existentes. |
 | [`specs/`](rig-lite/specs/) | plantillas de spec + contrato UAT: plan antes de construir, verificar contra la app desplegada. |
-| [`digest.sh`](tf digest) | salud de tu flota de repos en un comando: cola de merges unida a veredictos del gate, working copies sucios, liveness de sitios, codespaces viejos. |
+| [`digest.sh`](rig-lite/digest.sh) | salud de tu flota de repos en un comando: cola de merges unida a veredictos del gate, working copies sucios, liveness de sitios, codespaces viejos. |
 | [`automations/`](rig-lite/automations/README.md) | el tier de fondo como pack portable de prompts: 9 tareas programadas + dos formas de agendarlas. |
 | [`secret.sh`](rig-lite/secret.sh) | secretos cifrados en reposo, backend autodetectado (Keychain → libsecret → age → texto plano con advertencia). `list` muestra nombres, nunca valores. |
 | [`memory.md`](rig-lite/memory.md) + [`memory/`](rig-lite/memory/) | el patrón de memoria versionado en git: índice, decisiones, gotchas, inbox. |
@@ -101,7 +101,7 @@ tf gate --builder glm       # si claude-glm lo escribió → claude revisa (entr
 tf gate --pr 7 --builder codex           # codex lo escribió → claude revisa
 
 # gatea todos los PRs abiertos sin veredicto:
-tf gate --sweep
+# (sweep runs per-PR with its own builder: rig-lite/gate.sh --sweep)
 ```
 
 El gate sale `0` (aprobado) o `1` (revise — corrige y vuelve a correr). **Nunca fusiona; eso lo haces tú.**

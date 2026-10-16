@@ -20,20 +20,27 @@ cmd_gate() {
       *) args+=("$1"); shift ;;
     esac
   done
-  if [[ -z "$b" ]]; then
+  # --sweep doesn't need a builder (it resolves per PR); everything else does
+  local is_sweep=0
+  for a in "${args[@]}"; do
+    case "$a" in --sweep*) is_sweep=1 ;; esac
+  done
+  if [[ -z "$b" && $is_sweep -eq 0 ]]; then
     warn "builder required: tf gate --builder <cli>"
     warn "known families: claude, codex, glm/zcode/zai, gemini, grok, xai"
     return 1
   fi
+  if [[ -n "$b" || $is_sweep -eq 1 ]]; then
   # default to branch mode (--base main) when no mode flag is given
   local has_mode=0
   for a in "${args[@]}"; do
-    case "$a" in --pr*|--base*|--sweep*) has_mode=1 ;; esac
+    case "$a" in --pr*|--base*|--sweep*|--stdin*) has_mode=1 ;; esac
   done
   if [[ $has_mode -eq 0 ]]; then
     args+=(--base main)
   fi
-  exec bash "$TF_SELF/gate.sh" --builder "$b" ${args[@]+"${args[@]}"}
+    exec bash "$TF_SELF/gate.sh" ${b:+--builder "$b"} ${args[@]+"${args[@]}"}
+  fi
 }
 
 cmd_wt()     { exec bash "$TF_SELF/wt.sh" "$@"; }
