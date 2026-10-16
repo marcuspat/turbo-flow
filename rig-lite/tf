@@ -9,62 +9,28 @@ ok()   { printf '\033[32m✓\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m⚠\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 
-detect_builder() {
-  [[ -n "${TF_BUILDER:-}" ]] && { printf '%s' "$TF_BUILDER"; return 0; }
-  # scan ALL commit authors + Co-Authored-By trailers in base..HEAD.
-  # If MORE THAN ONE family appears, refuse (a mixed branch can't be auto-attributed).
-  local families="" a
-  while IFS= read -r a; do
-    case "$a" in
-      *@anthropic.com|*@claude.ai|*noreply.claude*) echo "claude" >> /tmp/.tf_fam ;;
-      *@openai.com|*codex@*|*@codex.ai)     echo "codex"  >> /tmp/.tf_fam ;;
-      *@z.ai|*@zai.com|*@glm.*)             echo "glm"    >> /tmp/.tf_fam ;;
-    esac
-  done < <(git log --format='%ae%n%(trailers:key=Co-Authored-By,valueonly,separator=%x00)' --all -20 2>/dev/null)
-  if [[ -f /tmp/.tf_fam ]]; then
-    families="$(sort -u /tmp/.tf_fam | tr '\n' ' ')"
-    rm -f /tmp/.tf_fam
-    local count
-    count=$(printf '%s' "$families" | wc -w | tr -d ' ')
-    if [[ "$count" -eq 1 ]]; then
-      printf '%s' "$(printf '%s' "$families" | tr -d ' ')"
-      return 0
-    elif [[ "$count" -gt 1 ]]; then
-      warn "mixed builders on this branch: $families— use --builder explicitly"
-      return 1
-    fi
-  fi
-  return 1
-}
-
 cmd_gate() {
-  local args=() b="" has_pr=0
+  local args=() b=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --builder) b="$2"; shift 2 ;;
       --builder=*) b="${1#--builder=}"; shift ;;
-      --pr) has_pr=1; args+=("$1" "$2"); shift 2 ;;
-      --pr=*) has_pr=1; args+=("$1"); shift ;;
+      --pr) args+=("$1" "$2"); shift 2 ;;
+      --pr=*) args+=("$1"); shift ;;
       *) args+=("$1"); shift ;;
     esac
   done
   if [[ -z "$b" ]]; then
-    if [[ $has_pr -eq 1 ]]; then
-      # PR mode: the local checkout may be unrelated to the PR's commits.
-      # Auto-detection here can name the WRONG family (self-review risk).
-      # Require explicit --builder or TF_BUILDER.
-      if [[ -n "${TF_BUILDER:-}" ]]; then
-        b="$TF_BUILDER"
-        say "builder: $b (from TF_BUILDER)"
-      else
-        warn "PR mode requires --builder <cli> (or set TF_BUILDER)"
-        warn "the local checkout may not match the PR's commits — auto-detect is unsafe here"
-        return 1
-      fi
+    # No auto-detect: it's fragile (mixed branches, Co-Authored-By parsing,
+    # unmarked commits). The builder ALWAYS names itself — via --builder or
+    # TF_BUILDER env var. Fail closed if neither is set.
+    if [[ -n "${TF_BUILDER:-}" ]]; then
+      b="$TF_BUILDER"
+      say "builder: $b (from TF_BUILDER)"
     else
-      # Branch mode: local HEAD IS the branch being gated — auto-detect is safe
-      b="$(detect_builder)" || { warn "builder not detected (set TF_BUILDER or --builder)"; return 1; }
-      say "builder: $b (auto-detected from git)"
+      warn "builder required: use --builder <cli> or set TF_BUILDER"
+      warn "known families: claude, codex, glm/zcode/zai, gemini, grok, xai"
+      return 1
     fi
   fi
   exec bash "$TF_SELF/gate.sh" --builder "$b" ${args[@]+"${args[@]}"}
@@ -137,7 +103,7 @@ cmd_help() {
   echo "  tf protect                           branch protection"
   echo "  tf completion bash|zsh               completion"
   echo ""
-  echo "builder auto-detected from git or TF_BUILDER env var"
+  echo "builder comes from --builder <cli> or TF_BUILDER env var (set it once, forget it)"
 }
 
 case "${1:-help}" in
