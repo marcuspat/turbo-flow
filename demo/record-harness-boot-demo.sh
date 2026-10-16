@@ -68,32 +68,33 @@ if not tmux_up:
     die("tmux never appeared within 300s — the boot may have failed silently")
 
 # wait for CLIs to load in their windows
-time.sleep(15)
+# drain: let asciinema read the pty buffer while waiting
+child.expect(pexpect.TIMEOUT, timeout=15)
 
 # cycle through all 5 windows (Ctrl+B then number)
 for window_num in [0, 1, 2, 3, 4]:
     child.send("\x02")
-    time.sleep(0.5)
+    child.expect(pexpect.TIMEOUT, timeout=0.5)  # drain
     child.send(str(window_num))
-    time.sleep(4)
+    child.expect(pexpect.TIMEOUT, timeout=4)  # drain while the window is visible
 
 # back to window 0
 child.send("\x02")
 time.sleep(0.5)
 child.send("0")
-time.sleep(3)
+child.expect(pexpect.TIMEOUT, timeout=3)  # drain
 
 # detach and exit
 child.send("\x02")
 time.sleep(0.5)
 child.send("d")
-time.sleep(2)
+child.expect(pexpect.TIMEOUT, timeout=2)  # drain
 child.send("exit\r")
 time.sleep(2)
 
 try:
     child.expect(pexpect.EOF, timeout=10)
-except:
+except (pexpect.TIMEOUT, pexpect.EOF):
     child.terminate(force=True)
 
 size = os.path.getsize("/tmp/harness-boot.cast") if os.path.exists("/tmp/harness-boot.cast") else 0
