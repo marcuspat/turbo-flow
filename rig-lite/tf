@@ -15,7 +15,7 @@ cmd_gate() {
     case "$1" in
       --builder) [[ "${2:-}" == -* || -z "${2:-}" ]] && { warn "--builder needs a value"; return 1; }; b="$2"; shift 2 ;;
       --builder=*) b="${1#--builder=}"; [[ "$b" == -* ]] && { warn "--builder value looks like a flag"; return 1; }; shift ;;
-      --pr) args+=("$1" "$2"); shift 2 ;;
+      --pr) [[ -z "${2:-}" || "$2" == -* ]] && { warn "--pr needs a value"; return 1; }; args+=("$1" "$2"); shift 2 ;;
       --pr=*) args+=("$1"); shift ;;
       *) args+=("$1"); shift ;;
     esac
@@ -40,8 +40,12 @@ cmd_init()   { exec bash "$TF_SELF/init-repo.sh" "$@"; }
 cmd_protect(){ exec bash "$TF_SELF/protect.sh" "$@"; }
 
 cmd_status() {
+  if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+    printf '\033[1mrig:\033[0m not a git repo\n'
+    return 0
+  fi
   local repo branch sha
-  repo="$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)" || repo="?"
+  repo="$(basename "$(git rev-parse --show-toplevel 2>/dev/null)")"
   branch="$(git branch --show-current 2>/dev/null)" || branch="?"
   sha="$(git rev-parse --short HEAD 2>/dev/null)" || sha="?"
   printf '\033[1mrig:\033[0m %s (%s @ %s)\n' "$repo" "$branch" "$sha"
@@ -54,9 +58,9 @@ cmd_status() {
     printf '\033[1mgate:\033[0m %s verdicts / %s approved / %s revised\n' "$t" "$a" "$r"
   fi
   if command -v tmux >/dev/null 2>&1 && tmux has-session -t turboflow 2>/dev/null; then
-    printf '\033[1mrig:\033[0m %s \033[32m(running)\033[0m\n' "$(tmux list-windows -t turboflow -F '#{window_name}' 2>/dev/null | tr '\n' ' ')"
+    printf '\033[1msession:\033[0m %s \033[32m(running)\033[0m\n' "$(tmux list-windows -t turboflow -F '#{window_name}' 2>/dev/null | tr '\n' ' ')"
   else
-    printf '\033[1mrig:\033[0m not running\n'
+    printf '\033[1msession:\033[0m not running\n'
   fi
   local d
   d="$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
