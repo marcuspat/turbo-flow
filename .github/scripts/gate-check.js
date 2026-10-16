@@ -9,8 +9,9 @@
 //   'missing'      no gate-verdict status on the PR head SHA (fails the job)
 //   'not-approved' gate-verdict exists but is not success (fails the job)
 //   'approved'     gate-verdict is success; nothing needed re-running
-//   'rerun'        comment path re-ran the PR's own pull_request run
-//   'timeout'      PR run never completed inside waitMs (fails the job, says how to finish by hand)
+//   'rerun'        comment path re-ran the PR's own pull_request run(s)
+//   'timeout'      a PR run never completed inside waitMs (fails the job, says how to finish by hand)
+//   'unattributed' stale run(s) at this SHA belong to no PR we can name (fails the job, lists the manual reruns)
 module.exports = async function gateCheck({ github, context, core, sleep, waitMs = 120000, pollMs = 10000 }) {
   const repo = { owner: context.repo.owner, repo: context.repo.repo };
 
@@ -51,13 +52,25 @@ module.exports = async function gateCheck({ github, context, core, sleep, waitMs
   //
   // Checks are keyed by SHA and two PRs can share a head SHA (one branch, two bases),
   // so a SHA-only lookup can pick the other PR's run. Attribute runs to THIS PR through
-  // the run's own pull_requests list, and walk every page.
+  // the run's own pull_requests list, and walk every page. GitHub leaves pull_requests
+  // EMPTY on fork-PR runs, so fall back to head branch + head repository for those —
+  // forks are the normal contribution path and must not be left red.
   const all = await github.paginate(github.rest.actions.listWorkflowRuns, {
     ...repo, workflow_id: 'gate-check.yml', event: 'pull_request', head_sha: sha, per_page: 100,
   });
-  const mine = all.filter(r => (r.pull_requests || []).some(p => p.number === pr.number));
+  const listed = r => (r.pull_requests || []).some(p => p.number === pr.number);
+  const forkMatch = r => (r.pull_requests || []).length === 0
+    && r.head_branch === pr.head.ref
+    && !!pr.head.repo && r.head_repository?.full_name === pr.head.repo.full_name;
+  const mine = all.filter(r => listed(r) || forkMatch(r));
 
   if (mine.length === 0) {
+    // Stale runs here that belong to no PR we can name: don't guess, don't go green.
+    const stray = all.filter(r => (r.pull_requests || []).length === 0 && r.status === 'completed' && r.conclusion !== 'success');
+    if (stray.length) {
+      core.setFailed(`Could not attribute the stale check run(s) at this SHA to PR #${pr.number} — finish by hand: ${stray.map(r => `gh run rerun ${r.id}`).join(' ; ')}`);
+      return 'unattributed';
+    }
     core.info(`No pull_request run attributable to PR #${pr.number} at this SHA — nothing to re-run.`);
     return 'approved';
   }

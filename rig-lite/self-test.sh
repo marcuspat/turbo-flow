@@ -1637,8 +1637,8 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
   if grep -qE '^[[:space:]]*actions:[[:space:]]*write' "$RGGC" && grep -q 'actions/checkout' "$RGGC" \
      && grep -q "require('./.github/scripts/gate-check.js')" "$RGGC" \
      && [ -f "$RGGCJS" ] && grep -q 'reRunWorkflow' "$RGGCJS" && grep -q 'head_sha: sha' "$RGGCJS" && grep -q 'getWorkflowRun' "$RGGCJS" \
-     && grep -q 'github.paginate' "$RGGCJS" && grep -q 'pull_requests' "$RGGCJS"; then
-    echo "✓ protect: gate-check.yml wires actions: write + checkout + gate-check.js (runs attributed to THIS PR via pull_requests, paginated, waits on in-flight runs)"
+     && grep -q 'github.paginate' "$RGGCJS" && grep -q 'pull_requests' "$RGGCJS" && grep -q 'head_branch' "$RGGCJS"; then
+    echo "✓ protect: gate-check.yml wires actions: write + checkout + gate-check.js (runs attributed to THIS PR via pull_requests, fork fallback by branch+repo, paginated, waits on in-flight runs)"
   else
     echo "✗ protect: gate-check wiring broken (PR check would stay red after APPROVED)"; FAIL=1
   fi
@@ -1647,10 +1647,10 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
     node - "$RGGCABS" <<'JS' || FAIL=1
 const gateCheck = require(process.argv[2]);
 let fails = 0;
-function mk({ event, isPr = true, status, runs = [], getSeq = [] }) {
+function mk({ event, isPr = true, status, runs = [], getSeq = [], headRepo = 'o/r' }) {
   const calls = { rerun: [], failed: [] };
   const core = { info() {}, setFailed(m) { calls.failed.push(m); } };
-  const prObj = { number: 7, head: { sha: 'abc' } };
+  const prObj = { number: 7, head: { sha: 'abc', ref: 'feat', repo: headRepo ? { full_name: headRepo } : null } };
   const context = {
     eventName: event, repo: { owner: 'o', repo: 'r' }, issue: { number: 7 },
     payload: event === 'pull_request' ? { pull_request: prObj } : { issue: isPr ? { pull_request: {} } : {} },
@@ -1677,13 +1677,17 @@ async function t(name, cfg, want) {
   console.log((ok ? '✓' : '✗') + ' gate-check.js: ' + name + (ok ? '' : ` (got ${got}, rerun=${gotIds} want ${wantIds}, failed=${m.calls.failed.length})`));
   if (!ok) fails++;
 }
-const mine = [{ number: 7 }], theirs = [{ number: 9 }];
-const live = { id: 42, status: 'in_progress', conclusion: null, pull_requests: mine };
-const red = { id: 42, status: 'completed', conclusion: 'failure', pull_requests: mine };
-const green = { id: 42, status: 'completed', conclusion: 'success', pull_requests: mine };
-const otherRed = { id: 99, status: 'completed', conclusion: 'failure', pull_requests: theirs };
-const otherGreen = { id: 99, status: 'completed', conclusion: 'success', pull_requests: theirs };
-const orphan = { id: 55, status: 'completed', conclusion: 'failure', pull_requests: [] };
+const mine = [{ number: 7 }], theirs = [{ number: 9 }], here = { full_name: 'o/r' }, fork = { full_name: 'someone/r' };
+const live = { id: 42, status: 'in_progress', conclusion: null, pull_requests: mine, head_branch: 'feat', head_repository: here };
+const red = { id: 42, status: 'completed', conclusion: 'failure', pull_requests: mine, head_branch: 'feat', head_repository: here };
+const green = { id: 42, status: 'completed', conclusion: 'success', pull_requests: mine, head_branch: 'feat', head_repository: here };
+const otherRed = { id: 99, status: 'completed', conclusion: 'failure', pull_requests: theirs, head_branch: 'feat', head_repository: here };
+const otherGreen = { id: 99, status: 'completed', conclusion: 'success', pull_requests: theirs, head_branch: 'feat', head_repository: here };
+// fork-PR runs: GitHub leaves pull_requests empty; only head branch + head repository identify them
+const forkRed = { id: 55, status: 'completed', conclusion: 'failure', pull_requests: [], head_branch: 'feat', head_repository: fork };
+const forkGreen = { id: 55, status: 'completed', conclusion: 'success', pull_requests: [], head_branch: 'feat', head_repository: fork };
+const forkLive = { id: 55, status: 'in_progress', conclusion: null, pull_requests: [], head_branch: 'feat', head_repository: fork };
+const forkOtherBranch = { id: 56, status: 'completed', conclusion: 'failure', pull_requests: [], head_branch: 'other', head_repository: fork };
 (async () => {
   await t('push with no status → fails (not gated yet)', { event: 'pull_request' }, { ret: 'missing', failed: true });
   await t('push with REVISE status → fails', { event: 'pull_request', status: 'failure' }, { ret: 'not-approved', failed: true });
@@ -1698,7 +1702,13 @@ const orphan = { id: 55, status: 'completed', conclusion: 'failure', pull_reques
   await t('two PRs share the SHA, other PR listed first + red → re-runs only OUR run', { event: 'issue_comment', status: 'success', runs: [otherRed, red] }, { ret: 'rerun', rerun: [42] });
   await t('two PRs share the SHA, other PR green + ours red → still re-runs ours (no early green exit)', { event: 'issue_comment', status: 'success', runs: [otherGreen, red] }, { ret: 'rerun', rerun: [42] });
   await t('only the OTHER PR has a run at this SHA → nothing attributable, no re-run', { event: 'issue_comment', status: 'success', runs: [otherRed] }, { ret: 'approved' });
-  await t('run with no pull_requests attribution (fork-style) → not ours, no blind re-run', { event: 'issue_comment', status: 'success', runs: [orphan] }, { ret: 'approved' });
+  await t('fork PR (empty pull_requests) + its run red → attributed by branch+repo, re-runs it', { event: 'issue_comment', status: 'success', headRepo: 'someone/r', runs: [forkRed] }, { ret: 'rerun', rerun: [55] });
+  await t('fork PR + its run already green → no re-run', { event: 'issue_comment', status: 'success', headRepo: 'someone/r', runs: [forkGreen] }, { ret: 'approved' });
+  await t('fork PR + its run in flight → waits, then re-runs', { event: 'issue_comment', status: 'success', headRepo: 'someone/r', runs: [forkLive], getSeq: [forkRed] }, { ret: 'rerun', rerun: [55] });
+  await t('fork PR, stale run is on a DIFFERENT branch → unattributable, fails with the manual rerun, no blind re-run', { event: 'issue_comment', status: 'success', headRepo: 'someone/r', runs: [forkOtherBranch] }, { ret: 'unattributed', failed: true });
+  await t('unattributed stale run from a different repo than the PR head → fails with the manual rerun', { event: 'issue_comment', status: 'success', headRepo: 'o/r', runs: [forkRed] }, { ret: 'unattributed', failed: true });
+  await t('fork deleted (PR head repo null) + stale unattributed run → fails with the manual rerun', { event: 'issue_comment', status: 'success', headRepo: null, runs: [forkRed] }, { ret: 'unattributed', failed: true });
+  await t('unattributed run that is GREEN → nothing stale, passes', { event: 'issue_comment', status: 'success', headRepo: 'o/r', runs: [forkGreen] }, { ret: 'approved' });
   process.exit(fails ? 1 : 0);
 })();
 JS
