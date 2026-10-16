@@ -1627,6 +1627,16 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
 " 2>/dev/null \
     && echo "✓ protect: gate-check.yml parses, has both triggers" \
     || { python3 -c "import yaml" 2>/dev/null && { echo "✗ protect: gate-check.yml YAML assertion FAILED"; FAIL=1; } || echo "⚠ protect: gate-check.yml YAML parse skipped (pyyaml unavailable)"; }
+  # gate-check.yml: the comment path must flip the PR's OWN check. Comment-triggered runs
+  # attach to main, so only a re-run of the PR's pull_request run (pinned to its head SHA,
+  # which needs actions: write) ever turns the PR green — without it every gated PR keeps
+  # the stale red X from the push-time run that beat the gate.
+  RGGC="$KIT/../.github/workflows/gate-check.yml"
+  if grep -qE '^[[:space:]]*actions:[[:space:]]*write' "$RGGC" && grep -q 'reRunWorkflow' "$RGGC" && grep -q 'head_sha: sha' "$RGGC"; then
+    echo "✓ protect: gate-check.yml comment path re-runs the PR's own check (actions: write + reRunWorkflow pinned to head SHA)"
+  else
+    echo "✗ protect: gate-check.yml can't flip the PR check after APPROVED (needs actions: write + reRunWorkflow on head_sha)"; FAIL=1
+  fi
   # constitution mentions protect.sh (the law points at the enforcement)
   grep -q "protect.sh" "$KIT/constitution.md" \
     && echo "✓ protect: constitution references protect.sh (Law 2 → enforcement)" \

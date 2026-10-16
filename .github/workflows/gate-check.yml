@@ -3,6 +3,17 @@ name: gate-verdict
 # Turns the gate's verdict into a required status check.
 # gate.sh sets a commit status directly on the PR's head SHA (context: gate-verdict).
 # This workflow is a fallback that verifies the status exists and is current.
+#
+# Why two triggers, and why the comment path re-runs the other one:
+#   pull_request  — fires on every push, seconds before any gate could have run, so a
+#                   fresh push always fails here ("not gated yet"). That result is the
+#                   one attached to the PR's head SHA — the only check a PR displays.
+#   issue_comment — fires when the gate posts its VERDICT comment. GitHub runs
+#                   comment-triggered workflows against the DEFAULT branch, so this
+#                   run's own green attaches to main, never to the PR. The only way to
+#                   flip the PR's check is to re-run its pull_request run, which now
+#                   finds the status. That re-run is a pull_request event and posts no
+#                   comment, so it cannot re-trigger this path (no loop).
 
 on:
   pull_request:
@@ -14,6 +25,7 @@ permissions:
   pull-requests: read
   contents: read
   statuses: read
+  actions: write   # comment path re-runs the PR's own pull_request check
 
 jobs:
   check:
@@ -24,8 +36,14 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // A VERDICT-bearing comment on a plain issue has no PR to check.
+            if (context.eventName === 'issue_comment' && !context.payload.issue.pull_request) {
+              console.log('Comment is on an issue, not a PR — nothing to check.');
+              return;
+            }
+
             // Get the PR's head SHA
-            const pr = context.payload.pull_request || 
+            const pr = context.payload.pull_request ||
               (await github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -58,3 +76,27 @@ jobs:
             }
 
             console.log('✓ Gate APPROVED on this commit SHA — merge is allowed (by a human).');
+
+            // Comment path: this run's green lives on main. Re-run the PR's own
+            // pull_request run for this exact head SHA so the PR's check flips too.
+            if (context.eventName === 'issue_comment') {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'gate-check.yml',
+                event: 'pull_request',
+                head_sha: sha,
+                per_page: 5,
+              });
+              const stale = runs.data.workflow_runs.find(r => r.status === 'completed' && r.conclusion !== 'success');
+              if (!stale) {
+                console.log('PR check for this SHA is already green (or not finished yet) — nothing to re-run.');
+                return;
+              }
+              await github.rest.actions.reRunWorkflow({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: stale.id,
+              });
+              console.log(`Re-ran pull_request run ${stale.id} so the PR's check reflects APPROVED.`);
+            }
