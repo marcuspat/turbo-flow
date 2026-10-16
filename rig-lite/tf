@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# tf — one command for the whole rig-lite kit.
+set -uo pipefail
+
+TF_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+say()  { printf '\033[36m▸\033[0m %s\n' "$*"; }
+ok()   { printf '\033[32m✓\033[0m %s\n' "$*"; }
+warn() { printf '\033[33m⚠\033[0m %s\n' "$*" >&2; }
+die()  { printf '\033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
+
+cmd_gate() {
+  local args=() b=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --builder) [[ "${2:-}" == -* || -z "${2:-}" ]] && { warn "--builder needs a value"; return 1; }; b="$2"; shift 2 ;;
+      --builder=*) b="${1#--builder=}"; [[ "$b" == -* ]] && { warn "--builder value looks like a flag"; return 1; }; shift ;;
+      --pr) [[ -z "${2:-}" || "$2" == -* ]] && { warn "--pr needs a value"; return 1; }; args+=("$1" "$2"); shift 2 ;;
+      --pr=*) [[ -z "${1#--pr=}" ]] && { warn "--pr needs a value"; return 1; }; args+=("$1"); shift ;;
+      *) args+=("$1"); shift ;;
+    esac
+  done
+  # --sweep doesn't need a builder (it resolves per PR); everything else does
+  local is_sweep=0
+  for a in ${args[@]+"${args[@]}"}; do
+    case "$a" in --sweep*) is_sweep=1 ;; esac
+  done
+  if [[ -z "$b" && $is_sweep -eq 0 ]]; then
+    warn "builder required: tf gate --builder <cli>"
+    warn "known families: claude, codex, glm/zcode/zai, gemini, grok, xai"
+    return 1
+  fi
+  # default to branch mode (--base main) when no mode flag is given
+  local has_mode=0
+  for a in ${args[@]+"${args[@]}"}; do
+    case "$a" in --pr*|--base*|--sweep*|--stdin*) has_mode=1 ;; esac
+  done
+  if [[ $has_mode -eq 0 ]]; then
+    args+=(--base main)
+  fi
+  exec bash "$TF_SELF/gate.sh" ${b:+--builder "$b"} ${args[@]+"${args[@]}"}
+}
+
+cmd_wt()     { exec bash "$TF_SELF/wt.sh" "$@"; }
+cmd_test()   { bash "$TF_SELF/self-test.sh" "$@"; }
+cmd_digest() { exec bash "$TF_SELF/digest.sh" "$@"; }
+cmd_secrets(){ exec bash "$TF_SELF/secret.sh" "$@"; }
+cmd_tokens() { exec python3 "$TF_SELF/tokens.py" "$@"; }
+cmd_init()   { exec bash "$TF_SELF/init-repo.sh" "$@"; }
+cmd_protect(){ exec bash "$TF_SELF/protect.sh" "$@"; }
+
+cmd_status() {
+  if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+    printf '\033[1mrig:\033[0m not a git repo\n'
+    return 0
+  fi
+  local repo branch sha
+  repo="$(basename "$(git rev-parse --show-toplevel 2>/dev/null)")"
+  branch="$(git branch --show-current 2>/dev/null)" || branch="?"
+  sha="$(git rev-parse --short HEAD 2>/dev/null)" || sha="?"
+  printf '\033[1mrig:\033[0m %s (%s @ %s)\n' "$repo" "$branch" "$sha"
+  local logf="${GATE_LOG:-$HOME/.local/state/rig-lite/gate-log.jsonl}"
+  if [[ -f "$logf" ]] && command -v python3 >/dev/null 2>&1; then
+    local stats
+    stats="$(python3 -I -c "
+import json, sys
+total = approved = revised = 0
+for line in open(sys.argv[1]):
+    try:
+        j = json.loads(line)
+        total += 1
+        res = j.get('result', '')
+        if 'APPROVED' in res: approved += 1
+        elif 'REVISE' in res: revised += 1
+    except: pass
+print(f'{total} {approved} {revised}')
+" "$logf" 2>/dev/null)"
+    if [[ -n "$stats" ]]; then
+      local t a r
+      read -r t a r <<< "$stats"
+      printf '\033[1mgate:\033[0m %s verdicts / %s approved / %s revised\n' "$t" "$a" "$r"
+    fi
+  elif [[ -f "$logf" ]]; then
+    local t a r
+    t=$(wc -l < "$logf" | tr -d ' ')
+    a=$(grep -c 'GATE: APPROVED' "$logf" 2>/dev/null); a="${a:-0}"
+    r=$(grep -c 'GATE: REVISE' "$logf" 2>/dev/null); r="${r:-0}"
+    printf '\033[1mgate:\033[0m %s verdicts / %s approved / %s revised\n' "$t" "$a" "$r"
+  fi
+  if command -v tmux >/dev/null 2>&1 && tmux has-session -t turboflow 2>/dev/null; then
+    printf '\033[1msession:\033[0m %s \033[32m(running)\033[0m\n' "$(tmux list-windows -t turboflow -F '#{window_name}' 2>/dev/null | tr '\n' ' ')"
+  else
+    printf '\033[1msession:\033[0m not running\n'
+  fi
+  local d
+  d="$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+  if [[ "$d" -eq 0 ]]; then
+    printf '\033[1mtree:\033[0m clean\n'
+  else
+    printf '\033[1mtree:\033[0m %s uncommitted\n' "$d"
+  fi
+}
+
+cmd_completion() {
+  local sh="${1:-bash}"
+  if [[ "$sh" == "bash" ]]; then
+    echo '_tf() { local c=${COMP_WORDS[COMP_CWORD]}; COMPREPLY=( $(compgen -W "gate wt test digest secrets tokens status init protect completion help" -- "$c") ); }; complete -F _tf tf'
+  elif [[ "$sh" == "zsh" ]]; then
+    echo '#compdef tf'
+    echo '_tf() {'
+    echo '  local -a commands'
+    echo "  commands=('gate:gate a PR or branch' 'wt:worktree' 'test:self-test' 'digest:fleet health' 'secrets:secrets' 'tokens:dashboard' 'status:overview' 'init:install' 'protect:branch protection' 'completion:shell completion')"
+    echo '  _describe "command" commands'
+    echo '}'
+    echo 'compdef _tf tf'
+  else
+    die "unknown shell '$sh'"
+  fi
+}
+
+cmd_help() {
+  echo "tf — one command for the rig-lite kit"
+  echo ""
+  echo "  tf gate --builder <cli>             gate the current branch (vs main)"
+  echo "  tf wt <name>                         worktree"
+  echo "  tf test                              self-test"
+  echo "  tf digest                            fleet health"
+  echo "  tf secrets set|get|rm|list           secrets"
+  echo "  tf tokens [--watch]                  dashboard"
+  echo "  tf status                            everything at a glance"
+  echo "  tf init [repo]                       install kit"
+  echo "  tf protect                           branch protection"
+  echo "  tf completion bash|zsh               completion"
+  echo ""
+  echo "builder names itself per change: --builder <cli> (no env var — stale values mislabel the family)"
+}
+
+case "${1:-help}" in
+  gate)      shift; cmd_gate "$@" ;;
+  wt)        shift; cmd_wt "$@" ;;
+  test)      shift; cmd_test "$@" ;;
+  digest)    shift; cmd_digest "$@" ;;
+  secrets)   shift; cmd_secrets "$@" ;;
+  tokens)    shift; cmd_tokens "$@" ;;
+  status)    shift; cmd_status "$@" ;;
+  init)      shift; cmd_init "$@" ;;
+  protect)   shift; cmd_protect "$@" ;;
+  completion) shift; cmd_completion "$@" ;;
+  help|-h|--help) cmd_help ;;
+  *) die "unknown: '$1' (try: tf help)" ;;
+esac

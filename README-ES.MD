@@ -91,17 +91,17 @@ En la ventana shell (`Ctrl+B 4`), desde cualquier rama que tú o un agente const
 
 ```bash
 # demuestra que el kit funciona:
-bash rig-lite/self-test.sh
+tf test
 
 # gatea una rama (el CLI que ESCRIBIÓ el código se identifica — otra familia revisa):
-rig-lite/gate.sh --builder claude --base main     # si claude lo escribió → un revisor no-Anthropic lo revisa
-rig-lite/gate.sh --builder glm --base main       # si claude-glm lo escribió → claude revisa (entre familias)
+tf gate --builder claude     # si claude lo escribió → un revisor no-Anthropic lo revisa
+tf gate --builder glm       # si claude-glm lo escribió → claude revisa (entre familias)
 
 # gatea un PR de GitHub (el veredicto se publica como comentario en el PR):
-rig-lite/gate.sh --pr 7 --builder codex           # codex lo escribió → claude revisa
+tf gate --pr 7 --builder codex           # codex lo escribió → claude revisa
 
 # gatea todos los PRs abiertos sin veredicto:
-rig-lite/gate.sh --sweep
+# (sweep runs per-PR with its own builder: rig-lite/gate.sh --sweep)
 ```
 
 El gate sale `0` (aprobado) o `1` (revise — corrige y vuelve a correr). **Nunca fusiona; eso lo haces tú.**
@@ -109,11 +109,11 @@ El gate sale `0` (aprobado) o `1` (revise — corrige y vuelve a correr). **Nunc
 ### 4. Tu ciclo diario
 
 ```bash
-rig-lite/wt.sh mi-feature         # worktree aislado para trabajo paralelo
+tf wt mi-feature         # worktree aislado para trabajo paralelo
 # ... construye en ventana 1, pide a una familia DIFERENTE (ventana 0 o 2) leer el diff ...
-rig-lite/gate.sh --builder <quien-lo-escribio> --base main  # gatea antes del PR
+tf gate --builder <quien-lo-escribio>  # gatea antes del PR
 # ... push, abre el PR, gatealo ...
-rig-lite/digest.sh                # salud de la flota: cola de merges × veredictos × liveness
+tf digest                # salud de la flota: cola de merges × veredictos × liveness
 ```
 
 ¿Desconectado y quieres volver? En un Codespace, cada terminal nuevo se auto-conecta. En local: `bash workspace.sh` de nuevo.

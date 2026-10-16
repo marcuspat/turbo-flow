@@ -26,9 +26,20 @@ The full law set lives in [`rig-lite/constitution.md`](rig-lite/constitution.md)
 
 ## Working in this repo
 
-- After any change: `bash rig-lite/self-test.sh` (fail-closed; says so when shellcheck-gated coverage is skipped)
-- Secrets: never in git — `rig-lite/secret.sh set/get/rm/list` (names only when listing)
-- Parallel writers: one worktree each — `rig-lite/wt.sh <name>`
+Use `tf` (one command for everything — installed by init-repo.sh to ~/.local/bin):
+
+- `tf gate --builder <cli>` — gate the current branch (vs main; reviewer ≠ builder's family)
+- `tf test` — the fail-closed self-test suite
+- `tf secrets set/get/rm/list` — encrypted secrets (names only when listing)
+- `tf wt <name>` — isolated worktree per parallel writer
+- `tf digest` — fleet health report
+- `tf tokens --watch` — live token dashboard
+- `tf status` — everything at a glance (repo, gate stats, session, tree)
+- `tf init` — install the kit into any repo
+- `tf protect` — enable branch protection (Law 2 enforcement)
+
+Or use the long paths (`rig-lite/gate.sh`, `rig-lite/secret.sh`, etc.) — same tools.
+
 - Durable facts: `rig-lite/memory/`, one fact per file, git-versioned
 - Changes arrive by PR + gate. Builders never merge; humans do.
 

@@ -103,10 +103,59 @@ if [[ -n "$(git config core.hooksPath 2>/dev/null)" ]]; then
 fi
 
 echo
-echo "Done. From now on: build on branches, gate with:"
-echo "  $KIT/gate.sh --builder <cli> --base main   # reviewer ≠ builder's family"
+echo "Done. From now on, use tf (one command for everything):"
+echo "  tf gate --builder <cli>   # gate the current branch (builder names itself)"
+echo "  tf status        # everything at a glance"
+echo "  tf test          # self-test"
 if [[ -n "$CREATED" ]]; then
   echo "Commit the onboarding files (uncommitted, the constitution pointer dead-ends in every other clone):"
   echo "  git add$CREATED"
 fi
 echo "Fill the cheat-sheet lines in AGENTS.md whenever convenient — better cheat-sheet, better agents."
+
+# 4. install the tf CLI to ~/.local/bin as a WRAPPER pointing at the kit
+#    (a copy would lose the kit reference — gate.sh etc. live in $KIT, not ~/.local/bin)
+if [[ -f "$KIT/tf" ]]; then
+  BIN_DIR="$HOME/.local/bin"
+  if mkdir -p "$BIN_DIR" 2>/dev/null; then
+    # ownership check: look for our marker comment (fixed-string grep, reliable)
+    # symlinks: rm first (writing through a symlink would clobber the target)
+    if [[ -f "$BIN_DIR/tf" && ! -L "$BIN_DIR/tf" ]] && ! grep -qF '# rig-lite tf wrapper' "$BIN_DIR/tf" 2>/dev/null; then
+      echo "init-repo: $BIN_DIR/tf already exists (not ours) — left untouched" >&2
+    else
+      # only remove symlinks that point at OUR kit — never delete a user's own link
+      # (same rule as the wrapper file check: a foreign target that exists is left alone)
+      if [[ -L "$BIN_DIR/tf" ]]; then
+        RGTARGET="$(readlink "$BIN_DIR/tf" 2>/dev/null)"
+        # resolve relative targets against $BIN_DIR (readlink returns the raw path)
+        [[ "$RGTARGET" != /* ]] && RGTARGET="$BIN_DIR/$RGTARGET"
+        if [[ "$RGTARGET" == */rig-lite/tf && ( "$RGTARGET" == "$KIT/tf" || ! -f "$RGTARGET" ) ]]; then
+          rm -f "$BIN_DIR/tf"  # ours or dead — safe to replace
+        else
+          echo "init-repo: $BIN_DIR/tf is a symlink to $RGTARGET (not ours or still live) — left untouched" >&2
+          RGSKIP=1
+        fi
+      fi
+      # don't re-point if the existing wrapper targets a DIFFERENT kit that still exists
+      if [[ "${RGSKIP:-0}" != "1" && -f "$BIN_DIR/tf" ]]; then
+        RGOLD="$(sed -n 's/^# rig-lite tf target: //p' "$BIN_DIR/tf" 2>/dev/null | head -1 || true)"
+        if [[ -n "$RGOLD" && "$RGOLD" != "$KIT/tf" && -f "$RGOLD" ]]; then
+          echo "init-repo: tf wrapper already points at $RGOLD (a different kit that exists) — NOT re-pointing" >&2
+          echo "init-repo: to re-point, rm $BIN_DIR/tf and re-run init" >&2
+          RGSKIP=1
+        fi
+      fi
+      if [[ "${RGSKIP:-0}" != "1" ]] && printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\n# rig-lite tf target: %s\nexec bash %q "$@"\n' "$KIT/tf" "$KIT/tf" > "$BIN_DIR/tf" && chmod +x "$BIN_DIR/tf"; then
+        echo "init-repo: tf wrapper installed to $BIN_DIR/tf (points at $KIT/tf)"
+        case ":$PATH:" in
+          *":$BIN_DIR:"*) : ;;
+          *) echo "init-repo: NOTE — $BIN_DIR is not on your PATH; add it to use tf from anywhere" >&2 ;;
+        esac
+      else
+        echo "init-repo: tf not installed — use $KIT/tf directly" >&2
+      fi
+    fi
+  else
+    echo "init-repo: cannot create $BIN_DIR — use $KIT/tf directly" >&2
+  fi
+fi

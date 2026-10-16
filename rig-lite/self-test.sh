@@ -1509,6 +1509,98 @@ else
   echo "⚠ setup-harness checks SKIPPED (script not present — kit running outside its home repo)"
 fi
 
+# ── tf CLI contract ─────────────────────────────────────────────────────────
+RGTF="$KIT/tf"
+if [ -f "$RGTF" ]; then
+  bash -n "$RGTF" 2>/dev/null && echo "✓ tf: bash -n clean" || { echo "✗ tf: syntax"; FAIL=1; }
+  RGTFO="$("$RGTF" help 2>&1)"; RC=$?
+  t "tf: help exits 0" 0 $RC
+  grep -q "gate" <<<"$RGTFO" && grep -q "status" <<<"$RGTFO" && grep -q "tokens" <<<"$RGTFO" \
+    && echo "✓ tf: help documents the key subcommands" \
+    || { echo "✗ tf: help missing subcommands"; FAIL=1; }
+  "$RGTF" --bogus >/dev/null 2>&1; RC=$?
+  [ "$RC" -ne 0 ] && echo "✓ tf: unknown command fails closed" || { echo "✗ tf: unknown accepted"; FAIL=1; }
+  RGTC="$("$RGTF" completion bash 2>&1)"
+  grep -q "complete -F _tf tf" <<<"$RGTC" \
+    && echo "✓ tf: bash completion emitted" \
+    || { echo "✗ tf: completion broken"; FAIL=1; }
+  RGTFS="$(cd "$KIT/.." && "$RGTF" status 2>&1)"
+  grep -q "rig:" <<<"$RGTFS" && grep -q "tree:" <<<"$RGTFS" \
+    && echo "✓ tf: status shows rig + tree state" \
+    || { echo "✗ tf: status incomplete"; FAIL=1; }
+  # wrapper: run init-repo.sh's ACTUAL install step in a sandbox HOME (subshell — no cd pollution)
+  RGTW="$(mktemp -d)"
+  ( cd "$RGTW" && git init -q && HOME="$RGTW" bash "$KIT/init-repo.sh" TestProj ) >/dev/null 2>&1
+  if [ -x "$RGTW/.local/bin/tf" ] && grep -q "rig-lite tf wrapper" "$RGTW/.local/bin/tf" 2>/dev/null; then
+    RGTWR="$(HOME="$RGTW" "$RGTW/.local/bin/tf" help 2>&1 | head -1)"
+    grep -q "one command" <<<"$RGTWR" \
+      && echo "✓ tf: init-repo wrapper delegates to the kit correctly" \
+      || { echo "✗ tf: wrapper delegation broken (got: '$RGTWR')"; FAIL=1; }
+  else
+    echo "✗ tf: init-repo did not install the wrapper"; FAIL=1
+  fi
+  rm -rf "$RGTW"
+  # tf gate fail-closed paths (the Law 1 entry point)
+  "$RGTF" gate >/dev/null 2>&1; RC=$?
+  [ "$RC" -ne 0 ] && echo "✓ tf: gate without --builder fails closed" || { echo "✗ tf: gate without builder accepted"; FAIL=1; }
+  "$RGTF" gate --builder --pr 5 >/dev/null 2>&1; RC=$?
+  [ "$RC" -ne 0 ] && echo "✓ tf: --builder with flag-like value rejected" || { echo "✗ tf: flag-like builder accepted"; FAIL=1; }
+  "$RGTF" gate --pr= >/dev/null 2>&1; RC=$?
+  [ "$RC" -ne 0 ] && echo "✓ tf: empty --pr= rejected" || { echo "✗ tf: empty --pr= accepted"; FAIL=1; }
+  # tf gate passes --base main when no mode flag is present (stub gate.sh captures argv)
+  RGSTUB="$(mktemp -d)"
+  mkdir -p "$RGSTUB/rig-lite"
+  printf '#!/usr/bin/env bash\necho "$@" >> "%s/argv"\n' "$RGSTUB" > "$RGSTUB/rig-lite/gate.sh"
+  chmod +x "$RGSTUB/rig-lite/gate.sh"
+  cp "$KIT/tf" "$RGSTUB/rig-lite/tf"
+  ( cd "$RGSTUB" && bash "$RGSTUB/rig-lite/tf" gate --builder claude >/dev/null 2>&1 )
+  if [ -f "$RGSTUB/argv" ] && grep -q -- '--base main' "$RGSTUB/argv" && grep -q -- '--builder claude' "$RGSTUB/argv"; then
+    echo "✓ tf: gate adds --base main when no mode flag present"
+  else
+    echo "✗ tf: --base main default missing (argv: $(cat "$RGSTUB/argv" 2>/dev/null))"; FAIL=1
+  fi
+  rm -rf "$RGSTUB"
+  # re-point refusal: a wrapper pointing at a different live kit is left alone
+  RGRP="$(mktemp -d)"; mkdir -p "$RGRP/.local/bin" "$RGRP/other-kit" "$RGRP/repo"
+  printf '#!/usr/bin/env/bash\necho stub\n' > "$RGRP/other-kit/tf"; chmod +x "$RGRP/other-kit/tf"
+  printf '#!/usr/bin/env bash\n# rig-lite tf wrapper\n# rig-lite tf target: %s/tf\nexec bash %s/tf "$@"\n' "$RGRP/other-kit" "$RGRP/other-kit" > "$RGRP/.local/bin/tf"
+  chmod +x "$RGRP/.local/bin/tf"
+  ( cd "$RGRP/repo" && git init -q && HOME="$RGRP" bash "$KIT/init-repo.sh" RP ) >/dev/null 2>&1
+  grep -q "other-kit" "$RGRP/.local/bin/tf" 2>/dev/null \
+    && echo "✓ tf: wrapper pointing at a different live kit NOT re-pointed" \
+    || { echo "✗ tf: existing wrapper was re-pointed"; FAIL=1; }
+  rm -rf "$RGRP"
+
+  # tf status gate stats from a fixture JSONL log
+  RGLOG="$(mktemp -d)"
+  printf '{"ts":"2026-01-01","result":"GATE: APPROVED"}\n{"ts":"2026-01-02","result":"GATE: REVISE"}\n{"ts":"2026-01-03","result":"GATE: APPROVED"}\n' > "$RGLOG/gate-log.jsonl"
+  RGSTATS="$(cd "$KIT/.." && GATE_LOG="$RGLOG/gate-log.jsonl" "$RGTF" status 2>&1 | grep 'gate:')"
+  echo "$RGSTATS" | grep -q "3 verdicts" && echo "$RGSTATS" | grep -q "2 approved" && echo "$RGSTATS" | grep -q "1 revised" \
+    && echo "✓ tf: status counts gate verdicts from JSONL correctly" \
+    || { echo "✗ tf: gate stats wrong (got: $RGSTATS)"; FAIL=1; }
+  rm -rf "$RGLOG"
+
+  # foreign regular file at ~/.local/bin/tf: left untouched by init
+  RGTW2="$(mktemp -d)"; mkdir -p "$RGTW2/.local/bin"
+  printf '#!/bin/bash\necho not-ours\n' > "$RGTW2/.local/bin/tf"
+  ( cd "$RGTW2" && git init -q && HOME="$RGTW2" bash "$KIT/init-repo.sh" T2 ) >/dev/null 2>&1
+  grep -q "not-ours" "$RGTW2/.local/bin/tf" 2>/dev/null \
+    && echo "✓ tf: foreign ~/.local/bin/tf left untouched by init" \
+    || { echo "✗ tf: foreign file was clobbered"; FAIL=1; }
+  rm -rf "$RGTW2"
+  # foreign symlink at ~/.local/bin/tf: left untouched by init
+  RGTW3="$(mktemp -d)"; mkdir -p "$RGTW3/.local/bin" "$RGTW3/target"
+  printf '#!/bin/bash\n' > "$RGTW3/target/tf"
+  ln -s "$RGTW3/target/tf" "$RGTW3/.local/bin/tf"
+  ( cd "$RGTW3" && git init -q && HOME="$RGTW3" bash "$KIT/init-repo.sh" T3 ) >/dev/null 2>&1
+  [ -L "$RGTW3/.local/bin/tf" ] && [ "$(readlink "$RGTW3/.local/bin/tf")" = "$RGTW3/target/tf" ] \
+    && echo "✓ tf: foreign symlink left untouched by init" \
+    || { echo "✗ tf: foreign symlink was clobbered"; FAIL=1; }
+  rm -rf "$RGTW3"
+else
+  echo "⚠ tf CLI checks SKIPPED (script not present)"
+fi
+
 # ── protect.sh contract (Law 2 enforcement) ─────────────────────────────────
 RGPT="$KIT/protect.sh"
 if [ -f "$RGPT" ]; then
