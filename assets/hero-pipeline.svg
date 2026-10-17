@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 250" width="1040" height="250" role="img" aria-label="Turbo Flow pipeline: a builder agent's change passes free deterministic checks, a reviewer from a different model family gates it, and only a human merges the approved change." font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace">
+  <title>Turbo Flow — the live gate pipeline</title>
+  <defs>
+    <linearGradient id="hv-scan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4dd6c1" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#4dd6c1" stop-opacity=".06"/>
+      <stop offset="1" stop-color="#4dd6c1" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- banner background -->
+  <rect x="0" y="0" width="1040" height="250" rx="14" fill="#0e1420" stroke="#2c3a52" stroke-width="1.4"/>
+  <g stroke="#141a28" stroke-width="1">
+    <path d="M16 44H1024M16 84H1024M16 156H1024M16 196H1024"/>
+  </g>
+  <text x="16" y="26" font-size="10.5" fill="#4a5468">tf gate --pr 84</text>
+  <text x="1024" y="26" font-size="10.5" fill="#4a5468" text-anchor="end">one PR, live</text>
+  <!-- scan sweep -->
+  <rect x="-90" y="0" width="90" height="250" fill="url(#hv-scan)">
+    <animate attributeName="x" values="-90;1040" dur="9s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- ── connectors (under everything) ───────────────────────────── -->
+  <path d="M194 120 H862" fill="none" stroke="#2c3a52" stroke-width="2" stroke-dasharray="7 7">
+    <animate attributeName="stroke-dashoffset" values="0;-28" dur="1.4s" repeatCount="indefinite"/>
+  </path>
+  <path d="M502 46 V60" fill="none" stroke="#4dd6c1" stroke-width="1.6" stroke-dasharray="4 4" opacity=".8">
+    <animate attributeName="stroke-dashoffset" values="0;-16" dur="1.1s" repeatCount="indefinite"/>
+  </path>
+  <!-- amber packet: builder's change travels to the gate -->
+  <circle r="4" fill="#f2b544">
+    <animateMotion path="M194 120 H654" dur="2.6s" repeatCount="indefinite"/>
+  </circle>
+  <!-- green packet: only streams while APPROVED -->
+  <circle r="4" fill="#7bd88f">
+    <animate attributeName="opacity" values="0;1" keyTimes="0;.5625" calcMode="discrete" dur="8s" repeatCount="indefinite"/>
+    <animateMotion path="M792 120 H862" dur="1.1s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- ── 1 · builder ─────────────────────────────────────────────── -->
+  <g>
+    <rect x="36" y="70" width="158" height="100" rx="10" fill="#1a2233" stroke="#f2b544" stroke-width="1.4"/>
+    <circle cx="52" cy="84" r="2.5" fill="#4a5468"/><circle cx="62" cy="84" r="2.5" fill="#4a5468"/><circle cx="72" cy="84" r="2.5" fill="#4a5468"/>
+    <text x="52" y="118" font-size="15" font-weight="700" fill="#f2b544">&gt;_</text>
+    <rect x="74" y="106" width="9" height="14" fill="#f2b544">
+      <animate attributeName="opacity" values="1;0;1" dur="1.1s" repeatCount="indefinite"/>
+    </rect>
+    <rect x="52" y="132" width="14" height="7" rx="3.5" fill="#2c3a52">
+      <animate attributeName="width" values="14;96;96" keyTimes="0;.3;1" dur="8s" repeatCount="indefinite"/>
+    </rect>
+    <rect x="52" y="148" width="10" height="7" rx="3.5" fill="#2c3a52">
+      <animate attributeName="width" values="10;64;64" keyTimes="0;.12;1" dur="8s" repeatCount="indefinite"/>
+    </rect>
+    <text x="115" y="192" font-size="12" fill="#7d8ba1" text-anchor="middle">--builder claude</text>
+  </g>
+
+  <!-- ── 2 · deterministic checks ($0) ───────────────────────────── -->
+  <g>
+    <rect x="262" y="88" width="16" height="16" rx="4" fill="#1a2233" stroke="#2c3a52" stroke-width="1.4"/>
+    <rect x="262" y="112" width="16" height="16" rx="4" fill="#1a2233" stroke="#2c3a52" stroke-width="1.4"/>
+    <rect x="262" y="136" width="16" height="16" rx="4" fill="#1a2233" stroke="#2c3a52" stroke-width="1.4"/>
+    <path d="M265 97 l4 4 7 -8" fill="none" stroke="#7bd88f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity="0">
+      <animate attributeName="opacity" values="0;1" keyTimes="0;.10" calcMode="discrete" dur="8s" repeatCount="indefinite"/>
+    </path>
+    <path d="M265 121 l4 4 7 -8" fill="none" stroke="#7bd88f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity="0">
+      <animate attributeName="opacity" values="0;1" keyTimes="0;.15" calcMode="discrete" dur="8s" repeatCount="indefinite"/>
+    </path>
+    <path d="M265 145 l4 4 7 -8" fill="none" stroke="#7bd88f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity="0">
+      <animate attributeName="opacity" values="0;1" keyTimes="0;.20" calcMode="discrete" dur="8s" repeatCount="indefinite"/>
+    </path>
+    <text x="294" y="192" font-size="12" fill="#7d8ba1" text-anchor="middle">tests · lint · $0</text>
+  </g>
+
+  <!-- ── 3 · the gate (+ cross-family reviewer) ──────────────────── -->
+  <g>
+    <rect x="446" y="62" width="112" height="116" rx="12" fill="#1f2937" stroke="#4dd6c1" stroke-width="1.6"/>
+    <g stroke="#4dd6c1" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M468 88 l26 32 -26 32">
+        <animateTransform attributeName="transform" type="translate" values="-30 0;0 0" dur="1.8s" repeatCount="indefinite"/>
+      </path>
+      <path d="M498 88 l26 32 -26 32" opacity=".75">
+        <animateTransform attributeName="transform" type="translate" values="-30 0;0 0" dur="1.8s" begin="0.6s" repeatCount="indefinite"/>
+      </path>
+      <path d="M528 88 l26 32 -26 32" opacity=".45">
+        <animateTransform attributeName="transform" type="translate" values="-30 0;0 0" dur="1.8s" begin="1.2s" repeatCount="indefinite"/>
+      </path>
+    </g>
+    <rect x="448" y="64" width="108" height="14" fill="#4dd6c1" opacity=".10">
+      <animate attributeName="y" values="64;152;64" dur="2.6s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values=".14;.04;.14" dur="2.6s" repeatCount="indefinite"/>
+    </rect>
+    <rect x="494" y="22" width="16" height="16" rx="3" fill="#0e1420" stroke="#4dd6c1" stroke-width="1.6" transform="rotate(45 502 30)"/>
+    <circle cx="502" cy="30" r="2.6" fill="#4dd6c1">
+      <animate attributeName="r" values="2.2;4;2.2" dur="1.6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="522" y="34" font-size="11" fill="#4dd6c1" opacity=".85">reviewer: codex</text>
+    <text x="502" y="196" font-size="12" fill="#7d8ba1" text-anchor="middle">gate.sh — builder ≠ reviewer</text>
+  </g>
+
+  <!-- ── 4 · verdict (REVISE → APPROVED cycle) ───────────────────── -->
+  <g>
+    <animateTransform attributeName="transform" type="translate"
+      values="0 0;0 0;-3 0;3 0;0 0;0 0" keyTimes="0;.545;.555;.565;.575;1" dur="8s" repeatCount="indefinite"/>
+    <rect x="656" y="100" width="136" height="40" rx="8" fill="#1a2233" stroke="#f06a6a" stroke-width="1.8">
+      <animate attributeName="opacity" values="1;0" keyTimes="0;.55" calcMode="discrete" dur="8s" repeatCount="indefinite"/>
+    </rect>
+    <text x="724" y="126" font-size="15" font-weight="700" letter-spacing="1.5" fill="#f06a6a" text-anchor="middle">REVISE
+      <animate attributeName="opacity" values="1;0" keyTimes="0;.55" calcMode="discrete" dur="8s" repeatCount="indefinite"/>
+    </text>
+    <rect x="656" y="100" width="136" height="40" rx="8" fill="none" stroke="#7bd88f" stroke-width="1.8">
+      <animate attributeName="opacity" values="0;1" keyTimes="0;.5625" calcMode="discrete" dur="8s" repeatCount="indefinite"/>
+    </rect>
+    <text x="724" y="126" font-size="15" font-weight="700" letter-spacing="1.5" fill="#7bd88f" text-anchor="middle">APPROVED
+      <animate attributeName="opacity" values="0;1" keyTimes="0;.5625" calcMode="discrete" dur="8s" repeatCount="indefinite"/>
+    </text>
+    <text x="724" y="160" font-size="10.5" fill="#4a5468" text-anchor="middle">parseable — or it fails closed</text>
+  </g>
+
+  <!-- ── 5 · merge (humans only) ─────────────────────────────────── -->
+  <g>
+    <rect x="864" y="100" width="112" height="40" rx="20" fill="#1a2233" stroke="#2c3a52" stroke-width="1.6"/>
+    <text x="920" y="126" font-size="14" font-weight="700" letter-spacing="2" fill="#7d8ba1" text-anchor="middle">MERGE
+      <animate attributeName="opacity" values="1;0" keyTimes="0;.5625" calcMode="discrete" dur="8s" repeatCount="indefinite"/>
+    </text>
+    <g>
+      <animate attributeName="opacity" values="0;1" keyTimes="0;.5625" calcMode="discrete" dur="8s" repeatCount="indefinite"/>
+      <rect x="864" y="100" width="112" height="40" rx="20" fill="none" stroke="#7bd88f" stroke-width="2"/>
+      <text x="920" y="126" font-size="14" font-weight="700" letter-spacing="2" fill="#7bd88f" text-anchor="middle">MERGE</text>
+      <rect x="858" y="94" width="124" height="52" rx="26" fill="none" stroke="#7bd88f" stroke-width="1">
+        <animate attributeName="stroke-width" values="1;3;1" dur="1.2s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+    <circle cx="920" cy="120" fill="none" stroke="#7bd88f" stroke-width="1.5" r="6">
+      <animate attributeName="r" values="6;6;30;30" keyTimes="0;.7;.82;1" dur="8s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;0;.6;0" keyTimes="0;.7;.82;1" dur="8s" repeatCount="indefinite"/>
+    </circle>
+    <g transform="translate(986 148)">
+      <animateTransform attributeName="transform" type="translate" additive="sum"
+        values="0 0;0 0;-5 -5;0 0;0 0" keyTimes="0;.68;.715;.75;1" dur="8s" repeatCount="indefinite"/>
+      <path d="M0 0 L0 15 L4.2 11.4 L7.4 17.8 L10.4 16.2 L7.2 10 L12.6 10 Z" fill="#dbe4f0" stroke="#0b0e15" stroke-width="1"/>
+    </g>
+    <text x="920" y="192" font-size="12" fill="#7d8ba1" text-anchor="middle">humans merge</text>
+  </g>
+</svg>
