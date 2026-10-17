@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/hero-pipeline.svg" alt="turbo-flow — el pipeline en vivo: el cambio de un builder pasa por checks deterministas gratis, un revisor de otra familia de modelos lo gatea, el veredicto pasa de REVISE → APPROVED, y solo un humano fusiona" width="100%"></p>
+
 > **⚡ TURBO FLOW — LA CAPA DE REGLAS PARA CÓDIGO ESCRITO POR IA.**
 > Un solo producto vive aquí: [`rig-lite/`](rig-lite/) — un kit de gobernanza portátil. No empaqueta ningún harness, no instala nada, solo depende de bash. Suéltalo en cualquier repo y tus agentes obtienen leyes con dientes.
 
