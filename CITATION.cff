@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
 title: "Turbo Flow"
-version: "5.2.0"
+version: "5.3.0"
 date-released: "2026-10-07"
 repository-code: "https://github.com/marcuspat/turbo-flow"
 license: "MIT"
