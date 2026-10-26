@@ -1746,6 +1746,66 @@ else
   echo "⚠ protect checks SKIPPED (script not present)"
 fi
 
+# ── install.sh: fail-closed installer paths (offline, curl stubbed) ─────────
+if [ -f "$KIT/install.sh" ]; then
+  ITMP="$(mktemp -d)"
+  # stub curl: ignores the URL, serves whatever file $CURL_SERVE points at
+  mkdir -p "$ITMP/bin"
+  printf '#!/usr/bin/env bash\nout=""\nwhile [ $# -gt 0 ]; do\n  if [ "$1" = "-o" ]; then out="$2"; shift 2; continue; fi\n  shift\ndone\ncat "$CURL_SERVE" > "$out"\n' > "$ITMP/bin/curl"
+  chmod +x "$ITMP/bin/curl"
+  sha256_of() { # same tool fallback the installer uses
+    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+    else shasum -a 256 "$1" | cut -d' ' -f1; fi
+  }
+  # test tarballs: root dir matches the srcdir computation for version 9.9.9-test
+  mkdir -p "$ITMP/src/turbo-flow-9.9.9-test/rig-lite" "$ITMP/src-nodir/turbo-flow-9.9.9-test/other"
+  printf '#!/usr/bin/env bash\n' > "$ITMP/src/turbo-flow-9.9.9-test/rig-lite/tf"
+  printf '#!/usr/bin/env bash\n' > "$ITMP/src/turbo-flow-9.9.9-test/rig-lite/init-repo.sh"
+  tar -czf "$ITMP/good.tar.gz" -C "$ITMP/src" turbo-flow-9.9.9-test
+  tar -czf "$ITMP/nodir.tar.gz" -C "$ITMP/src-nodir" turbo-flow-9.9.9-test
+  printf 'not the tarball you were expecting' > "$ITMP/bad.tar.gz"
+  GOOD_SHA="$(sha256_of "$ITMP/good.tar.gz")"
+  NODIR_SHA="$(sha256_of "$ITMP/nodir.tar.gz")"
+  # run the installer in $1 with $CURL_SERVE and pin $2; rc + combined output
+  ipath() { ( cd "$1" && env PATH="$ITMP/bin:$PATH" TURBO_FLOW_VERSION=v9.9.9-test \
+    TURBO_FLOW_SHA256="$2" bash "$KIT/install.sh" 2>&1 ); }
+  # every case asserts BOTH the exit code and the exact error/success message,
+  # so a crash for the wrong reason cannot pass a test
+  # 1. version with no pin (no override) → refused with the pin message
+  out1="$( cd "$ITMP" && env PATH="$ITMP/bin:$PATH" TURBO_FLOW_VERSION=v0.0.0-nope bash "$KIT/install.sh" 2>&1 )"; rc1=$?
+  if [ $rc1 -eq 1 ] && printf '%s' "$out1" | grep -q "no pinned sha256 for v0.0.0-nope"; then
+    echo "✓ install: unpinned version refused with pin message"
+  else echo "✗ install: unpinned version (rc=$rc1, out=$out1)"; FAIL=1; fi
+  # 2. existing ./rig-lite → refused with the clobber message
+  mkdir -p "$ITMP/cwd1/rig-lite"
+  out2="$( ipath "$ITMP/cwd1" "$GOOD_SHA" )"; rc2=$?
+  if [ $rc2 -eq 1 ] && printf '%s' "$out2" | grep -q "already exists"; then
+    echo "✓ install: existing ./rig-lite refused"
+  else echo "✗ install: clobber guard (rc=$rc2, out=$out2)"; FAIL=1; fi
+  # 3. valid-looking serve, WRONG pin → refused with the mismatch message
+  mkdir -p "$ITMP/cwd2"
+  out3="$( CURL_SERVE="$ITMP/good.tar.gz" ipath "$ITMP/cwd2" "0000000000000000000000000000000000000000000000000000000000000000" )"; rc3=$?
+  if [ $rc3 -eq 1 ] && printf '%s' "$out3" | grep -q "checksum mismatch"; then
+    echo "✓ install: checksum mismatch refused"
+  else echo "✗ install: mismatch guard (rc=$rc3, out=$out3)"; FAIL=1; fi
+  # 4. tarball without rig-lite/ (its own correct sha) → refused with the message
+  mkdir -p "$ITMP/cwd3"
+  out4="$( CURL_SERVE="$ITMP/nodir.tar.gz" ipath "$ITMP/cwd3" "$NODIR_SHA" )"; rc4=$?
+  if [ $rc4 -eq 1 ] && printf '%s' "$out4" | grep -q "rig-lite/ not found inside"; then
+    echo "✓ install: tarball without rig-lite/ refused"
+  else echo "✗ install: no-kit guard (rc=$rc4, out=$out4)"; FAIL=1; fi
+  # 5. happy path: success message + the files actually staged
+  mkdir -p "$ITMP/cwd4"
+  out5="$( CURL_SERVE="$ITMP/good.tar.gz" ipath "$ITMP/cwd4" "$GOOD_SHA" )"; rc5=$?
+  if [ $rc5 -eq 0 ] && printf '%s' "$out5" | grep -q "Staged ./rig-lite" \
+     && [ -f "$ITMP/cwd4/rig-lite/tf" ] && [ -f "$ITMP/cwd4/rig-lite/init-repo.sh" ]; then
+    echo "✓ install: happy path stages rig-lite with tf + init-repo.sh"
+  else echo "✗ install: happy path (rc=$rc5, out=$out5)"; FAIL=1; fi
+  rm -rf "$ITMP"
+else
+  echo "⚠ install.sh checks SKIPPED (script not present)"
+fi
+
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
 echo
