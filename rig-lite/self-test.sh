@@ -1782,6 +1782,13 @@ if [ -f "$KIT/install.sh" ]; then
   if [ $rc2 -eq 1 ] && printf '%s' "$out2" | grep -q "already exists"; then
     echo "✓ install: existing ./rig-lite refused"
   else echo "✗ install: clobber guard (rc=$rc2, out=$out2)"; FAIL=1; fi
+  # 2b. dangling symlink named ./rig-lite → also refused ([ -e ] is false for it)
+  mkdir -p "$ITMP/cwd1b"
+  ln -s "$ITMP/nowhere" "$ITMP/cwd1b/rig-lite"
+  out2b="$( ipath "$ITMP/cwd1b" "$GOOD_SHA" )"; rc2b=$?
+  if [ $rc2b -eq 1 ] && printf '%s' "$out2b" | grep -q "already exists"; then
+    echo "✓ install: dangling-symlink ./rig-lite refused"
+  else echo "✗ install: dangling symlink guard (rc=$rc2b, out=$out2b)"; FAIL=1; fi
   # 3. valid-looking serve, WRONG pin → refused with the mismatch message
   mkdir -p "$ITMP/cwd2"
   out3="$( CURL_SERVE="$ITMP/good.tar.gz" ipath "$ITMP/cwd2" "0000000000000000000000000000000000000000000000000000000000000000" )"; rc3=$?
@@ -1794,6 +1801,14 @@ if [ -f "$KIT/install.sh" ]; then
   if [ $rc4 -eq 1 ] && printf '%s' "$out4" | grep -q "rig-lite/ not found inside"; then
     echo "✓ install: tarball without rig-lite/ refused"
   else echo "✗ install: no-kit guard (rc=$rc4, out=$out4)"; FAIL=1; fi
+  # 4b. curl itself fails → rc 1 with the download-failure message (not curl's raw code)
+  printf '#!/usr/bin/env bash\nexit 22\n' > "$ITMP/bin/curl"
+  mkdir -p "$ITMP/cwd3b"
+  out4b="$( ipath "$ITMP/cwd3b" "$GOOD_SHA" )"; rc4b=$?
+  if [ $rc4b -eq 1 ] && printf '%s' "$out4b" | grep -q "failed to download"; then
+    echo "✓ install: curl failure → exit 1 with the download-failure message"
+  else echo "✗ install: curl failure path (rc=$rc4b, out=$out4b)"; FAIL=1; fi
+  printf '#!/usr/bin/env bash\nout=""\nwhile [ $# -gt 0 ]; do\n  if [ "$1" = "-o" ]; then out="$2"; shift 2; continue; fi\n  shift\ndone\ncat "$CURL_SERVE" > "$out"\n' > "$ITMP/bin/curl"
   # 5. happy path: success message + the files actually staged
   mkdir -p "$ITMP/cwd4"
   out5="$( CURL_SERVE="$ITMP/good.tar.gz" ipath "$ITMP/cwd4" "$GOOD_SHA" )"; rc5=$?

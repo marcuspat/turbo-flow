@@ -16,13 +16,14 @@ set -euo pipefail
 
 sha_for() {
   case "$1" in
+    v5.3.0) echo "6255b6d30648140f2d5a6fb94ad1f03f67b8cfad5f30ea31fb57c95d9f328dd0" ;;
     v5.2.0) echo "4d3d22c8477ef519259d3f298ffd26e3fbac6714cee14af5c3385bdf518b28ae" ;;
     *) return 1 ;;
   esac
 }
 
 main() {
-  version="${TURBO_FLOW_VERSION:-v5.2.0}"
+  version="${TURBO_FLOW_VERSION:-v5.3.0}"
   # TURBO_FLOW_SHA256: explicit pin override (used by the kit's self-test with
   # a stubbed curl; anyone who can set env vars already controls this shell).
   expected="${TURBO_FLOW_SHA256:-$(sha_for "$version")}" || {
@@ -30,7 +31,7 @@ main() {
     exit 1
   }
 
-  if [ -e ./rig-lite ]; then
+  if [ -e ./rig-lite ] || [ -L ./rig-lite ]; then
     printf 'install.sh: ./rig-lite already exists here — move it aside before installing.\n' >&2
     exit 1
   fi
@@ -51,7 +52,10 @@ main() {
 
   url="https://github.com/marcuspat/turbo-flow/archive/refs/tags/${version}.tar.gz"
   printf '==> Fetching Turbo Flow %s ...\n' "$version"
-  curl -fsSL "$url" -o "$tmp/turbo-flow.tar.gz"
+  if ! curl -fsSL "$url" -o "$tmp/turbo-flow.tar.gz"; then
+    printf 'install.sh: failed to download %s (network, or the tag does not exist).\n' "$url" >&2
+    exit 1
+  fi
 
   if command -v sha256sum >/dev/null 2>&1; then
     actual="$(sha256sum "$tmp/turbo-flow.tar.gz" | cut -d' ' -f1)"

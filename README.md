@@ -61,6 +61,9 @@ Recorded on the same Codespace: `tf help` shows every subcommand, `tf status` gi
 ## Ten-minute install
 
 ```bash
+# one-liner (stages ./rig-lite from a pinned, checksum-verified release):
+curl -fsSL https://github.com/marcuspat/turbo-flow/raw/main/rig-lite/install.sh | bash
+
 # from any repo you want to govern:
 bash /path/to/turbo-flow/rig-lite/init-repo.sh   # writes AGENTS.md + installs tf, never clobbers
 export PATH="$HOME/.local/bin:$PATH"              # tf lives here (init warns if not on PATH)
