@@ -1782,6 +1782,13 @@ if [ -f "$KIT/install.sh" ]; then
   if [ $rc2 -eq 1 ] && printf '%s' "$out2" | grep -q "already exists"; then
     echo "✓ install: existing ./rig-lite refused"
   else echo "✗ install: clobber guard (rc=$rc2, out=$out2)"; FAIL=1; fi
+  # 2b. dangling symlink named ./rig-lite → also refused ([ -e ] is false for it)
+  mkdir -p "$ITMP/cwd1b"
+  ln -s "$ITMP/nowhere" "$ITMP/cwd1b/rig-lite"
+  out2b="$( ipath "$ITMP/cwd1b" "$GOOD_SHA" )"; rc2b=$?
+  if [ $rc2b -eq 1 ] && printf '%s' "$out2b" | grep -q "already exists"; then
+    echo "✓ install: dangling-symlink ./rig-lite refused"
+  else echo "✗ install: dangling symlink guard (rc=$rc2b, out=$out2b)"; FAIL=1; fi
   # 3. valid-looking serve, WRONG pin → refused with the mismatch message
   mkdir -p "$ITMP/cwd2"
   out3="$( CURL_SERVE="$ITMP/good.tar.gz" ipath "$ITMP/cwd2" "0000000000000000000000000000000000000000000000000000000000000000" )"; rc3=$?
