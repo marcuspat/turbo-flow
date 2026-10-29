@@ -30,7 +30,7 @@
 #           ALWAYS skipped: the PR's diff is not your working tree.
 #   [-C <repo>] run against another local repo path (default: cwd's
 #           repo). Honored by every mode, including --pr/--sweep.
-# Env: GATE_ROUND_CAP (default 3) — max gate rounds per PR before the
+# Env: GATE_ROUND_CAP (default 3; 0 caps every PR immediately) — max gate rounds per PR before the
 #           fork (continue / park / restructure) goes to a human;
 #           GATE_FORCE=1 runs past the cap consciously;
 #           GATE_NO_ROUND_MEMORY=1 skips prior-round findings injection.
@@ -170,6 +170,9 @@ PYB
 sweep_stale() {
   local body=$1 cur=$2 pin
   [[ -z "$body" ]] && { echo gate; return; }
+  # an infra-failure comment (reviewer CLI died / no output) is not a verdict:
+  # retry on the next sweep rather than riding skip:pinned at an unmoved head
+  if printf '%s\n' "$body" | grep -Fq 'fail-closed by design. Re-run'; then echo gate; return; fi
   pin=$(printf '%s\n' "$body" | grep -m1 -oE '^gated-head: [0-9a-f]{7,40}[[:space:]]*$' | awk '{print $2}')
   if [[ -z "$pin" ]]; then echo "skip:legacy"; return; fi
   if [[ "$pin" == "$cur" ]]; then echo "skip:pinned"; else echo "regate:stale"; fi
