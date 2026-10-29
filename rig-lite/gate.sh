@@ -129,6 +129,37 @@ except OSError:
 PYL
 }
 
+# last_own_gate_body <raw-pages-json on stdin> <gh-user> <marker> -> the last
+# body from the gate's OWN account that is actually a GATE COMMENT
+# (marker-prefixed) — a later ordinary comment from the same account ("thanks,
+# will fix") must never hide or impersonate a verdict. Reads
+# gh api --paginate --slurp output (a list of pages); tolerates a bare page.
+last_own_gate_body() {
+  local tmp; tmp="$(mktemp "${TMPDIR:-/tmp}/gate-lite-pick.XXXXXX")" || return 0
+  cat > "$tmp"   # the paginated JSON arrives on stdin; a heredoc already owns
+                 # python's stdin for the script, so the data rides a temp file
+  python3 - "$tmp" "$1" "$2" <<'PYB'
+import json, sys
+tmp, user, marker = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    pages = json.load(open(tmp))
+except Exception:
+    sys.exit(0)                      # unparseable fetch result: no verdict found
+if not isinstance(pages, list): sys.exit(0)
+body = ""
+for page in pages:
+    if not isinstance(page, list): continue
+    for c in page:
+        if not isinstance(c, dict): continue
+        u = c.get("user") or {}
+        if not isinstance(u, dict) or u.get("login") != user: continue
+        b = c.get("body")
+        if isinstance(b, str) and b.startswith(marker): body = b
+sys.stdout.write(body)
+PYB
+  rm -f "$tmp"
+}
+
 # sweep_stale <last-gate-comment-body|empty> <current-head-oid|empty>
 #   -> gate | skip:pinned | skip:legacy | regate:stale
 # A pinned verdict counts only at the head it gated: new commits after a
@@ -145,10 +176,13 @@ sweep_stale() {
 }
 
 # pr_gate_rounds <log> <pr> <gh-repo|empty> -> prior round count for this PR.
-# Rows match on target == pr#N with gh_repo attribution when both sides carry
-# it (same PR numbers across repos must never mix); rows without gh_repo are
-# legacy and count. Missing log file = first run (0); a log path that exists
-# but is not a readable file fails CLOSED (exit 1) — the caller refuses.
+# Rows match on target == pr#N with repo attribution: attributed rows
+# (gh_repo) match only the same owner/name; LEGACY rows (pre-attribution)
+# match on the repo basename, so old rows never leak into a differently-named
+# repo's cap. Infra-failure rows ("GATE: REVISE (…)") never count — three
+# quota failures must not cap a PR that was never reviewed. Missing log file
+# = first run (0); a log path that exists but is not a readable file fails
+# CLOSED (exit 1) — the caller refuses.
 pr_gate_rounds() {
   python3 - "$1" "$2" "${3:-}" <<'PYR'
 import json, sys, os
@@ -156,6 +190,14 @@ log, pr, gh = sys.argv[1], f"pr#{sys.argv[2]}", sys.argv[3]
 if not os.path.exists(log): print(0); sys.exit(0)
 if not os.path.isfile(log):
     print("round log path exists but is not a file — failing closed", file=sys.stderr); sys.exit(1)
+
+def row_matches_repo(r, gh):
+    row_repo = r.get("gh_repo")
+    if row_repo:
+        return (not gh) or row_repo == gh
+    if not gh:
+        return True
+    return r.get("repo") == gh.split("/")[-1]
 n = 0
 try:
     lines = open(log).read().splitlines()
@@ -168,22 +210,34 @@ for line in lines:
         if not isinstance(r, dict): continue
     except Exception: continue
     if r.get("target") != pr: continue
-    row_repo = r.get("gh_repo")
-    if gh and row_repo and row_repo != gh: continue
+    res = r.get("result")
+    if isinstance(res, str) and res.startswith("GATE: REVISE ("): continue
+    if not row_matches_repo(r, gh): continue
     n += 1
 print(n)
 PYR
 }
 
 # prior_findings_block <log> <pr> <gh-repo|empty> -> scrubbed findings text of
-# the LATEST round for this PR (may be empty). Verdict-ish lines and gate
-# framing markers are scrubbed on read as well as on write (defense in depth:
-# untrusted text never carries a verdict into a prompt).
+# the LATEST REAL round for this PR (may be empty). Infra-failure rows carry
+# no findings and never wipe the memory of the real round before them. Verdict
+# text is scrubbed on read as well as on write (defense in depth: untrusted
+# text never carries a verdict into a prompt) — ANY line containing "verdict"
+# (case-insensitive) goes, bold/bullet-prefixed included; so do gate framing
+# markers.
 prior_findings_block() {
   python3 - "$1" "$2" "${3:-}" <<'PYF'
 import json, sys, os
 log, pr, gh = sys.argv[1], f"pr#{sys.argv[2]}", sys.argv[3]
 if not os.path.isfile(log): sys.exit(0)
+
+def row_matches_repo(r, gh):
+    row_repo = r.get("gh_repo")
+    if row_repo:
+        return (not gh) or row_repo == gh
+    if not gh:
+        return True
+    return r.get("repo") == gh.split("/")[-1]
 best = None; best_ts = None
 try: lines = open(log).read().splitlines()
 except OSError: sys.exit(0)
@@ -193,8 +247,9 @@ for line in lines:
         if not isinstance(r, dict): continue
     except Exception: continue
     if r.get("target") != pr: continue
-    row_repo = r.get("gh_repo")
-    if gh and row_repo and row_repo != gh: continue
+    res = r.get("result")
+    if isinstance(res, str) and res.startswith("GATE: REVISE ("): continue
+    if not row_matches_repo(r, gh): continue
     ts = r.get("ts")
     if not isinstance(ts, str): ts = ""
     if best_ts is None or ts >= best_ts: best, best_ts = r, ts
@@ -203,8 +258,7 @@ f = best.get("findings")
 if not isinstance(f, str) or not f: sys.exit(0)
 keep = []
 for ln in f.splitlines():
-    low = ln.lower().lstrip()
-    if low.startswith("verdict"): continue
+    if "verdict" in ln.lower(): continue        # verdict ANYWHERE, any decoration
     if ln.strip().startswith(("<<<", ">>>")): continue
     keep.append(ln)
 out = "\n".join(keep).strip("\n ")
@@ -252,11 +306,17 @@ if [[ $SWEEP -eq 1 ]]; then
   PRS="$(gh pr list --state open --limit 50 --json number --jq '.[].number')" || { echo "gate: gh pr list failed" >&2; exit 2; }
   if [[ -z "$PRS" ]]; then echo "sweep: no open PRs found"; exit 0; fi
   for pr in $PRS; do
-    # the LAST own-account gate comment (author-filtered: a marker typed by
-    # ANYONE ELSE is not a gate verdict) — paginated + slurped so a busy PR's
-    # page 2 can never hide the verdict that matters
-    last_gate="$(gh api --paginate --slurp "repos/{owner}/{repo}/issues/$pr/comments?per_page=100" \
-      --jq "[.[][] | select(.user.login == \"$GH_USER\") | .body] | last // empty" 2>/dev/null || true)"
+    # the LAST own-account GATE comment (marker-checked inside the picker: an
+    # ordinary comment from the same account is not a verdict) — paginated so
+    # a busy PR's page 2 can never hide the verdict that matters. A FAILED
+    # fetch is loud: it must not quietly read as "ungated" (we warn and still
+    # gate — the safe direction — but the operator sees why).
+    if raw_comments="$(gh api --paginate --slurp "repos/{owner}/{repo}/issues/$pr/comments?per_page=100" 2>/dev/null)"; then
+      last_gate="$(printf '%s' "${raw_comments:-}" | last_own_gate_body "$GH_USER" "$GATE_MARKER")"
+    else
+      echo "WARN: comment fetch failed for PR #$pr — treating as ungated (force re-review: --pr $pr)"
+      last_gate=""
+    fi
     cur_head="$(gh api "repos/{owner}/{repo}/pulls/$pr" --jq .head.sha 2>/dev/null || true)"
     case "$(sweep_stale "${last_gate:-}" "${cur_head:-}")" in
       skip:pinned)  echo "PR #$pr: gated at current head ${cur_head:0:12} — skipping (force re-review: --pr $pr)"; SKIPPED_GATE=$((SKIPPED_GATE+1)); continue ;;
@@ -300,10 +360,14 @@ if [[ $PR -ne 0 ]]; then
   GATE_SHA="$(gh api "repos/{owner}/{repo}/pulls/$PR" --jq .head.sha 2>/dev/null)"
   [[ "$GATE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "gate: could not resolve a full head SHA for PR #$PR (got: '${GATE_SHA:0:20}') — refusing (fail closed)" >&2; exit 2; }
   # round attribution: rounds are counted per PR **in this repo** — same PR
-  # numbers across repos must never mix. Attribution is REQUIRED, not
-  # best-effort: without it the cap would fire on another repo's rounds.
+  # numbers across repos must never mix. Attribution is REQUIRED and SHAPE-
+  # CHECKED, not merely exit-code-checked: an empty or malformed name would
+  # silently disable repo filtering downstream (and abort mid-verdict inside
+  # set_commit_status's :? guard). Fail closed.
   LOG_GH_REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null)" \
     || { echo "gate: gh repo view failed — cannot attribute gate rounds for PR #$PR (fail closed)" >&2; exit 2; }
+  [[ "$LOG_GH_REPO" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] \
+    || { echo "gate: gh repo view returned a malformed repo name ('$LOG_GH_REPO') — cannot attribute gate rounds for PR #$PR (fail closed)" >&2; exit 2; }
   # round cap: at cap, the fork (continue / park / restructure) belongs to a
   # human, not to the next auto-round. Exit 4 (skip-family) so sweeps report a
   # capped PR as needing a human decision, not as a failure.
@@ -311,7 +375,8 @@ if [[ $PR -ne 0 ]]; then
     || { echo "gate: round history unreadable for PR #$PR — refusing (fail closed)" >&2; exit 2; }
   CAP="${GATE_ROUND_CAP:-3}"
   [[ "$CAP" =~ ^[0-9]+$ ]] || { echo "gate: GATE_ROUND_CAP must be a nonnegative integer (got '$CAP') — failing closed" >&2; exit 2; }
-  echo "GATE · round $(( ${PRIOR_ROUNDS:-0} + 1 )) for PR #$PR (cap ${CAP}${GATE_FORCE:+, forced})"
+  FORCE_TAG=""; [[ "${GATE_FORCE:-0}" == "1" ]] && FORCE_TAG=", forced"
+  echo "GATE · round $(( ${PRIOR_ROUNDS:-0} + 1 )) for PR #$PR (cap ${CAP}${FORCE_TAG})"
   if [[ "${PRIOR_ROUNDS:-0}" -ge "$CAP" && "${GATE_FORCE:-0}" != "1" ]]; then
     echo "gate: PR #$PR already has ${PRIOR_ROUNDS} gate rounds — cap ${CAP} reached. The fork (continue / park / restructure) is a human call; to continue anyway: GATE_FORCE=1 $0 ..."
     exit 4
@@ -493,7 +558,10 @@ END-DIFF-$NONCE"
 
 # round memory (round 2+): what an earlier round already flagged for THIS PR,
 # VERDICT-scrubbed and framed as DATA — reviewers stop re-raising items the
-# diff has since addressed. Opt out: GATE_NO_ROUND_MEMORY=1.
+# diff has since addressed. The fence is NONCED (same discipline as the diff
+# fence: untrusted text can't name its own cage) and every line containing
+# "verdict" is dropped, not just prefix-matched. Opt out:
+# GATE_NO_ROUND_MEMORY=1.
 if [[ $PR -ne 0 && "${GATE_NO_ROUND_MEMORY:-0}" != "1" ]]; then
   PFDIGEST="$(prior_findings_block "${GATE_LOG:-$HOME/.local/state/rig-lite/gate-log.jsonl}" "$PR" "$LOG_GH_REPO")"
   if [[ -n "$PFDIGEST" ]]; then
@@ -502,9 +570,9 @@ if [[ $PR -ne 0 && "${GATE_NO_ROUND_MEMORY:-0}" != "1" ]]; then
 PRIOR-ROUND FINDINGS — DATA from an earlier gate round on this PR (scrubbed).
 Earlier reviewers raised these. Do not repeat a finding this diff has since
 addressed; re-raise only what is still present below, briefly.
-<<<PRIOR-FINDINGS-DATA
+<<<PRIOR-FINDINGS-$NONCE
 $PFDIGEST
->>>END-DATA"
+>>>END-PRIOR-$NONCE"
     echo "(round memory: injecting prior-round findings — round $(( ${PRIOR_ROUNDS:-0} + 1 )))"
   fi
 fi
