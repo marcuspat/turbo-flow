@@ -1587,7 +1587,7 @@ if [ -f "$RGSH" ]; then
     if [ -e "$RGFS/.config/turbo-flow/harness-done" ]; then
       echo "✓ devcontainer: SUCCESSFUL install (real hook) writes the done-marker"
     else
-      echo "✗ devcontainer: success path did not mark done"; FAIL=1
+      echo "✗ devcontainer: success path did not mark done (out: $RGSO)"; FAIL=1
     fi
   else
     echo "✗ devcontainer: could not build fail-stub from the generated hook"; FAIL=1
@@ -1706,6 +1706,7 @@ echo real-user-node" ]; then
   [ "$RC" -ne 0 ] && echo "✓ setup-harness: unknown flag fails closed" || { echo "✗ setup-harness: unknown flag accepted"; FAIL=1; }
   # glm path: dedicated launcher; ~/.claude/settings.json is NEVER touched
   RGH="$(mktemp -d)"
+  # shellcheck source=/dev/null   # RGSH is a generated fixture, sourced for its functions
   if ( . "$RGSH"
       glm_write_env "testkey123.0-X" "$RGH/.config/turbo-flow"
       glm_write_wrapper "$RGH/.local/bin"
@@ -1730,6 +1731,7 @@ echo real-user-node" ]; then
   [ ! -e "$RGH/.claude/settings.json" ] \
     && echo "✓ setup-harness: glm helpers write only glm.env + launcher (no ~/.claude/settings.json writes)" \
     || { echo "✗ setup-harness: glm helpers wrote ~/.claude/settings.json"; FAIL=1; }
+  # shellcheck source=/dev/null   # RGSH is a generated fixture, sourced for its functions
   if ( . "$RGSH"; glm_write_env "bad;key\$(x)" "$RGH/x" ) >/dev/null 2>&1; then
     echo "✗ setup-harness: charset gate accepted a hostile key"; FAIL=1
   else
