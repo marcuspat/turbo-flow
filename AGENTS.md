@@ -10,6 +10,9 @@ Every change is reviewed read-only by a model from a **different family** than t
 
 ```bash
 rig-lite/gate.sh --pr <n> --builder <cli>    # gate a GitHub PR, verdict posted as a comment
+# verdicts are pinned to the head they gated — new commits = ungated again.
+# past GATE_ROUND_CAP (default 3) rounds the gate exits 4: the continue/park
+# fork is the human's call (GATE_FORCE=1 overrides consciously).
 rig-lite/gate.sh --base main --builder <cli> # branch mode on a working tree
 ```
 
