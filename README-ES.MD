@@ -31,13 +31,13 @@ Un Codespace limpio desde `main` (sin autenticar): el primer shell dispara el ar
 
 ## El gate sobrevivió 17 rondas de revisión
 
-`rig-lite/gate.sh` fue revisado por una familia de modelos que no lo escribió — y recibió **REVISE diecisiete veces** antes de ganar su APPROVED (contado desde el propio log JSONL del gate). Los hallazgos son exactamente la clase que el gate existe para atrapar: un agujero de inyección de prompt que dejaba que un diff se aprobara solo, una ruta fail-open que saltaba la revisión, un bug de quoting que enterraba tests fallidos, un silent-reviewer mal diagnosticado. Cada fix se volvió un self-test.
+`rig-lite/gate.sh` fue revisado por una familia de modelos que no lo escribió — y recibió **REVISE diecisiete veces** antes de ganar su APPROVED (contado desde el propio log JSONL del gate). Los hallazgos son exactamente la clase que el gate existe para atrapar: un agujero de inyección de prompt que dejaba que un diff se aprobara solo, una ruta fail-open que saltaba la revisión, un bug de quoting que enterraba tests fallidos, un silent-reviewer mal diagnosticado. Cada fix se volvió un self-test. Desde v5.4 el gate también se aplica la disciplina a sí mismo: un PR pasado `GATE_ROUND_CAP` (default 3) rondas se niega a la ronda N+1 — exit `4`, el fork continuar/estacionar pasa al humano — en vez de quemar otra ronda en silencio.
 
 ## rig-lite — un kit, diez minutos, cero dependencias nuevas
 
 | archivo | qué te da |
 |---|---|
-| [`gate.sh`](rig-lite/gate.sh) | gate de revisión entre modelos — checks deterministas primero (son gratis), luego un revisor de **otra familia** debe devolver `APPROVED` / `REVISE` parseable. Fail-closed; nunca fusiona. `--pr <n>` gatea un PR de GitHub y publica el veredicto como comentario. |
+| [`gate.sh`](rig-lite/gate.sh) | gate de revisión entre modelos — checks deterministas primero (son gratis), luego un revisor de **otra familia** debe devolver `APPROVED` / `REVISE` parseable. Fail-closed; nunca fusiona. `--pr <n>` gatea un PR de GitHub y publica el veredicto como comentario. El fetch de comentarios necesita gh ≥ 2.48 (`--slurp`; con gh viejo el sweep avisa WARN y re-gatea — la dirección segura). Cada veredicto queda **clavado al head que gateó** (`gated-head:` en el comentario + commit status en ese SHA exacto) — commits nuevos dejan el PR sin gatear otra vez y `--sweep` lo re-gatea en vez de confiar en una aprobación vencida. El revisor solo puede bloquear por defectos que **este diff introduce** (regla PRE-EXISTING — lo idéntico-en-la-base es nota no-bloqueante). Las rondas tienen **tope** (`GATE_ROUND_CAP`, default 3): pasado el tope el gate sale con `4` y el fork continuar / estacionar / reestructurar es del humano, no de otra auto-ronda (`GATE_FORCE=1` lo sobreescribe a conciencia). Y desde la ronda 2 el revisor recibe los hallazgos de la ronda anterior como DATA depurada — lo ya atendido deja de volver. |
 | [`protect.sh`](rig-lite/protect.sh) | convierte el gate en una regla de GitHub, no una promesa: un comando activa la protección de rama con el veredicto del gate como **chequeo requerido** (`gate-verdict`, fijado por `gate.sh` sobre el SHA exacto que revisó), así `main` no puede recibir un PR sin gatear ni por accidente. **No** hace que solo humanos fusionen: `--require-review` exige una *revisión* aprobatoria (un permiso de cuenta, no prueba de quién lo tecleó), y cualquier cuenta con permiso de merge puede fusionar un PR aprobado — que el merge quede solo en humanos es una decisión de control de acceso (qué cuentas tienen permiso de merge) que la protección no puede tomar por ti. `--dry-run` / `--status` para ver antes de tocar. Su workflow compañero [`gate-check.yml`](.github/workflows/gate-check.yml) re-verifica en cada push y, cuando el gate publica APPROVED, pone verde el chequeo del PR por sí solo — los PRs de fork reciben el re-run de un clic, porque GitHub no vincula sus runs al PR. |
 | [`wt.sh`](rig-lite/wt.sh) | un worktree aislado por escritor en paralelo. |
 | [`init-repo.sh`](rig-lite/init-repo.sh) | onboarding de un comando para cualquier repo: un `AGENTS.md` delgado + el symlink `CLAUDE.md → AGENTS.md`. Nunca pisa archivos existentes. |
@@ -59,7 +59,7 @@ Cuando la instalación termina, aterrizas **dentro de un rig tmux de 5 ventanas*
 # desde cualquier repo que quieras gobernar:
 bash /ruta/a/turbo-flow/rig-lite/init-repo.sh
 export PATH="$HOME/.local/bin:$PATH"              # tf vive aquí   # escribe AGENTS.md + instala tf, nunca pisa
-tf test                                            # demuestra el kit (322 checks)
+tf test                                            # demuestra el kit (410 checks)
 tf gate --builder <tu-cli>                       # gatea tu primer cambio
 ```
 
