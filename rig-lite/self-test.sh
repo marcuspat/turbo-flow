@@ -413,7 +413,7 @@ mk_gh() {
     printf '        *) exit 1;; esac;;\n'
     printf '  api) case "$*" in\n'
     printf '        *pulls/9*) exit 1;;\n'
-    printf '        *.head.sha*) printf "%s\\n" "%s"; exit 0;;\n' "$FAKE_SHA"
+    printf '        *.head.sha*) printf "%s\\n" "%%s"; exit 0;;\n' "$FAKE_SHA"
     printf '        *statuses/*) printf "STATUS-ON=%%s\\n" "$*" >> "$log"; exit 0;;\n'
     printf '        *pulls/*) exit 0;;\n'
     printf '        *issues/*) printf "[]"; exit 0;;\n'
@@ -700,7 +700,7 @@ mk_sweep_gh() {
     printf '        *) exit 1;; esac;;\n'
     printf '  api) case "$*" in\n'
     printf '        "api user"*) printf "gate-bot\\n"; exit 0;;\n'
-    printf '        *.head.sha*) printf "%s\\n" "%s"; exit 0;;\n' "$FAKE_SHA"
+    printf '        *.head.sha*) printf "%s\\n" "%%s"; exit 0;;\n' "$FAKE_SHA"
     printf '        *statuses/*) printf "STATUS-ON=%%s\\n" "$*" >> "$log"; exit 0;;\n'
     printf '        *pulls/*) exit 0;;\n'
     printf '        *issues/7/comments*) printf "%s"; exit 0;;\n' "$body"

@@ -523,7 +523,7 @@ VERDICT_RAW="$(printf '%s' "$PROMPT" | invoke "$REVIEWER" 2>"$ERRLOG")" || {
   echo "gate: REVISE — fail-closed by design"
   log_verdict "REVISE (reviewer CLI failed)"
   if [[ $PR -ne 0 ]]; then
-    post_comment "$PR" "## Gate review — reviewer: $REVIEWER
+    post_comment "$PR" "$GATE_MARKER $REVIEWER
 gated-head: $GATE_SHA
 **Lanes:** reviewed by $REVIEWER · builder family: $B_FAMILY
 
@@ -537,7 +537,7 @@ if [[ -z "${VERDICT_RAW//[[:space:]]/}" ]]; then
   echo "gate: REVISE — fail-closed by design"
   log_verdict "REVISE (no reviewer output)"
   if [[ $PR -ne 0 ]]; then
-    post_comment "$PR" "## Gate review — reviewer: $REVIEWER
+    post_comment "$PR" "$GATE_MARKER $REVIEWER
 gated-head: $GATE_SHA
 **Lanes:** reviewed by $REVIEWER · builder family: $B_FAMILY
 
@@ -558,8 +558,8 @@ Builder family unknown (--builder not given) — cross-family exclusion not enfo
   body="$(printf '%s\n' "$VERDICT_RAW" | tail -40 | redact)"
   # gated-head pin: sweep compares this against the PR's current head — a
   # verdict counts only at the head it gated (new commits ⇒ re-gate)
-  printf '## Gate review — reviewer: %s\ngated-head: %s\n**Lanes:** reviewed by %s · builder family: %s\n\n%s\n\n---\n\n%s\n\n---\nVERDICT: %s\n' \
-    "$REVIEWER" "$GATE_SHA" "$REVIEWER" "$B_FAMILY" "$note" "$body" "$1"
+  printf '%s %s\ngated-head: %s\n**Lanes:** reviewed by %s · builder family: %s\n\n%s\n\n---\n\n%s\n\n---\nVERDICT: %s\n' \
+    "$GATE_MARKER" "$REVIEWER" "$GATE_SHA" "$REVIEWER" "$B_FAMILY" "$note" "$body" "$1"
 }
 
 # the reviewer's findings (redacted, verdict-neutralized) ride the log row —
