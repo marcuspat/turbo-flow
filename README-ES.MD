@@ -59,7 +59,7 @@ Cuando la instalación termina, aterrizas **dentro de un rig tmux de 5 ventanas*
 # desde cualquier repo que quieras gobernar:
 bash /ruta/a/turbo-flow/rig-lite/init-repo.sh
 export PATH="$HOME/.local/bin:$PATH"              # tf vive aquí   # escribe AGENTS.md + instala tf, nunca pisa
-tf test                                            # demuestra el kit (396 checks)
+tf test                                            # demuestra el kit (410 checks)
 tf gate --builder <tu-cli>                       # gatea tu primer cambio
 ```
 
