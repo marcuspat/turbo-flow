@@ -1,0 +1,31 @@
+{
+  "name": "turbo-flow",
+  "version": "5.4.0",
+  "description": "Fail-closed cross-model review gate for AI-written code, plus git-versioned agent memory — pure bash, one command.",
+  "keywords": [
+    "cli",
+    "code-review",
+    "ai",
+    "agents",
+    "bash",
+    "developer-tools",
+    "gate"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marcuspat/turbo-flow.git"
+  },
+  "homepage": "https://github.com/marcuspat/turbo-flow#readme",
+  "bugs": {
+    "url": "https://github.com/marcuspat/turbo-flow/issues"
+  },
+  "bin": {
+    "turbo-flow": "bin/turbo-flow"
+  },
+  "files": [
+    "bin/turbo-flow",
+    "rig-lite/",
+    "LICENSE"
+  ]
+}

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# turbo-flow — the npm/npx entry point for the rig-lite kit.
+#
+# Symlinks are resolved first: npx and `npm i -g` both invoke this file
+# through a symlink in a bin directory, and tf locates gate.sh and the rest
+# of the kit relative to its own REAL location — an unresolved path would
+# point tf at npm's bin dir instead of the package payload.
+set -euo pipefail
+
+self="${BASH_SOURCE[0]}"
+while [ -L "$self" ]; do
+  dir="$(cd -P "$(dirname "$self")" && pwd)"
+  self="$(readlink "$self")"
+  case "$self" in
+    /*) ;;
+    *) self="$dir/$self" ;;
+  esac
+done
+kit_dir="$(cd -P "$(dirname "$self")/.." && pwd)"
+
+if [ ! -f "$kit_dir/rig-lite/tf" ]; then
+  printf 'turbo-flow: kit payload missing at %s/rig-lite/tf — reinstall the package.\n' "$kit_dir" >&2
+  exit 1
+fi
+
+exec bash "$kit_dir/rig-lite/tf" "$@"

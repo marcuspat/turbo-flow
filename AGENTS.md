@@ -46,6 +46,12 @@ Or use the long paths (`rig-lite/gate.sh`, `rig-lite/secret.sh`, etc.) — same 
 - Durable facts: `rig-lite/memory/`, one fact per file, git-versioned
 - Changes arrive by PR + gate. Builders never merge; humans do.
 
+## Releases
+
+- Bump the version in BOTH `package.json` and `CITATION.cff` — the self-test enforces parity.
+- `npm publish` is automatic on `v*` tags (`.github/workflows/npm-publish.yml`): the tag must equal the package version, and the `NPM_TOKEN` repo secret must exist before tagging.
+- Humans merge; agents cut and push the tag once the release PR has landed.
+
 ## Harnesses (by role, none bundled)
 
 **ZCode builds · Claude Code reviews — with the Ruflo mod installed when you want orchestration · Codex backs up the review.**

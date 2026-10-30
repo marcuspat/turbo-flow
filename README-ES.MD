@@ -58,6 +58,10 @@ Cuando la instalación termina, aterrizas **dentro de un rig tmux de 5 ventanas*
 ## Instalación en diez minutos
 
 ```bash
+# o desde npm — el mismo kit, sin clonar (fija la versión; misma postura que el tarball con sha anclado):
+npx turbo-flow@5.4.0 help
+npm i -g turbo-flow@5.4.0                         # instala `turbo-flow` — los mismos subcomandos que tf
+
 # desde cualquier repo que quieras gobernar:
 bash /ruta/a/turbo-flow/rig-lite/init-repo.sh
 export PATH="$HOME/.local/bin:$PATH"              # tf vive aquí   # escribe AGENTS.md + instala tf, nunca pisa
