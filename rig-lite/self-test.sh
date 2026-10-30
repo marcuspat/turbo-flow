@@ -1964,7 +1964,6 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
   # which needs actions: write) ever turns the PR green — without it every gated PR keeps
   # the stale red X from the push-time run that beat the gate. The logic lives in
   # gate-check.js precisely so it can be driven here with a mocked GitHub.
-  RGGC="$KIT/../.github/workflows/gate-check.yml"
   RGGCJS="$KIT/../.github/scripts/gate-check.js"
   if [ -f "$RGGC" ] && grep -qE '^[[:space:]]*actions:[[:space:]]*write' "$RGGC" && grep -q 'actions/checkout' "$RGGC" \
      && grep -q "require('./.github/scripts/gate-check.js')" "$RGGC" \
@@ -2220,8 +2219,9 @@ if [ -f "$KIT/../package.json" ] && command -v python3 >/dev/null 2>&1; then
     # npm package context: the workflow ships with the repo, not the package
     echo "⚠ npm: publish workflow check SKIPPED (no .github beside the kit — npm package context)"
   elif [ -f "$NPMW" ] && grep -qF "'v*'" "$NPMW" && grep -q 'NPM_TOKEN' "$NPMW" \
-     && grep -q 'npm publish' "$NPMW" && ! grep -q 'branches:' "$NPMW"; then
-    echo "✓ npm: publish workflow is tag-gated, token-wired, never branch-fired"
+     && grep -q 'npm publish' "$NPMW" && ! grep -q 'branches:' "$NPMW" \
+     && grep -q 'npm view' "$NPMW" && grep -qF '= "$v" ]' "$NPMW"; then
+    echo "✓ npm: publish workflow is tag-gated, token-wired, never branch-fired; skip-if-published compares npm view OUTPUT to the version (exit-code form silently skips publishes on npm versions that exit 0 on a missing version)"
   else echo "✗ npm: publish workflow shape wrong at $NPMW"; FAIL=1; fi
 else
   echo "⚠ npm packaging checks SKIPPED (no package.json beside the kit, or no python3 — kit outside its home repo)"
