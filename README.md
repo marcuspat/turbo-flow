@@ -2,6 +2,8 @@
 
 <p align="center"><img src="assets/hero-pipeline.svg" alt="turbo-flow — the live pipeline: a builder's change travels past free deterministic checks, a reviewer from a different model family gates it, the verdict flips REVISE → APPROVED, and only a human merges" width="100%"></p>
 
+<p align="center"><sub>the whole kit in one picture: <a href="assets/turbo-flow-infographic.svg">full feature map</a> · <a href="assets/what-turbo-flow-can-do.svg">what it can do right now</a></sub></p>
+
 > **⚡ TURBO FLOW — THE RULES LAYER FOR AI-WRITTEN CODE.**
 > One product lives here: [`rig-lite/`](rig-lite/) — a portable governance kit. It ships no harness, installs nothing, and depends only on bash. Drop it into any repo and your agents get laws with teeth.
 

@@ -1,0 +1,314 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 2260" width="1400" height="2260" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace">
+  <title>Turbo Flow — every feature, one map</title>
+  <defs><linearGradient id="scan" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4dd6c1" stop-opacity="0"/><stop offset=".5" stop-color="#4dd6c1" stop-opacity=".05"/><stop offset="1" stop-color="#4dd6c1" stop-opacity="0"/></linearGradient></defs>
+  <rect x="0" y="0" width="1400" height="2260" rx="18" fill="#0e1420" stroke="#2c3a52" stroke-width="1.4"/>
+  <g stroke="#141a28" stroke-width="1" opacity=".5">
+    <path d="M20 140H1380"/>
+    <path d="M20 240H1380"/>
+    <path d="M20 340H1380"/>
+    <path d="M20 440H1380"/>
+    <path d="M20 540H1380"/>
+    <path d="M20 640H1380"/>
+    <path d="M20 740H1380"/>
+    <path d="M20 840H1380"/>
+    <path d="M20 940H1380"/>
+    <path d="M20 1040H1380"/>
+    <path d="M20 1140H1380"/>
+    <path d="M20 1240H1380"/>
+    <path d="M20 1340H1380"/>
+    <path d="M20 1440H1380"/>
+    <path d="M20 1540H1380"/>
+    <path d="M20 1640H1380"/>
+    <path d="M20 1740H1380"/>
+    <path d="M20 1840H1380"/>
+    <path d="M20 1940H1380"/>
+    <path d="M20 2040H1380"/>
+    <path d="M20 2140H1380"/>
+    <path d="M120 120V2240"/>
+    <path d="M240 120V2240"/>
+    <path d="M360 120V2240"/>
+    <path d="M480 120V2240"/>
+    <path d="M600 120V2240"/>
+    <path d="M720 120V2240"/>
+    <path d="M840 120V2240"/>
+    <path d="M960 120V2240"/>
+    <path d="M1080 120V2240"/>
+    <path d="M1200 120V2240"/>
+    <path d="M1320 120V2240"/>
+  </g>
+  <rect x="-120" y="0" width="120" height="2260" fill="url(#scan)"><animate attributeName="x" values="-120;1400" dur="11s" repeatCount="indefinite"/></rect>
+  <text x="40" y="74" font-size="56" fill="#f2b544" font-weight="800" letter-spacing="8">TURBO FLOW</text>
+  <text x="40" y="104" font-size="17" fill="#7d8ba1">the rules layer (rig-lite) — portable governance for AI-written code</text>
+  <text x="1360" y="66" font-size="14" fill="#4dd6c1" text-anchor="end">v5.4.0 · the gate-fairness release</text>
+  <text x="1360" y="88" font-size="12" fill="#4a5468" text-anchor="end">180+★ · MIT · bash + python3 — no daemons, no lock-in</text>
+  <text x="1360" y="108" font-size="12" fill="#4a5468" text-anchor="end">github.com/marcuspat/turbo-flow · turboflow.online</text>
+  <text x="40" y="150" font-size="15" fill="#4dd6c1" font-weight="700" letter-spacing="2">THE PIPELINE — one PR, live</text>
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#7d8ba1"/></marker></defs>
+  <rect x="40" y="172" width="228" height="58" rx="10" fill="#1a2233" stroke="#f2b544" stroke-width="1.2"/>
+  <text x="154.0" y="198" font-size="15" fill="#f2b544" text-anchor="middle" font-weight="700" letter-spacing="2">BUILDER</text>
+  <text x="154.0" y="217" font-size="10.5" fill="#4a5468" text-anchor="middle">any agent · --builder claude</text>
+  <path d="M274 201.0 h26" stroke="#7d8ba1" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="306" y="172" width="228" height="58" rx="10" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.2"/>
+  <text x="420.0" y="198" font-size="15" fill="#4dd6c1" text-anchor="middle" font-weight="700" letter-spacing="2">CHECKS</text>
+  <text x="420.0" y="217" font-size="10.5" fill="#4a5468" text-anchor="middle">lint · tests · types · $0</text>
+  <path d="M540 201.0 h26" stroke="#7d8ba1" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="572" y="172" width="228" height="58" rx="10" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.8"/>
+  <text x="686.0" y="198" font-size="15" fill="#4dd6c1" text-anchor="middle" font-weight="700" letter-spacing="2">GATE</text>
+  <text x="686.0" y="217" font-size="10.5" fill="#4a5468" text-anchor="middle">cross-family reviewer</text>
+  <path d="M806 201.0 h26" stroke="#7d8ba1" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="838" y="172" width="228" height="58" rx="10" fill="#1a2233" stroke="#7bd88f" stroke-width="1.8"/>
+  <text x="952.0" y="198" font-size="15" fill="#7bd88f" text-anchor="middle" font-weight="700" letter-spacing="2">VERDICT</text>
+  <text x="952.0" y="217" font-size="10.5" fill="#4a5468" text-anchor="middle">pinned · REVISE→APPROVED</text>
+  <path d="M1072 201.0 h26" stroke="#7d8ba1" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="1104" y="172" width="228" height="58" rx="10" fill="#1a2233" stroke="#7d8ba1" stroke-width="1.2"/>
+  <text x="1218.0" y="198" font-size="15" fill="#7d8ba1" text-anchor="middle" font-weight="700" letter-spacing="2">MERGE</text>
+  <text x="1218.0" y="217" font-size="10.5" fill="#4a5468" text-anchor="middle">humans only</text>
+  <text x="40" y="258" font-size="11.5" fill="#4a5468">verdict counts only at the head it gated — new commits make the PR ungated again; --sweep re-gates (stale-approval fix)</text>
+  <text x="40" y="276" font-size="11.5" fill="#4a5468">round cap: 3 gate rounds per PR, then exit 4 — the continue / park fork goes to a human</text>
+  <rect x="40" y="300" width="1320" height="260" rx="14" fill="#1f2937" stroke="#4dd6c1" stroke-width="2"/>
+  <g stroke="#4dd6c1" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M70 322 l22 27 -22 27" opacity="1.0"/>
+    <path d="M96 322 l22 27 -22 27" opacity="0.72"/>
+    <path d="M122 322 l22 27 -22 27" opacity="0.43999999999999995"/>
+  </g>
+  <text x="160" y="332" font-size="20" fill="#4dd6c1" font-weight="800" letter-spacing="2">gate.sh — THE CROSS-MODEL REVIEW GATE</text>
+  <text x="160" y="352" font-size="11.5" fill="#4a5468">rig-lite/gate.sh · --pr N · --sweep · --builder &lt;cli&gt; · -C &lt;repo&gt; · exit 0/1/2/4</text>
+  <circle cx="75" cy="384" r="3" fill="#4dd6c1"/>
+  <text x="88" y="388" font-size="13" fill="#dbe4f0" font-weight="700">builder ≠ reviewer</text>
+  <text x="88" y="405" font-size="11.5" fill="#7d8ba1">the reviewer is NEVER from the builder's model family</text>
+  <circle cx="730" cy="384" r="3" fill="#4dd6c1"/>
+  <text x="743" y="388" font-size="13" fill="#dbe4f0" font-weight="700">deterministic first</text>
+  <text x="743" y="405" font-size="11.5" fill="#7d8ba1">lint · tests · types run before a single token is spent</text>
+  <circle cx="75" cy="426" r="3" fill="#4dd6c1"/>
+  <text x="88" y="430" font-size="13" fill="#dbe4f0" font-weight="700">fail-closed</text>
+  <text x="88" y="447" font-size="11.5" fill="#7d8ba1">ambiguous, errored, or spoofed output is REVISE</text>
+  <circle cx="730" cy="426" r="3" fill="#4dd6c1"/>
+  <text x="743" y="430" font-size="13" fill="#dbe4f0" font-weight="700">pinned verdicts</text>
+  <text x="743" y="447" font-size="11.5" fill="#7d8ba1">gated-head pin + commit status on the exact SHA reviewed</text>
+  <circle cx="75" cy="468" r="3" fill="#4dd6c1"/>
+  <text x="88" y="472" font-size="13" fill="#dbe4f0" font-weight="700">PRE-EXISTING rule</text>
+  <text x="88" y="489" font-size="11.5" fill="#7d8ba1">only defects this diff introduces can block — the rest are notes</text>
+  <circle cx="730" cy="468" r="3" fill="#4dd6c1"/>
+  <text x="743" y="472" font-size="13" fill="#dbe4f0" font-weight="700">round cap (3)</text>
+  <text x="743" y="489" font-size="11.5" fill="#7d8ba1">past the cap: exit 4 — continue / park / restructure is a human call</text>
+  <circle cx="75" cy="510" r="3" fill="#4dd6c1"/>
+  <text x="88" y="514" font-size="13" fill="#dbe4f0" font-weight="700">round memory</text>
+  <text x="88" y="531" font-size="11.5" fill="#7d8ba1">round 2+ sees prior findings as scrubbed DATA — no re-litigating</text>
+  <circle cx="730" cy="510" r="3" fill="#4dd6c1"/>
+  <text x="743" y="514" font-size="13" fill="#dbe4f0" font-weight="700">append-only log</text>
+  <text x="743" y="531" font-size="11.5" fill="#7d8ba1">every verdict lands in local JSONL; PR mode posts + sets the status</text>
+  <rect x="40" y="580" width="640" height="400" rx="14" fill="#1a2233" stroke="#2c3a52" stroke-width="1.4"/>
+  <text x="60" y="612" font-size="16" fill="#f2b544" font-weight="700" letter-spacing="2">THE LOOP — every change, no exceptions</text>
+  <circle cx="210" cy="788" r="116" fill="none" stroke="#1f2937" stroke-width="20"/>
+  <circle cx="210" cy="788" r="116" fill="none" stroke="#4dd6c1" stroke-width="2" stroke-dasharray="4 10" opacity=".55"><animateTransform attributeName="transform" type="rotate" from="0 210 788" to="360 210 788" dur="26s" repeatCount="indefinite"/></circle>
+  <rect x="168.0" y="635.0" width="84" height="38" rx="8" fill="#1f2937" stroke="#4dd6c1" stroke-width="1.2"/>
+  <text x="210.0" y="653.0" font-size="13" fill="#4dd6c1" text-anchor="middle" font-weight="700">spec</text>
+  <text x="210.0" y="668.0" font-size="8.5" fill="#4a5468" text-anchor="middle">plan / delta</text>
+  <rect x="262.7523086789974" y="674.2476913210027" width="84" height="38" rx="8" fill="#1f2937" stroke="#4dd6c1" stroke-width="1.2"/>
+  <text x="304.7523086789974" y="692.2476913210027" font-size="13" fill="#4dd6c1" text-anchor="middle" font-weight="700">build</text>
+  <text x="304.7523086789974" y="707.2476913210027" font-size="8.5" fill="#4a5468" text-anchor="middle">worktree</text>
+  <rect x="302.0" y="769.0" width="84" height="38" rx="8" fill="#1f2937" stroke="#f06a6a" stroke-width="1.8"/>
+  <text x="344.0" y="787.0" font-size="13" fill="#f06a6a" text-anchor="middle" font-weight="700">GATE</text>
+  <text x="344.0" y="802.0" font-size="8.5" fill="#4a5468" text-anchor="middle">cross-model</text>
+  <rect x="262.7523086789974" y="863.7523086789973" width="84" height="38" rx="8" fill="#1f2937" stroke="#4dd6c1" stroke-width="1.2"/>
+  <text x="304.7523086789974" y="881.7523086789973" font-size="13" fill="#4dd6c1" text-anchor="middle" font-weight="700">PR</text>
+  <text x="304.7523086789974" y="896.7523086789973" font-size="8.5" fill="#4a5468" text-anchor="middle">pinned verdict</text>
+  <rect x="168.0" y="903.0" width="84" height="38" rx="8" fill="#1f2937" stroke="#4dd6c1" stroke-width="1.2"/>
+  <text x="210.0" y="921.0" font-size="13" fill="#4dd6c1" text-anchor="middle" font-weight="700">UAT</text>
+  <text x="210.0" y="936.0" font-size="8.5" fill="#4a5468" text-anchor="middle">preview evidence</text>
+  <rect x="73.24769132100263" y="863.7523086789973" width="84" height="38" rx="8" fill="#1f2937" stroke="#f2b544" stroke-width="1.8"/>
+  <text x="115.24769132100263" y="881.7523086789973" font-size="13" fill="#f2b544" text-anchor="middle" font-weight="700">MERGE</text>
+  <text x="115.24769132100263" y="896.7523086789973" font-size="8.5" fill="#4a5468" text-anchor="middle">♛ human only</text>
+  <rect x="34.0" y="769.0" width="84" height="38" rx="8" fill="#1f2937" stroke="#4dd6c1" stroke-width="1.2"/>
+  <text x="76.0" y="787.0" font-size="13" fill="#4dd6c1" text-anchor="middle" font-weight="700">verify</text>
+  <text x="76.0" y="802.0" font-size="8.5" fill="#4a5468" text-anchor="middle">prod + probe</text>
+  <rect x="73.2476913210026" y="674.2476913210027" width="84" height="38" rx="8" fill="#1f2937" stroke="#7bd88f" stroke-width="1.2"/>
+  <text x="115.2476913210026" y="692.2476913210027" font-size="13" fill="#7bd88f" text-anchor="middle" font-weight="700">memory</text>
+  <text x="115.2476913210026" y="707.2476913210027" font-size="8.5" fill="#4a5468" text-anchor="middle">lesson captured</text>
+  <text x="210" y="782" font-size="17" fill="#dbe4f0" text-anchor="middle" font-weight="800" letter-spacing="3">TURBO</text>
+  <text x="210" y="802" font-size="17" fill="#dbe4f0" text-anchor="middle" font-weight="800" letter-spacing="3">FLOW</text>
+  <text x="60" y="966" font-size="11" fill="#7d8ba1">GATE: REVISE → fix &amp; re-gate · APPROVED → your move · no verdict = REVISE</text>
+  <rect x="700" y="580" width="660" height="400" rx="14" fill="#1a2233" stroke="#2c3a52" stroke-width="1.4"/>
+  <text x="720" y="612" font-size="16" fill="#4dd6c1" font-weight="700" letter-spacing="2">ENFORCEMENT — protect.sh + gate-check.yml</text>
+  <text x="720" y="646" font-size="13" fill="#dbe4f0" font-weight="700">required check</text>
+  <text x="720" y="664" font-size="11.5" fill="#7d8ba1">branch protection makes gate-verdict REQUIRED — main can't take an un-gated</text>
+  <text x="720" y="681" font-size="11.5" fill="#7d8ba1">PR, even by accident</text>
+  <text x="720" y="708" font-size="13" fill="#dbe4f0" font-weight="700">self-healing CI</text>
+  <text x="720" y="726" font-size="11.5" fill="#7d8ba1">gate-check.yml re-checks every push; when APPROVED lands, it flips the PR's</text>
+  <text x="720" y="743" font-size="11.5" fill="#7d8ba1">check green by itself</text>
+  <text x="720" y="770" font-size="13" fill="#dbe4f0" font-weight="700">fork-fair</text>
+  <text x="720" y="788" font-size="11.5" fill="#7d8ba1">fork PRs get the exact one-click re-run — GitHub won't link their runs, so</text>
+  <text x="720" y="805" font-size="11.5" fill="#7d8ba1">the workflow names it</text>
+  <text x="720" y="832" font-size="13" fill="#dbe4f0" font-weight="700">honest edge</text>
+  <text x="720" y="850" font-size="11.5" fill="#7d8ba1">--require-review demands an approving review (an account permission) —</text>
+  <text x="720" y="867" font-size="11.5" fill="#7d8ba1">human-only merging is access control, and the docs say so</text>
+  <text x="720" y="894" font-size="13" fill="#dbe4f0" font-weight="700">look first</text>
+  <text x="720" y="912" font-size="11.5" fill="#7d8ba1">--dry-run / --status before touching anything</text>
+  <rect x="40" y="1000" width="426" height="226" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.6"/>
+  <text x="60" y="1034" font-size="17" fill="#4dd6c1" font-weight="800">▣</text>
+  <text x="86" y="1034" font-size="15" fill="#4dd6c1" font-weight="800" letter-spacing="1.5">WORKTREES</text>
+  <text x="86" y="1052" font-size="10.5" fill="#4a5468">rig-lite/wt.sh</text>
+  <text x="60" y="1076" font-size="12" fill="#dbe4f0" font-weight="700">one writer per checkout</text>
+  <text x="60" y="1093" font-size="11" fill="#7d8ba1">parallel agents never share a working tree</text>
+  <text x="60" y="1115" font-size="12" fill="#dbe4f0" font-weight="700">wt &lt;name&gt; · wt --clean</text>
+  <text x="60" y="1132" font-size="11" fill="#7d8ba1">isolated .worktrees/&lt;name&gt; + branch per lane</text>
+  <rect x="60" y="1196" width="151" height="20" rx="10" fill="#1f2937" stroke="#4dd6c1" stroke-width="1"/>
+  <text x="135.5" y="1210" font-size="10.5" fill="#4dd6c1" text-anchor="middle">--clean after merge</text>
+  <rect x="477" y="1000" width="426" height="226" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.6"/>
+  <text x="497" y="1034" font-size="17" fill="#4dd6c1" font-weight="800">⚿</text>
+  <text x="523" y="1034" font-size="15" fill="#4dd6c1" font-weight="800" letter-spacing="1.5">SECRETS</text>
+  <text x="523" y="1052" font-size="10.5" fill="#4a5468">rig-lite/secret.sh</text>
+  <text x="497" y="1076" font-size="12" fill="#dbe4f0" font-weight="700">encrypted at rest</text>
+  <text x="497" y="1093" font-size="11" fill="#7d8ba1">Keychain → libsecret → age → warned chmod-600</text>
+  <text x="497" y="1115" font-size="12" fill="#dbe4f0" font-weight="700">never in git, never in ps</text>
+  <text x="497" y="1132" font-size="11" fill="#7d8ba1">set/get/rm/list — names shown, never values</text>
+  <rect x="497" y="1196" width="39" height="20" rx="10" fill="#1f2937" stroke="#4dd6c1" stroke-width="1"/>
+  <text x="516.5" y="1210" font-size="10.5" fill="#4dd6c1" text-anchor="middle">set</text>
+  <rect x="544" y="1196" width="39" height="20" rx="10" fill="#1f2937" stroke="#4dd6c1" stroke-width="1"/>
+  <text x="563.5" y="1210" font-size="10.5" fill="#4dd6c1" text-anchor="middle">get</text>
+  <rect x="591" y="1196" width="32" height="20" rx="10" fill="#1f2937" stroke="#4dd6c1" stroke-width="1"/>
+  <text x="607.0" y="1210" font-size="10.5" fill="#4dd6c1" text-anchor="middle">rm</text>
+  <rect x="631" y="1196" width="46" height="20" rx="10" fill="#1f2937" stroke="#4dd6c1" stroke-width="1"/>
+  <text x="654.0" y="1210" font-size="10.5" fill="#4dd6c1" text-anchor="middle">list</text>
+  <rect x="914" y="1000" width="426" height="226" rx="12" fill="#1a2233" stroke="#7bd88f" stroke-width="1.6"/>
+  <text x="934" y="1034" font-size="17" fill="#7bd88f" font-weight="800">❑</text>
+  <text x="960" y="1034" font-size="15" fill="#7bd88f" font-weight="800" letter-spacing="1.5">MEMORY</text>
+  <text x="960" y="1052" font-size="10.5" fill="#4a5468">rig-lite/memory.md + memory/</text>
+  <text x="934" y="1076" font-size="12" fill="#dbe4f0" font-weight="700">git-versioned agent memory</text>
+  <text x="934" y="1093" font-size="11" fill="#7d8ba1">index · decisions · gotchas · project index</text>
+  <text x="934" y="1115" font-size="12" fill="#dbe4f0" font-weight="700">agents forget — git doesn't</text>
+  <text x="934" y="1132" font-size="11" fill="#7d8ba1">one fact per file + an inbox; the loop feeds</text>
+  <rect x="934" y="1196" width="81" height="20" rx="10" fill="#1f2937" stroke="#7bd88f" stroke-width="1"/>
+  <text x="974.5" y="1210" font-size="10.5" fill="#7bd88f" text-anchor="middle">versioned</text>
+  <rect x="1023" y="1196" width="81" height="20" rx="10" fill="#1f2937" stroke="#7bd88f" stroke-width="1"/>
+  <text x="1063.5" y="1210" font-size="10.5" fill="#7bd88f" text-anchor="middle">not vibes</text>
+  <rect x="40" y="1237" width="426" height="226" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.6"/>
+  <text x="60" y="1271" font-size="17" fill="#4dd6c1" font-weight="800">▤</text>
+  <text x="86" y="1271" font-size="15" fill="#4dd6c1" font-weight="800" letter-spacing="1.5">FLEET DIGEST</text>
+  <text x="86" y="1289" font-size="10.5" fill="#4a5468">rig-lite/digest.sh</text>
+  <text x="60" y="1313" font-size="12" fill="#dbe4f0" font-weight="700">one command, one file</text>
+  <text x="60" y="1330" font-size="11" fill="#7d8ba1">merge queue + gate verdicts + merged PRs</text>
+  <text x="60" y="1352" font-size="12" fill="#dbe4f0" font-weight="700">fleet health</text>
+  <text x="60" y="1369" font-size="11" fill="#7d8ba1">dirty/behind clones · site liveness · hygiene</text>
+  <rect x="60" y="1433" width="88" height="20" rx="10" fill="#1f2937" stroke="#4dd6c1" stroke-width="1"/>
+  <text x="104.0" y="1447" font-size="10.5" fill="#4dd6c1" text-anchor="middle">fleet-wide</text>
+  <rect x="477" y="1237" width="426" height="226" rx="12" fill="#1a2233" stroke="#f2b544" stroke-width="1.6"/>
+  <text x="497" y="1271" font-size="17" fill="#f2b544" font-weight="800">▦</text>
+  <text x="523" y="1271" font-size="15" fill="#f2b544" font-weight="800" letter-spacing="1.5">TOKENS</text>
+  <text x="523" y="1289" font-size="10.5" fill="#4a5468">rig-lite/tokens.py</text>
+  <text x="497" y="1313" font-size="12" fill="#dbe4f0" font-weight="700">live burn dashboard</text>
+  <text x="497" y="1330" font-size="11" fill="#7d8ba1">zcode + claude + codex + gate — read-only</text>
+  <text x="497" y="1352" font-size="12" fill="#dbe4f0" font-weight="700">--watch · --json</text>
+  <text x="497" y="1369" font-size="11" fill="#7d8ba1">macOS: Keychain OAuth → plan-quota bars</text>
+  <rect x="497" y="1433" width="67" height="20" rx="10" fill="#1f2937" stroke="#f2b544" stroke-width="1"/>
+  <text x="530.5" y="1447" font-size="10.5" fill="#f2b544" text-anchor="middle">--watch</text>
+  <rect x="572" y="1433" width="60" height="20" rx="10" fill="#1f2937" stroke="#f2b544" stroke-width="1"/>
+  <text x="602.0" y="1447" font-size="10.5" fill="#f2b544" text-anchor="middle">--json</text>
+  <rect x="640" y="1433" width="88" height="20" rx="10" fill="#1f2937" stroke="#f2b544" stroke-width="1"/>
+  <text x="684.0" y="1447" font-size="10.5" fill="#f2b544" text-anchor="middle">--no-quota</text>
+  <rect x="914" y="1237" width="426" height="226" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.6"/>
+  <text x="934" y="1271" font-size="17" fill="#4dd6c1" font-weight="800">◷</text>
+  <text x="960" y="1271" font-size="15" fill="#4dd6c1" font-weight="800" letter-spacing="1.5">AUTOMATIONS</text>
+  <text x="960" y="1289" font-size="10.5" fill="#4a5468">rig-lite/automations/</text>
+  <text x="934" y="1313" font-size="12" fill="#dbe4f0" font-weight="700">9 scheduled prompt cards</text>
+  <text x="934" y="1330" font-size="11" fill="#7d8ba1">digest · security scan · consolidation · retro</text>
+  <text x="934" y="1352" font-size="12" fill="#dbe4f0" font-weight="700">no daemons</text>
+  <text x="934" y="1369" font-size="11" fill="#7d8ba1">hygiene · sentinel · 2 canaries · nightly sweep</text>
+  <rect x="934" y="1433" width="95" height="20" rx="10" fill="#1f2937" stroke="#4dd6c1" stroke-width="1"/>
+  <text x="981.5" y="1447" font-size="10.5" fill="#4dd6c1" text-anchor="middle">prompt pack</text>
+  <rect x="40" y="1474" width="426" height="226" rx="12" fill="#1a2233" stroke="#f2b544" stroke-width="1.6"/>
+  <text x="60" y="1508" font-size="17" fill="#f2b544" font-weight="800">❯</text>
+  <text x="86" y="1508" font-size="15" fill="#f2b544" font-weight="800" letter-spacing="1.5">tf — ONE COMMAND</text>
+  <text x="86" y="1526" font-size="10.5" fill="#4a5468">rig-lite/tf</text>
+  <text x="60" y="1550" font-size="12" fill="#dbe4f0" font-weight="700">the whole kit, one verb set</text>
+  <text x="60" y="1567" font-size="11" fill="#7d8ba1">gate · wt · test · digest · secrets · tokens</text>
+  <text x="60" y="1589" font-size="12" fill="#dbe4f0" font-weight="700">plus</text>
+  <text x="60" y="1606" font-size="11" fill="#7d8ba1">status · init · protect · completion</text>
+  <rect x="60" y="1670" width="95" height="20" rx="10" fill="#1f2937" stroke="#f2b544" stroke-width="1"/>
+  <text x="107.5" y="1684" font-size="10.5" fill="#f2b544" text-anchor="middle">10 commands</text>
+  <rect x="477" y="1474" width="426" height="226" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.6"/>
+  <text x="497" y="1508" font-size="17" fill="#4dd6c1" font-weight="800">◇</text>
+  <text x="523" y="1508" font-size="15" fill="#4dd6c1" font-weight="800" letter-spacing="1.5">REPO KIT</text>
+  <text x="523" y="1526" font-size="10.5" fill="#4a5468">init-repo.sh · specs/ · hooks/</text>
+  <text x="497" y="1550" font-size="12" fill="#dbe4f0" font-weight="700">one-command onboarding</text>
+  <text x="497" y="1567" font-size="11" fill="#7d8ba1">thin AGENTS.md + CLAUDE.md symlink</text>
+  <text x="497" y="1589" font-size="12" fill="#dbe4f0" font-weight="700">plan + verify</text>
+  <text x="497" y="1606" font-size="11" fill="#7d8ba1">spec/UAT templates · deletion guard prints loud</text>
+  <rect x="497" y="1670" width="81" height="20" rx="10" fill="#1f2937" stroke="#4dd6c1" stroke-width="1"/>
+  <text x="537.5" y="1684" font-size="10.5" fill="#4dd6c1" text-anchor="middle">AGENTS.md</text>
+  <rect x="914" y="1474" width="426" height="226" rx="12" fill="#1a2233" stroke="#7bd88f" stroke-width="1.6"/>
+  <text x="934" y="1508" font-size="17" fill="#7bd88f" font-weight="800">✓</text>
+  <text x="960" y="1508" font-size="15" fill="#7bd88f" font-weight="800" letter-spacing="1.5">SELF-TEST</text>
+  <text x="960" y="1526" font-size="10.5" fill="#4a5468">rig-lite/self-test.sh</text>
+  <text x="934" y="1550" font-size="12" fill="#dbe4f0" font-weight="700">410 fail-closed checks</text>
+  <text x="934" y="1567" font-size="11" fill="#7d8ba1">fake reviewer CLIs drive the REAL invoke path</text>
+  <text x="934" y="1589" font-size="12" fill="#dbe4f0" font-weight="700">no test hooks in the gate</text>
+  <text x="934" y="1606" font-size="11" fill="#7d8ba1">shellcheck-gated; says so when skipped</text>
+  <rect x="934" y="1670" width="144" height="20" rx="10" fill="#1f2937" stroke="#7bd88f" stroke-width="1"/>
+  <text x="1006.0" y="1684" font-size="10.5" fill="#7bd88f" text-anchor="middle">17 rounds survived</text>
+  <rect x="40" y="1711" width="426" height="226" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.6"/>
+  <text x="60" y="1745" font-size="17" fill="#4dd6c1" font-weight="800">⤓</text>
+  <text x="86" y="1745" font-size="15" fill="#4dd6c1" font-weight="800" letter-spacing="1.5">INSTALLER</text>
+  <text x="86" y="1763" font-size="10.5" fill="#4a5468">rig-lite/install.sh</text>
+  <text x="60" y="1787" font-size="12" fill="#dbe4f0" font-weight="700">one-liner, pinned</text>
+  <text x="60" y="1804" font-size="11" fill="#7d8ba1">stages ./rig-lite from a sha256-verified release</text>
+  <text x="60" y="1826" font-size="12" fill="#dbe4f0" font-weight="700">refuses bad states</text>
+  <text x="60" y="1843" font-size="11" fill="#7d8ba1">existing/dangling dir · checksum mismatch</text>
+  <rect x="60" y="1907" width="109" height="20" rx="10" fill="#1f2937" stroke="#4dd6c1" stroke-width="1"/>
+  <text x="114.5" y="1921" font-size="10.5" fill="#4dd6c1" text-anchor="middle">v5.4.0 pinned</text>
+  <rect x="477" y="1711" width="426" height="226" rx="12" fill="#1a2233" stroke="#f2b544" stroke-width="1.6"/>
+  <text x="497" y="1745" font-size="17" fill="#f2b544" font-weight="800">⌘</text>
+  <text x="523" y="1745" font-size="15" fill="#f2b544" font-weight="800" letter-spacing="1.5">YOUR AGENTS</text>
+  <text x="523" y="1763" font-size="10.5" fill="#4a5468">any CLI that reads AGENTS.md</text>
+  <text x="497" y="1787" font-size="12" fill="#dbe4f0" font-weight="700">family-aware gate</text>
+  <text x="497" y="1804" font-size="11" fill="#7d8ba1">claude · codex · glm/zcode · gemini · grok</text>
+  <text x="497" y="1826" font-size="12" fill="#dbe4f0" font-weight="700">enforced or refused</text>
+  <text x="497" y="1843" font-size="11" fill="#7d8ba1">excludes the builder's family — always</text>
+  <rect x="497" y="1907" width="116" height="20" rx="10" fill="#1f2937" stroke="#f2b544" stroke-width="1"/>
+  <text x="555.0" y="1921" font-size="10.5" fill="#f2b544" text-anchor="middle">agent-agnostic</text>
+  <rect x="914" y="1711" width="426" height="226" rx="12" fill="#1a2233" stroke="#f06a6a" stroke-width="1.6"/>
+  <text x="934" y="1745" font-size="17" fill="#f06a6a" font-weight="800">§</text>
+  <text x="960" y="1745" font-size="15" fill="#f06a6a" font-weight="800" letter-spacing="1.5">CONSTITUTION</text>
+  <text x="960" y="1763" font-size="10.5" fill="#4a5468">rig-lite/constitution.md</text>
+  <text x="934" y="1787" font-size="12" fill="#dbe4f0" font-weight="700">the laws, shipped with the kit</text>
+  <text x="934" y="1804" font-size="11" fill="#7d8ba1">builder ≠ reviewer · agents never merge</text>
+  <text x="934" y="1826" font-size="12" fill="#dbe4f0" font-weight="700">teeth included</text>
+  <text x="934" y="1843" font-size="11" fill="#7d8ba1">secrets never touch git · ask the human</text>
+  <rect x="934" y="1907" width="151" height="20" rx="10" fill="#1f2937" stroke="#f06a6a" stroke-width="1"/>
+  <text x="1009.5" y="1921" font-size="10.5" fill="#f06a6a" text-anchor="middle">pairs with the gate</text>
+  <rect x="40" y="1964" width="1320" height="128" rx="12" fill="#1f2937" stroke="#2c3a52" stroke-width="1.2"/>
+  <text x="60" y="1994" font-size="14" fill="#f06a6a" font-weight="800" letter-spacing="3">THE LAWS &amp; DOCTRINES</text>
+  <circle cx="64" cy="2016" r="2.5" fill="#f06a6a"/>
+  <text x="74" y="2020" font-size="12" fill="#dbe4f0">1. Builder ≠ reviewer</text>
+  <circle cx="502" cy="2016" r="2.5" fill="#f06a6a"/>
+  <text x="512" y="2020" font-size="12" fill="#dbe4f0">2. Agents never merge</text>
+  <circle cx="940" cy="2016" r="2.5" fill="#f06a6a"/>
+  <text x="950" y="2020" font-size="12" fill="#dbe4f0">3. Parallel writers, isolated worktrees</text>
+  <circle cx="64" cy="2042" r="2.5" fill="#f06a6a"/>
+  <text x="74" y="2046" font-size="12" fill="#dbe4f0">4. Secrets never touch git</text>
+  <circle cx="502" cy="2042" r="2.5" fill="#f06a6a"/>
+  <text x="512" y="2046" font-size="12" fill="#dbe4f0">5. Deterministic before expensive</text>
+  <circle cx="940" cy="2042" r="2.5" fill="#f06a6a"/>
+  <text x="950" y="2046" font-size="12" fill="#dbe4f0">6. Verdicts parseable or they don't exist</text>
+  <circle cx="64" cy="2068" r="2.5" fill="#f06a6a"/>
+  <text x="74" y="2072" font-size="12" fill="#dbe4f0">7. Memory is versioned, not vibes</text>
+  <circle cx="502" cy="2068" r="2.5" fill="#f06a6a"/>
+  <text x="512" y="2072" font-size="12" fill="#dbe4f0">8. State on disk, not in chat</text>
+  <circle cx="940" cy="2068" r="2.5" fill="#f06a6a"/>
+  <text x="950" y="2072" font-size="12" fill="#dbe4f0">9. When in doubt, ask the human</text>
+  <text x="40" y="2134" font-size="13" fill="#7d8ba1" font-weight="800" letter-spacing="3">THE STORY</text>
+  <text x="40" y="2160" font-size="12.5" fill="#dbe4f0" font-weight="700">2025–26 · v1–4</text>
+  <text x="40" y="2178" font-size="10.5" fill="#4a5468">the full stack: 215+ MCP tools, 60+ agents</text>
+  <text x="358" y="2162" font-size="16" fill="#4dd6c1">→</text>
+  <text x="380" y="2160" font-size="12.5" fill="#dbe4f0" font-weight="700">Sept 2026 · the pivot</text>
+  <text x="380" y="2178" font-size="10.5" fill="#4a5468">orchestration removed — the rules remain</text>
+  <text x="698" y="2162" font-size="16" fill="#4dd6c1">→</text>
+  <text x="720" y="2160" font-size="12.5" fill="#dbe4f0" font-weight="700">Oct 2026 · v5</text>
+  <text x="720" y="2178" font-size="10.5" fill="#4a5468">rig-lite: the complete portable governance</text>
+  <text x="720" y="2192" font-size="10.5" fill="#4a5468">kit</text>
+  <text x="1038" y="2162" font-size="16" fill="#4dd6c1">→</text>
+  <text x="1060" y="2160" font-size="12.5" fill="#dbe4f0" font-weight="700">Turbo Rig</text>
+  <text x="1060" y="2178" font-size="10.5" fill="#4a5468">the integrated successor — private beta</text>
+  <text x="40" y="2232" font-size="11" fill="#4a5468">MIT · every verdict + evidence lives in the PR · merges, money, and the occasional round-4 ruling stay human</text>
+  <text x="1360" y="2232" font-size="11" fill="#4a5468" text-anchor="end">turboflow.online</text>
+</svg>
