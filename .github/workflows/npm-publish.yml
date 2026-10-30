@@ -33,6 +33,14 @@ jobs:
           fi
           echo "publishing turbo-flow@$pkg"
 
-      - run: npm publish --access public
+      - name: skip if this version is already on npm
+        run: |
+          if npm view "turbo-flow@$(node -p "require('./package.json').version")" version >/dev/null 2>&1; then
+            echo "turbo-flow@$(node -p "require('./package.json').version") is already on the registry — skipping publish (idempotent)"
+            echo "skip_publish=true" >> "$GITHUB_ENV"
+          fi
+
+      - if: ${{ env.skip_publish != 'true' }}
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1846,7 +1846,10 @@ if [ -f "$RGTF" ]; then
   grep -q "complete -F _tf tf" <<<"$RGTC" \
     && echo "✓ tf: bash completion emitted" \
     || { echo "✗ tf: completion broken"; FAIL=1; }
-  RGTFS="$(cd "$KIT/.." && "$RGTF" status 2>&1)"
+  # status runs inside a REAL git repo fixture — the kit's parent dir is only a
+  # repo when the kit lives in its home (inside an npm package it is not)
+  RGTFR="$(mktemp -d)"; git -C "$RGTFR" init -q -b main
+  RGTFS="$(cd "$RGTFR" && "$RGTF" status 2>&1)"
   grep -q "rig:" <<<"$RGTFS" && grep -q "tree:" <<<"$RGTFS" \
     && echo "✓ tf: status shows rig + tree state" \
     || { echo "✗ tf: status incomplete"; FAIL=1; }
@@ -1896,11 +1899,11 @@ if [ -f "$RGTF" ]; then
   # tf status gate stats from a fixture JSONL log
   RGLOG="$(mktemp -d)"
   printf '{"ts":"2026-01-01","result":"GATE: APPROVED"}\n{"ts":"2026-01-02","result":"GATE: REVISE"}\n{"ts":"2026-01-03","result":"GATE: APPROVED"}\n' > "$RGLOG/gate-log.jsonl"
-  RGSTATS="$(cd "$KIT/.." && GATE_LOG="$RGLOG/gate-log.jsonl" "$RGTF" status 2>&1 | grep 'gate:')"
+  RGSTATS="$(cd "$RGTFR" && GATE_LOG="$RGLOG/gate-log.jsonl" "$RGTF" status 2>&1 | grep 'gate:')"
   echo "$RGSTATS" | grep -q "3 verdicts" && echo "$RGSTATS" | grep -q "2 approved" && echo "$RGSTATS" | grep -q "1 revised" \
     && echo "✓ tf: status counts gate verdicts from JSONL correctly" \
     || { echo "✗ tf: gate stats wrong (got: $RGSTATS)"; FAIL=1; }
-  rm -rf "$RGLOG"
+  rm -rf "$RGLOG" "$RGTFR"
 
   # foreign regular file at ~/.local/bin/tf: left untouched by init
   RGTW2="$(mktemp -d)"; mkdir -p "$RGTW2/.local/bin"
@@ -1932,10 +1935,17 @@ if [ -f "$RGPT" ]; then
   case "$RGPT_OUT" in *"--dry-run"*"--status"*) echo "✓ protect: help documents all modes";; *) echo "✗ protect: help missing modes"; FAIL=1;; esac
   "$RGPT" --bogus >/dev/null 2>&1; RC=$?
   [ "$RC" -ne 0 ] && echo "✓ protect: unknown flag fails closed" || { echo "✗ protect: unknown flag accepted"; FAIL=1; }
-  # gate-check.yml must exist alongside protect.sh (the check it enables)
-  [ -f "$KIT/../.github/workflows/gate-check.yml" ] \
-    && echo "✓ protect: gate-check.yml workflow present (the enforcement mechanism)" \
-    || { echo "✗ protect: gate-check.yml missing — protect.sh would block ALL merges"; FAIL=1; }
+  # gate-check.yml must exist alongside protect.sh (the check it enables).
+  # Outside the kit's home repo (npm package, user repo pre-adoption) the file
+  # legitimately doesn't — those skip; the home repo MUST have it.
+  RGGC="$KIT/../.github/workflows/gate-check.yml"
+  if [ -f "$RGGC" ]; then
+    echo "✓ protect: gate-check.yml workflow present (the enforcement mechanism)"
+  elif [ -f "$KIT/../CITATION.cff" ]; then
+    echo "✗ protect: gate-check.yml missing — protect.sh would block ALL merges"; FAIL=1
+  else
+    echo "⚠ protect: gate-check.yml checks SKIPPED (kit outside its home repo — adopt the enforcement workflow with tf protect)"
+  fi
   # gate-check.yml: parses as YAML and checks for the verdict marker
   python3 -c "
 import yaml
@@ -1948,7 +1958,7 @@ assert 'pull_request' in on, 'pull_request trigger missing'
 assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
 " 2>/dev/null \
     && echo "✓ protect: gate-check.yml parses, has both triggers" \
-    || { python3 -c "import yaml" 2>/dev/null && { echo "✗ protect: gate-check.yml YAML assertion FAILED"; FAIL=1; } || echo "⚠ protect: gate-check.yml YAML parse skipped (pyyaml unavailable)"; }
+    || { if [ ! -f "$RGGC" ]; then echo "⚠ protect: gate-check.yml YAML parse skipped (workflow file not present — kit outside its home repo)"; elif python3 -c "import yaml" 2>/dev/null; then echo "✗ protect: gate-check.yml YAML assertion FAILED"; FAIL=1; else echo "⚠ protect: gate-check.yml YAML parse skipped (pyyaml unavailable)"; fi; }
   # gate-check: the comment path must flip the PR's OWN check. Comment-triggered runs
   # attach to main, so only a re-run of the PR's pull_request run (pinned to its head SHA,
   # which needs actions: write) ever turns the PR green — without it every gated PR keeps
@@ -1956,7 +1966,7 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
   # gate-check.js precisely so it can be driven here with a mocked GitHub.
   RGGC="$KIT/../.github/workflows/gate-check.yml"
   RGGCJS="$KIT/../.github/scripts/gate-check.js"
-  if grep -qE '^[[:space:]]*actions:[[:space:]]*write' "$RGGC" && grep -q 'actions/checkout' "$RGGC" \
+  if [ -f "$RGGC" ] && grep -qE '^[[:space:]]*actions:[[:space:]]*write' "$RGGC" && grep -q 'actions/checkout' "$RGGC" \
      && grep -q "require('./.github/scripts/gate-check.js')" "$RGGC" \
      && [ -f "$RGGCJS" ] && grep -q 'reRunWorkflow' "$RGGCJS" && grep -q 'head_sha: sha' "$RGGCJS" && grep -q 'getWorkflowRun' "$RGGCJS" \
      && grep -q 'github.paginate' "$RGGCJS" && grep -q 'pull_requests' "$RGGCJS" \
@@ -1965,21 +1975,29 @@ assert 'issue_comment' in on, 'issue_comment trigger missing (verdict re-check)'
     # open-PR counts) is provable from GitHub's data — unlinked runs fail closed instead.
     echo "✓ protect: gate-check.yml wires actions: write + checkout + gate-check.js (runs attributed ONLY via pull_requests, no fork heuristics; paginated; waits on in-flight runs; unlinked runs fail closed)"
   else
-    echo "✗ protect: gate-check wiring broken (PR check would stay red after APPROVED)"; FAIL=1
+    if [ -f "$KIT/../CITATION.cff" ]; then
+      echo "✗ protect: gate-check wiring broken (PR check would stay red after APPROVED)"; FAIL=1
+    else
+      echo "⚠ protect: gate-check wiring SKIPPED (no gate-check.yml — kit outside its home repo)"
+    fi
   fi
   # permission boundary: on pull_request GitHub runs the PR's copy of the workflow, so the
   # PR-path job must hold NO write permission and must not check out (PR-controlled) code;
   # only the comment-path job — which GitHub runs from main — may hold actions: write.
-  RGGCV="$(awk '/^  verify:/{f=1;next} /^  [a-z]/{f=0} f' "$RGGC")"
-  RGGCR="$(awk '/^  reconcile:/{f=1;next} /^  [a-z]/{f=0} f' "$RGGC")"
-  if grep -qE '^permissions: \{\}' "$RGGC" \
+  RGGCV="$(awk '/^  verify:/{f=1;next} /^  [a-z]/{f=0} f' "$RGGC" 2>/dev/null)"
+  RGGCR="$(awk '/^  reconcile:/{f=1;next} /^  [a-z]/{f=0} f' "$RGGC" 2>/dev/null)"
+  if [ -f "$RGGC" ] && grep -qE '^permissions: \{\}' "$RGGC" \
      && [ -n "$RGGCV" ] && ! grep -q 'write' <<<"$RGGCV" && ! grep -q 'actions/checkout' <<<"$RGGCV" && ! grep -q 'require(' <<<"$RGGCV" \
      && grep -q "event_name == 'pull_request'" <<<"$RGGCV" && grep -q 'statuses: read' <<<"$RGGCV" \
      && [ -n "$RGGCR" ] && grep -qE '^[[:space:]]*actions: write' <<<"$RGGCR" && grep -q 'actions/checkout' <<<"$RGGCR" \
      && grep -q "event_name == 'issue_comment'" <<<"$RGGCR" && grep -q 'author_association' <<<"$RGGCR"; then
     echo "✓ protect: gate-check permission boundary — PR job is read-only with no checkout/require; only the comment job (main's code, member comments only) holds actions: write; top-level permissions empty"
   else
-    echo "✗ protect: gate-check permission boundary broken (a write token could reach PR-controlled code)"; FAIL=1
+    if [ -f "$KIT/../CITATION.cff" ]; then
+      echo "✗ protect: gate-check permission boundary broken (a write token could reach PR-controlled code)"; FAIL=1
+    else
+      echo "⚠ protect: gate-check permission boundary SKIPPED (no gate-check.yml — kit outside its home repo)"
+    fi
   fi
   if command -v node >/dev/null 2>&1 && [ -f "$RGGCJS" ]; then
     RGGCABS="$(cd "$(dirname "$RGGCJS")" && pwd)/gate-check.js"
@@ -2161,7 +2179,10 @@ if [ -f "$KIT/../package.json" ] && command -v python3 >/dev/null 2>&1; then
   if [ "$NPM_NAME" = "turbo-flow" ]; then
     echo "✓ npm: package name is turbo-flow"
   else echo "✗ npm: package name is '$NPM_NAME' (expected turbo-flow)"; FAIL=1; fi
-  if [ -n "$CIT_VER" ] && [ "$NPM_VER" = "$CIT_VER" ]; then
+  if [ ! -f "$KIT/../CITATION.cff" ]; then
+    # npm package context: CITATION.cff ships with the repo, not the package
+    echo "⚠ npm: CITATION parity check SKIPPED (no CITATION.cff beside the kit — npm package context)"
+  elif [ -n "$NPM_VER" ] && [ "$NPM_VER" = "$CIT_VER" ]; then
     echo "✓ npm: version $NPM_VER matches CITATION.cff"
   else echo "✗ npm: version drift (package.json '$NPM_VER' vs CITATION.cff '$CIT_VER')"; FAIL=1; fi
   case " $NPM_FILES " in
@@ -2195,7 +2216,10 @@ if [ -f "$KIT/../package.json" ] && command -v python3 >/dev/null 2>&1; then
   else echo "✗ npm: missing-payload guard (rc=$rc_m, out=$out_m)"; FAIL=1; fi
   rm -rf "$NFIX"
   NPMW="$KIT/../.github/workflows/npm-publish.yml"
-  if [ -f "$NPMW" ] && grep -qF "'v*'" "$NPMW" && grep -q 'NPM_TOKEN' "$NPMW" \
+  if [ ! -f "$NPMW" ] && [ ! -f "$KIT/../CITATION.cff" ]; then
+    # npm package context: the workflow ships with the repo, not the package
+    echo "⚠ npm: publish workflow check SKIPPED (no .github beside the kit — npm package context)"
+  elif [ -f "$NPMW" ] && grep -qF "'v*'" "$NPMW" && grep -q 'NPM_TOKEN' "$NPMW" \
      && grep -q 'npm publish' "$NPMW" && ! grep -q 'branches:' "$NPMW"; then
     echo "✓ npm: publish workflow is tag-gated, token-wired, never branch-fired"
   else echo "✗ npm: publish workflow shape wrong at $NPMW"; FAIL=1; fi

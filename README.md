@@ -73,7 +73,7 @@ npm i -g turbo-flow@5.4.0                        # installs `turbo-flow` — sam
 # from any repo you want to govern:
 bash /path/to/turbo-flow/rig-lite/init-repo.sh   # writes AGENTS.md + installs tf, never clobbers
 export PATH="$HOME/.local/bin:$PATH"              # tf lives here (init warns if not on PATH)
-tf test                                            # prove the kit (322 checks)
+tf test                                            # prove the kit (400+ checks)
 tf gate --builder <your-cli>                       # gate your first change
 tf status                                          # everything at a glance
 ```
