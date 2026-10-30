@@ -1,0 +1,38 @@
+# npm publish — fires ONLY on version tags (v*), never on PRs or main pushes.
+# The tag must equal package.json's version (v5.4.0 ↔ 5.4.0) so a release can
+# never ship a package whose number disagrees with the repo.
+# Requires the NPM_TOKEN repo secret (npmjs.com granular publish token).
+name: npm publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: https://registry.npmjs.org
+
+      - name: tag must match package.json version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "refusing to publish: tag v$tag but package.json says $pkg" >&2
+            exit 1
+          fi
+          echo "publishing turbo-flow@$pkg"
+
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

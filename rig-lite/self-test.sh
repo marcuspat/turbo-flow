@@ -2143,6 +2143,66 @@ else
   echo "⚠ install.sh checks SKIPPED (script not present)"
 fi
 
+# ── npm packaging (turbo-flow repo only) ─────────────────────────────────────
+# When the kit ships inside the turbo-flow repo itself, the npm wrapper must
+# stay consistent: package.json ↔ CITATION.cff versions agree, the bin shim is
+# present/executable/syntax-clean, the files allowlist actually covers the
+# payload, publish is tag-gated with a token, and — the part npx depends on —
+# the shim resolves symlinks before locating rig-lite/.
+if [ -f "$KIT/../package.json" ] && command -v python3 >/dev/null 2>&1; then
+  PKGJ="$KIT/../package.json"
+  NPM_NAME="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['name'])" "$PKGJ" 2>/dev/null)"
+  NPM_VER="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['version'])" "$PKGJ" 2>/dev/null)"
+  NPM_FILES="$(python3 -c "import json,sys; print(' '.join(json.load(open(sys.argv[1])).get('files',[])))" "$PKGJ" 2>/dev/null)"
+  CIT_VER="$(grep -m1 '^version:' "$KIT/../CITATION.cff" 2>/dev/null | sed 's/version: *//; s/"//g')"
+  if [ -n "$NPM_NAME" ] && [ -n "$NPM_VER" ]; then
+    echo "✓ npm: package.json parses"
+  else echo "✗ npm: package.json did not parse (name='$NPM_NAME' version='$NPM_VER')"; FAIL=1; fi
+  if [ "$NPM_NAME" = "turbo-flow" ]; then
+    echo "✓ npm: package name is turbo-flow"
+  else echo "✗ npm: package name is '$NPM_NAME' (expected turbo-flow)"; FAIL=1; fi
+  if [ -n "$CIT_VER" ] && [ "$NPM_VER" = "$CIT_VER" ]; then
+    echo "✓ npm: version $NPM_VER matches CITATION.cff"
+  else echo "✗ npm: version drift (package.json '$NPM_VER' vs CITATION.cff '$CIT_VER')"; FAIL=1; fi
+  case " $NPM_FILES " in
+    *" bin/turbo-flow "*|*" bin "*) BINLISTED=1 ;;
+    *) BINLISTED=0 ;;
+  esac
+  if [ "$BINLISTED" = 1 ] && printf '%s' "$NPM_FILES" | grep -q 'rig-lite'; then
+    echo "✓ npm: files allowlist covers bin + rig-lite payload"
+  else echo "✗ npm: files allowlist missing entries (files='$NPM_FILES')"; FAIL=1; fi
+  SHIM="$KIT/../bin/turbo-flow"
+  if [ -f "$SHIM" ] && [ -x "$SHIM" ] && bash -n "$SHIM" 2>/dev/null; then
+    echo "✓ npm: bin shim present, executable, syntax-clean"
+  else echo "✗ npm: bin shim missing/not-executable/bad-syntax at $SHIM"; FAIL=1; fi
+  # direct invocation and through a symlink (what npx / npm i -g actually do)
+  out_d="$(bash "$SHIM" help 2>/dev/null)"; rc_d=$?
+  if [ $rc_d -eq 0 ] && printf '%s' "$out_d" | grep -q 'one command for the rig-lite kit'; then
+    echo "✓ npm: shim direct → tf help"
+  else echo "✗ npm: shim direct (rc=$rc_d, out=$out_d)"; FAIL=1; fi
+  NFIX="$(mktemp -d)"
+  ln -s "$SHIM" "$NFIX/turbo-flow"
+  out_s="$(bash "$NFIX/turbo-flow" help 2>/dev/null)"; rc_s=$?
+  if [ $rc_s -eq 0 ] && printf '%s' "$out_s" | grep -q 'one command for the rig-lite kit'; then
+    echo "✓ npm: shim through symlink (the npx path) → tf help"
+  else echo "✗ npm: shim through symlink (rc=$rc_s, out=$out_s)"; FAIL=1; fi
+  # broken payload → loud failure, not a silent wrong-directory exec
+  mkdir -p "$NFIX/pkg2/bin"
+  cp "$SHIM" "$NFIX/pkg2/bin/turbo-flow"
+  out_m="$(bash "$NFIX/pkg2/bin/turbo-flow" help 2>&1)"; rc_m=$?
+  if [ $rc_m -eq 1 ] && printf '%s' "$out_m" | grep -q 'payload missing'; then
+    echo "✓ npm: missing payload → exit 1 with the message"
+  else echo "✗ npm: missing-payload guard (rc=$rc_m, out=$out_m)"; FAIL=1; fi
+  rm -rf "$NFIX"
+  NPMW="$KIT/../.github/workflows/npm-publish.yml"
+  if [ -f "$NPMW" ] && grep -qF "'v*'" "$NPMW" && grep -q 'NPM_TOKEN' "$NPMW" \
+     && grep -q 'npm publish' "$NPMW" && ! grep -q 'branches:' "$NPMW"; then
+    echo "✓ npm: publish workflow is tag-gated, token-wired, never branch-fired"
+  else echo "✗ npm: publish workflow shape wrong at $NPMW"; FAIL=1; fi
+else
+  echo "⚠ npm packaging checks SKIPPED (no package.json beside the kit, or no python3 — kit outside its home repo)"
+fi
+
 SKIPPED_SC=0
 command -v shellcheck >/dev/null 2>&1 || SKIPPED_SC=1
 echo
