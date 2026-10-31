@@ -1,15 +1,15 @@
 <p align="center"><img src="assets/banner.svg" alt="turbo-flow — animated banner" width="100%"></p>
 
-<p align="center"><img src="assets/hero-pipeline.svg" alt="turbo-flow — the live pipeline: a builder's change travels past free deterministic checks, a reviewer from a different model family gates it, the verdict flips REVISE → APPROVED, and only a human merges" width="100%"></p>
+<p align="center"><img src="assets/hero-pipeline.svg" alt="turbo-flow — a developer tool: the live pipeline where a builder's change travels past free deterministic checks, a reviewer from a different model family gates it, the verdict flips REVISE → APPROVED, and only a human merges" width="100%"></p>
 
 <p align="center"><sub>the whole kit in one picture: <a href="assets/turbo-flow-infographic.svg">full feature map</a> · <a href="assets/what-turbo-flow-can-do.svg">what it can do right now</a></sub></p>
 
-> **⚡ TURBO FLOW — THE RULES LAYER FOR AI-WRITTEN CODE.**
-> One product lives here: [`rig-lite/`](rig-lite/) — a portable governance kit. It ships no harness, installs nothing, and depends only on bash. Drop it into any repo and your agents get laws with teeth.
+> **⚡ TURBO FLOW — A DEVELOPER TOOL FOR THE AGE OF AI-WRITTEN CODE.**
+> The rules layer, packaged as a kit you drop into any repo: [`rig-lite/`](rig-lite/) — a portable governance kit. It ships no harness, installs nothing, and depends only on bash. Your coding agent gets laws with teeth; you keep your editor, your harness, your repo.
 
 **Turbo Flow is an open-source project by [Adventure Wave Labs](https://www.adventurewavelabs.space/) (Marcus Patman).** Versions 1–4 (2025–2026) packaged an agentic development environment around Claude Code and Ruflo — at its peak, 215+ MCP tools and 60+ agents. In September 2026 the project pivoted to a thinner, governed approach, and by v5.2 (October 2026) the orchestration stack was fully removed: Turbo Flow is now the rules layer (rig-lite), and the integrated successor, **Turbo Rig**, runs in private beta. Site: [turboflow.online](https://www.turboflow.online/) · full story: [why Turbo Flow became Turbo Rig](https://www.turboflow.online/why-turbo-flow-became-turbo-rig/) · [version history](https://www.turboflow.online/versions/).
 
-![v5](https://img.shields.io/badge/version-5.3.0-blue?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![week](https://img.shields.io/badge/audited_week-868_verdicts_%C2%B7_79%25_REVISE-c25550?style=flat-square)
+![v5](https://img.shields.io/badge/category-developer%20tool-blue?style=flat-square) ![v5](https://img.shields.io/badge/version-5.3.0-blue?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![week](https://img.shields.io/badge/audited_week-868_verdicts_%C2%B7_79%25_REVISE-c25550?style=flat-square)
 
 ## Bring your own harness
 

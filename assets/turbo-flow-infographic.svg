@@ -38,7 +38,7 @@
   </g>
   <rect x="-120" y="0" width="120" height="2260" fill="url(#scan)"><animate attributeName="x" values="-120;1400" dur="11s" repeatCount="indefinite"/></rect>
   <text x="40" y="74" font-size="56" fill="#f2b544" font-weight="800" letter-spacing="8">TURBO FLOW</text>
-  <text x="40" y="104" font-size="17" fill="#7d8ba1">the rules layer (rig-lite) — portable governance for AI-written code</text>
+  <text x="40" y="104" font-size="17" fill="#7d8ba1">a developer tool — the rules layer (rig-lite) for AI-written code</text>
   <text x="1360" y="66" font-size="14" fill="#4dd6c1" text-anchor="end">v5.4.0 · the gate-fairness release</text>
   <text x="1360" y="88" font-size="12" fill="#4a5468" text-anchor="end">180+★ · MIT · bash + python3 — no daemons, no lock-in</text>
   <text x="1360" y="108" font-size="12" fill="#4a5468" text-anchor="end">github.com/marcuspat/turbo-flow · turboflow.online</text>
