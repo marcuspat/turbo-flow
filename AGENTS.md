@@ -48,8 +48,8 @@ Or use the long paths (`rig-lite/gate.sh`, `rig-lite/secret.sh`, etc.) — same 
 
 ## Releases
 
-- Bump the version in BOTH `package.json` and `CITATION.cff` — the self-test enforces parity.
-- `npm publish` is automatic on `v*` tags (`.github/workflows/npm-publish.yml`): the tag must equal the package version, and the `NPM_TOKEN` repo secret must exist before tagging.
+- Bump the version in BOTH `package.json` and `CITATION.cff` — the self-test enforces parity (in the repo; the checks skip inside the npm package, where those files don't ship).
+- `npm publish` runs on `v*` tags (`.github/workflows/npm-publish.yml`): the tag must equal the package version, versions already on the registry are skipped, and the `NPM_TOKEN` secret is required. The npm account has 2FA — publishing from Actions needs an automation (bypass-2FA) token; a regular token hits EOTP. v5.4.0 was published manually from a terminal with `npm publish`.
 - Humans merge; agents cut and push the tag once the release PR has landed.
 
 ## Harnesses (by role, none bundled)

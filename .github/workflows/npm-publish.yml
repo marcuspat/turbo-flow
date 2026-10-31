@@ -33,6 +33,19 @@ jobs:
           fi
           echo "publishing turbo-flow@$pkg"
 
-      - run: npm publish --access public
+      - name: skip if this version is already on npm
+        # compare OUTPUT, not exit code: npm's exit status for a missing
+        # version of an existing package has flipped across npm releases
+        # (some print nothing and exit 0), which would silently skip every
+        # publish. The output equals the version only when it exists.
+        run: |
+          v="$(node -p "require('./package.json').version")"
+          if [ "$(npm view "turbo-flow@$v" version 2>/dev/null)" = "$v" ]; then
+            echo "turbo-flow@$v is already on the registry — skipping publish (idempotent)"
+            echo "skip_publish=true" >> "$GITHUB_ENV"
+          fi
+
+      - if: ${{ env.skip_publish != 'true' }}
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
