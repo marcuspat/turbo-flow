@@ -188,6 +188,7 @@ Built with and powers these tools — star the ones you use:
 | [**secret-scan**](https://github.com/adventurewave-labs/secret-scan) | Rust secret scanner — obfuscation detection, up to ~1,200 files/sec measured |
 | [**Sentinel**](https://github.com/marcuspat/Sentinel) | Deny-by-default agentic sysadmin: Investigate → Plan → Approve → Act in Rust |
 | [**netrain**](https://github.com/marcuspat/netrain) | Matrix-style network monitor in Rust |
+| [**gate-run**](https://github.com/adventurewave-labs/gate-run) | Rust edge tools for gated flows — **gate-run** wraps gate.sh's exit contract so the push runs inside the verdict (a pipe can never ship a REVISE); **strand** finds commits stranded by early merges — merge-commit and squash aware |
 
 Orchestration, when you want it: [Ruflo](https://github.com/ruvnet/ruflo) as a Claude Code mod.
 
