@@ -1,4 +1,4 @@
-# turbo-flow-claude
+# turbo-flow
 
 <p align="center"><img src="assets/banner.svg" alt="turbo-flow — animated banner" width="100%"></p>
 
