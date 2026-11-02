@@ -1,3 +1,5 @@
+# turbo-flow
+
 <p align="center"><img src="assets/banner.svg" alt="turbo-flow — animated banner" width="100%"></p>
 
 <p align="center"><img src="assets/hero-pipeline.svg" alt="turbo-flow — a developer tool: the live pipeline where a builder's change travels past free deterministic checks, a reviewer from a different model family gates it, the verdict flips REVISE → APPROVED, and only a human merges" width="100%"></p>
@@ -66,7 +68,7 @@ Recorded on the same Codespace: `tf help` shows every subcommand, `tf status` gi
 
 ```bash
 # one-liner (stages ./rig-lite from a pinned, checksum-verified release):
-curl -fsSL https://github.com/marcuspat/turbo-flow/raw/main/rig-lite/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/marcuspat/turbo-flow/main/rig-lite/install.sh | bash
 
 # or from npm — same kit, no clone (pin the version; same posture as the sha-pinned tarball):
 npx turbo-flow@5.4.0 help
