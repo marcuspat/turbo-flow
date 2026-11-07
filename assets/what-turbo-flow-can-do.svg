@@ -59,7 +59,7 @@
   <text x="74" y="414" font-size="10.5" fill="#7d8ba1">verdict pinned + posted + status check</text>
   <circle cx="64" cy="428" r="2.2" fill="#4dd6c1"/>
   <text x="74" y="432" font-size="10.5" fill="#7d8ba1">rounds capped · prior rounds</text>
-  <text x="74" y="447" font-size="10.5" fill="#4a5468">remembered</text>
+  <text x="74" y="447" font-size="10.5" fill="#7d8ba1">remembered</text>
   <rect x="60" y="542" width="256.4" height="24" rx="6" fill="#0b101b" stroke="#4dd6c1" stroke-width="1"/>
   <text x="188.2" y="558.5" font-size="11.5" fill="#4dd6c1" text-anchor="middle">tf gate --pr 84 --builder claude</text>
   <rect x="372" y="246" width="322" height="330" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.6"/>
@@ -90,7 +90,7 @@
   <text x="738" y="398" font-size="10.5" fill="#7d8ba1">fork PRs get the exact re-run</text>
   <circle cx="728" cy="412" r="2.2" fill="#4dd6c1"/>
   <text x="738" y="416" font-size="10.5" fill="#7d8ba1">--require-review edge documented</text>
-  <text x="738" y="431" font-size="10.5" fill="#4a5468">honestly</text>
+  <text x="738" y="431" font-size="10.5" fill="#7d8ba1">honestly</text>
   <rect x="724" y="542" width="98.0" height="24" rx="6" fill="#0b101b" stroke="#4dd6c1" stroke-width="1"/>
   <text x="773.0" y="558.5" font-size="11.5" fill="#4dd6c1" text-anchor="middle">tf protect</text>
   <rect x="1036" y="246" width="322" height="330" rx="12" fill="#1a2233" stroke="#f2b544" stroke-width="1.6"/>
@@ -150,7 +150,7 @@
   <text x="738" y="736" font-size="10.5" fill="#7d8ba1">--watch live view · --json</text>
   <circle cx="728" cy="750" r="2.2" fill="#f2b544"/>
   <text x="738" y="754" font-size="10.5" fill="#7d8ba1">macOS: plan-quota bars from the</text>
-  <text x="738" y="769" font-size="10.5" fill="#4a5468">keychain</text>
+  <text x="738" y="769" font-size="10.5" fill="#7d8ba1">keychain</text>
   <circle cx="728" cy="783" r="2.2" fill="#f2b544"/>
   <text x="738" y="787" font-size="10.5" fill="#7d8ba1">per-adapter fixture self-test</text>
   <rect x="724" y="882" width="148.4" height="24" rx="6" fill="#0b101b" stroke="#f2b544" stroke-width="1"/>
