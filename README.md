@@ -190,7 +190,7 @@ Built with and powers these tools — star the ones you use:
 |------|-------------|
 | [**codescope**](https://github.com/adventurewave-labs/codescope) | Single-binary code-intelligence engine for AI agents — no cloud, no DB, no Python |
 | [**secret-scan**](https://github.com/adventurewave-labs/secret-scan) | Rust secret scanner — obfuscation detection, up to ~1,200 files/sec measured |
-| [**Sentinel**](https://github.com/marcuspat/Sentinel) | Deny-by-default agentic sysadmin: Investigate → Plan → Approve → Act in Rust — now wired into Turbo Rig as its enforcement layer (policy-gated plane patrol, signature-verified audit on the control room) |
+| [**Sentinel**](https://github.com/marcuspat/Sentinel) | Deny-by-default agentic sysadmin: Investigate → Plan → Approve → Act in Rust |
 | [**netrain**](https://github.com/marcuspat/netrain) | Matrix-style network monitor in Rust |
 | [**gate-run**](https://github.com/adventurewave-labs/gate-run) | Rust edge tools for gated flows — **gate-run** wraps gate.sh's exit contract so the push runs inside the verdict (a pipe can never ship a REVISE); **strand** finds commits stranded by early merges — merge-commit and squash aware |
 
