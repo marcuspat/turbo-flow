@@ -49,24 +49,25 @@
   <text x="60" y="280" font-size="16" fill="#4dd6c1" font-weight="800">❯❯</text>
   <text x="92" y="278" font-size="21" fill="#4dd6c1" font-weight="800" letter-spacing="2">GATE</text>
   <text x="92" y="298" font-size="12.5" fill="#dbe4f0" font-weight="700" letter-spacing="2">ANY PR</text>
-  <text x="60" y="324" font-size="11" fill="#7d8ba1">a reviewer from a DIFFERENT model family</text>
-  <text x="60" y="340" font-size="11" fill="#7d8ba1">reads the diff and must return a</text>
-  <text x="60" y="356" font-size="11" fill="#7d8ba1">parseable verdict — fail-closed, never</text>
-  <text x="60" y="372" font-size="11" fill="#7d8ba1">merges</text>
+  <text x="60" y="324" font-size="11" fill="#7d8ba1">a reviewer from a DIFFERENT model</text>
+  <text x="60" y="340" font-size="11" fill="#7d8ba1">family reads the diff and must return</text>
+  <text x="60" y="356" font-size="11" fill="#7d8ba1">a parseable verdict — fail-closed,</text>
+  <text x="60" y="372" font-size="11" fill="#7d8ba1">never merges</text>
   <circle cx="64" cy="392" r="2.2" fill="#4dd6c1"/>
   <text x="74" y="396" font-size="10.5" fill="#7d8ba1">deterministic checks first ($0)</text>
   <circle cx="64" cy="410" r="2.2" fill="#4dd6c1"/>
   <text x="74" y="414" font-size="10.5" fill="#7d8ba1">verdict pinned + posted + status check</text>
   <circle cx="64" cy="428" r="2.2" fill="#4dd6c1"/>
-  <text x="74" y="432" font-size="10.5" fill="#7d8ba1">rounds capped · prior rounds remembered</text>
+  <text x="74" y="432" font-size="10.5" fill="#7d8ba1">rounds capped · prior rounds</text>
+  <text x="74" y="447" font-size="10.5" fill="#7d8ba1">remembered</text>
   <rect x="60" y="542" width="256.4" height="24" rx="6" fill="#0b101b" stroke="#4dd6c1" stroke-width="1"/>
   <text x="188.2" y="558.5" font-size="11.5" fill="#4dd6c1" text-anchor="middle">tf gate --pr 84 --builder claude</text>
   <rect x="372" y="246" width="322" height="330" rx="12" fill="#1a2233" stroke="#4dd6c1" stroke-width="1.6"/>
   <text x="392" y="280" font-size="16" fill="#4dd6c1" font-weight="800">◍</text>
   <text x="424" y="278" font-size="21" fill="#4dd6c1" font-weight="800" letter-spacing="2">SWEEP</text>
   <text x="424" y="298" font-size="12.5" fill="#dbe4f0" font-weight="700" letter-spacing="2">THE QUEUE</text>
-  <text x="392" y="324" font-size="11" fill="#7d8ba1">one command gates every open PR with no</text>
-  <text x="392" y="340" font-size="11" fill="#7d8ba1">verdict at its current head — stale</text>
+  <text x="392" y="324" font-size="11" fill="#7d8ba1">one command gates every open PR with</text>
+  <text x="392" y="340" font-size="11" fill="#7d8ba1">no verdict at its current head — stale</text>
   <text x="392" y="356" font-size="11" fill="#7d8ba1">approvals die the moment a head moves</text>
   <circle cx="396" cy="376" r="2.2" fill="#4dd6c1"/>
   <text x="406" y="380" font-size="10.5" fill="#7d8ba1">pinned / legacy / stale classified</text>
@@ -81,14 +82,15 @@
   <text x="756" y="278" font-size="21" fill="#4dd6c1" font-weight="800" letter-spacing="2">ENFORCE</text>
   <text x="756" y="298" font-size="12.5" fill="#dbe4f0" font-weight="700" letter-spacing="2">ON MAIN</text>
   <text x="724" y="324" font-size="11" fill="#7d8ba1">branch protection makes gate-verdict a</text>
-  <text x="724" y="340" font-size="11" fill="#7d8ba1">required GitHub check — main can't take</text>
-  <text x="724" y="356" font-size="11" fill="#7d8ba1">an un-gated PR, even by accident</text>
+  <text x="724" y="340" font-size="11" fill="#7d8ba1">required GitHub check — main can't</text>
+  <text x="724" y="356" font-size="11" fill="#7d8ba1">take an un-gated PR, even by accident</text>
   <circle cx="728" cy="376" r="2.2" fill="#4dd6c1"/>
   <text x="738" y="380" font-size="10.5" fill="#7d8ba1">gate-check.yml re-heals the CI</text>
   <circle cx="728" cy="394" r="2.2" fill="#4dd6c1"/>
   <text x="738" y="398" font-size="10.5" fill="#7d8ba1">fork PRs get the exact re-run</text>
   <circle cx="728" cy="412" r="2.2" fill="#4dd6c1"/>
-  <text x="738" y="416" font-size="10.5" fill="#7d8ba1">--require-review edge documented honestly</text>
+  <text x="738" y="416" font-size="10.5" fill="#7d8ba1">--require-review edge documented</text>
+  <text x="738" y="431" font-size="10.5" fill="#7d8ba1">honestly</text>
   <rect x="724" y="542" width="98.0" height="24" rx="6" fill="#0b101b" stroke="#4dd6c1" stroke-width="1"/>
   <text x="773.0" y="558.5" font-size="11.5" fill="#4dd6c1" text-anchor="middle">tf protect</text>
   <rect x="1036" y="246" width="322" height="330" rx="12" fill="#1a2233" stroke="#f2b544" stroke-width="1.6"/>
@@ -110,8 +112,8 @@
   <text x="60" y="620" font-size="16" fill="#7bd88f" font-weight="800">❑</text>
   <text x="92" y="618" font-size="21" fill="#7bd88f" font-weight="800" letter-spacing="2">REMEMBER</text>
   <text x="92" y="638" font-size="12.5" fill="#dbe4f0" font-weight="700" letter-spacing="2">ACROSS SESSIONS</text>
-  <text x="60" y="664" font-size="11" fill="#7d8ba1">decisions, gotchas, a project index and</text>
-  <text x="60" y="680" font-size="11" fill="#7d8ba1">an inbox — versioned in git,</text>
+  <text x="60" y="664" font-size="11" fill="#7d8ba1">decisions, gotchas, a project index</text>
+  <text x="60" y="680" font-size="11" fill="#7d8ba1">and an inbox — versioned in git,</text>
   <text x="60" y="696" font-size="11" fill="#7d8ba1">consolidated nightly</text>
   <circle cx="64" cy="716" r="2.2" fill="#7bd88f"/>
   <text x="74" y="720" font-size="10.5" fill="#7d8ba1">agents forget — git doesn't</text>
@@ -125,9 +127,9 @@
   <text x="392" y="620" font-size="16" fill="#4dd6c1" font-weight="800">▤</text>
   <text x="424" y="618" font-size="21" fill="#4dd6c1" font-weight="800" letter-spacing="2">SEE</text>
   <text x="424" y="638" font-size="12.5" fill="#dbe4f0" font-weight="700" letter-spacing="2">THE FLEET</text>
-  <text x="392" y="664" font-size="11" fill="#7d8ba1">one command, one file: fleet-wide health</text>
-  <text x="392" y="680" font-size="11" fill="#7d8ba1">— merge queue joined with gate verdicts</text>
-  <text x="392" y="696" font-size="11" fill="#7d8ba1">and merged PRs</text>
+  <text x="392" y="664" font-size="11" fill="#7d8ba1">one command, one file: fleet-wide</text>
+  <text x="392" y="680" font-size="11" fill="#7d8ba1">health — merge queue joined with gate</text>
+  <text x="392" y="696" font-size="11" fill="#7d8ba1">verdicts and merged PRs</text>
   <circle cx="396" cy="716" r="2.2" fill="#4dd6c1"/>
   <text x="406" y="720" font-size="10.5" fill="#7d8ba1">dirty / behind working copies</text>
   <circle cx="396" cy="734" r="2.2" fill="#4dd6c1"/>
@@ -140,15 +142,17 @@
   <text x="724" y="620" font-size="16" fill="#f2b544" font-weight="800">▦</text>
   <text x="756" y="618" font-size="21" fill="#f2b544" font-weight="800" letter-spacing="2">WATCH</text>
   <text x="756" y="638" font-size="12.5" fill="#dbe4f0" font-weight="700" letter-spacing="2">THE BURN</text>
-  <text x="724" y="664" font-size="11" fill="#7d8ba1">live token spend across zcode + claude +</text>
-  <text x="724" y="680" font-size="11" fill="#7d8ba1">codex and the gate itself — read-only,</text>
-  <text x="724" y="696" font-size="11" fill="#7d8ba1">straight from local usage data</text>
-  <circle cx="728" cy="716" r="2.2" fill="#f2b544"/>
-  <text x="738" y="720" font-size="10.5" fill="#7d8ba1">--watch live view · --json</text>
-  <circle cx="728" cy="734" r="2.2" fill="#f2b544"/>
-  <text x="738" y="738" font-size="10.5" fill="#7d8ba1">macOS: plan-quota bars from the keychain</text>
-  <circle cx="728" cy="752" r="2.2" fill="#f2b544"/>
-  <text x="738" y="756" font-size="10.5" fill="#7d8ba1">per-adapter fixture self-test</text>
+  <text x="724" y="664" font-size="11" fill="#7d8ba1">live token spend across zcode + claude</text>
+  <text x="724" y="680" font-size="11" fill="#7d8ba1">+ codex and the gate itself —</text>
+  <text x="724" y="696" font-size="11" fill="#7d8ba1">read-only, straight from local usage</text>
+  <text x="724" y="712" font-size="11" fill="#7d8ba1">data</text>
+  <circle cx="728" cy="732" r="2.2" fill="#f2b544"/>
+  <text x="738" y="736" font-size="10.5" fill="#7d8ba1">--watch live view · --json</text>
+  <circle cx="728" cy="750" r="2.2" fill="#f2b544"/>
+  <text x="738" y="754" font-size="10.5" fill="#7d8ba1">macOS: plan-quota bars from the</text>
+  <text x="738" y="769" font-size="10.5" fill="#7d8ba1">keychain</text>
+  <circle cx="728" cy="783" r="2.2" fill="#f2b544"/>
+  <text x="738" y="787" font-size="10.5" fill="#7d8ba1">per-adapter fixture self-test</text>
   <rect x="724" y="882" width="148.4" height="24" rx="6" fill="#0b101b" stroke="#f2b544" stroke-width="1"/>
   <text x="798.2" y="898.5" font-size="11.5" fill="#f2b544" text-anchor="middle">tf tokens --watch</text>
   <rect x="1036" y="586" width="322" height="330" rx="12" fill="#1a2233" stroke="#7bd88f" stroke-width="1.6"/>
@@ -156,14 +160,15 @@
   <text x="1088" y="618" font-size="21" fill="#7bd88f" font-weight="800" letter-spacing="2">PROVE</text>
   <text x="1088" y="638" font-size="12.5" fill="#dbe4f0" font-weight="700" letter-spacing="2">ITSELF</text>
   <text x="1056" y="664" font-size="11" fill="#7d8ba1">the kit tests its own fail-closed</text>
-  <text x="1056" y="680" font-size="11" fill="#7d8ba1">behavior with fake reviewer CLIs driving</text>
-  <text x="1056" y="696" font-size="11" fill="#7d8ba1">the real invoke path — no test hooks</text>
-  <circle cx="1060" cy="716" r="2.2" fill="#7bd88f"/>
-  <text x="1070" y="720" font-size="10.5" fill="#7d8ba1">410 checks, all fail-closed</text>
-  <circle cx="1060" cy="734" r="2.2" fill="#7bd88f"/>
-  <text x="1070" y="738" font-size="10.5" fill="#7d8ba1">the gate survived 17 review rounds</text>
-  <circle cx="1060" cy="752" r="2.2" fill="#7bd88f"/>
-  <text x="1070" y="756" font-size="10.5" fill="#7d8ba1">shellcheck-gated, honestly reported</text>
+  <text x="1056" y="680" font-size="11" fill="#7d8ba1">behavior with fake reviewer CLIs</text>
+  <text x="1056" y="696" font-size="11" fill="#7d8ba1">driving the real invoke path — no test</text>
+  <text x="1056" y="712" font-size="11" fill="#7d8ba1">hooks</text>
+  <circle cx="1060" cy="732" r="2.2" fill="#7bd88f"/>
+  <text x="1070" y="736" font-size="10.5" fill="#7d8ba1">410 checks, all fail-closed</text>
+  <circle cx="1060" cy="750" r="2.2" fill="#7bd88f"/>
+  <text x="1070" y="754" font-size="10.5" fill="#7d8ba1">the gate survived 17 review rounds</text>
+  <circle cx="1060" cy="768" r="2.2" fill="#7bd88f"/>
+  <text x="1070" y="772" font-size="10.5" fill="#7d8ba1">shellcheck-gated, honestly reported</text>
   <rect x="1056" y="882" width="76.4" height="24" rx="6" fill="#0b101b" stroke="#7bd88f" stroke-width="1"/>
   <text x="1094.2" y="898.5" font-size="11.5" fill="#7bd88f" text-anchor="middle">tf test</text>
   <rect x="40" y="940" width="1320" height="120" rx="12" fill="#1f2937" stroke="#2c3a52" stroke-width="1.2"/>
