@@ -49,10 +49,6 @@ h2::before{content:'// ';color:var(--mut)}
 .card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--a1) 55%,var(--line))}
 .card h3{font-size:16px;margin-bottom:9px;color:var(--ink)}
 .card p{font-size:13.8px;color:var(--mut)}
-.install pre{background:#0a0f16;border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;gap:14px;overflow:auto}
-.install code{font-size:14px;color:var(--a1);white-space:nowrap}
-.install .copy{border:1px solid var(--line);background:transparent;color:var(--mut);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;transition:all .15s;flex-shrink:0}
-.install .copy:hover{color:var(--a1);border-color:var(--a1)}
 .links{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
 .links a{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border:1px solid var(--line);border-radius:11px;font-size:13.5px;background:var(--card);transition:border-color .15s,transform .15s}
 .links a:hover{border-color:var(--a1);transform:translateX(3px)}
@@ -102,13 +98,13 @@ footer a:hover{color:var(--a1)}
 </div>
 </section>
 <main>
-<section id="about"><h2>What it does</h2><div class="cards"><div class="card"><h3>Fail-closed review gate</h3><p>A reviewer from a different model family gates every change; the verdict can flip a REVISE — but only a human merges to main.</p></div><div class="card"><h3>Written constitution</h3><p>Rules live in the repo, not in a prompt: an explicit constitution agents must satisfy before code ships.</p></div><div class="card"><h3>Any harness, any repo</h3><p>Rig-lite that drops into Claude Code, Codex, or your own loop — worktree isolation and git-versioned memory included.</p></div></div></section>
+<section id="about"><h2>What it does</h2><div class="cards"><div class="card"><h3>Fail-closed review gate</h3><p>A reviewer from a different model family gates every change; a missing or unparseable verdict counts as REVISE — fail-closed — and only a human merges to main.</p></div><div class="card"><h3>Written constitution</h3><p>Rules live in the repo, not in a prompt: an explicit constitution agents must satisfy before code ships.</p></div><div class="card"><h3>Any harness, any repo</h3><p>Rig-lite that drops into Claude Code, Codex, or your own loop — worktree isolation and git-versioned memory included.</p></div></div></section>
 
 <section id="more"><h2>Explore</h2><div class="links">
 <a href="https://github.com/marcuspat/turbo-flow#readme">README <span class="arr">→</span></a>
 <a href="https://github.com/marcuspat/turbo-flow/releases">Releases <span class="arr">→</span></a>
 <a href="https://github.com/marcuspat/turbo-flow/issues">Issues <span class="arr">→</span></a>
-<a href="https://github.com/marcuspat/turbo-flow/license">License <span class="arr">→</span></a>
+<a href="https://github.com/marcuspat/turbo-flow/blob/main/LICENSE">License <span class="arr">→</span></a>
 </div></section>
 </main>
 <footer>
@@ -119,6 +115,5 @@ footer a:hover{color:var(--a1)}
 </div>
 <div>© marcuspat · static page · free hosting on GitHub Pages</div>
 </footer>
-<script>function cp(b){const c=b.parentElement.querySelector('code');navigator.clipboard.writeText(c.textContent).then(()=>{b.textContent='copied';setTimeout(()=>b.textContent='copy',1400)})};</script>
 </body>
 </html>
