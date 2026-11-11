@@ -1154,6 +1154,14 @@ grep -q 'carry-me please.*carried: 1' "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" &&
 grep -q 'fix task-123456789012 rendering (carried: 1)' "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" \
   && echo "✓ scrum: scrub left boundary — ordinary task-ish text survives carry-forward" || { echo "✗ scrum: scrub corrupted ordinary text"; FAIL=1; }
 SCRUN sprint new >/dev/null 2>&1;                               t "scrum: second open sprint still refused after worktree-cwd create → 1" 1 $?
+# r5 regression: carry-forward picks by closes: DATE, not mtime — a PO editing
+# an OLD closed sprint's review stub late must not hijack the next import
+SCRUN sprint close "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" >/dev/null 2>&1
+t "scrum: close B (with its scaffold carry) → 0" 0 $?
+touch "$SCFIX/sprints/$(date -u +%Y-%m)-A.md"   # A's mtime now newer than B's — the trap that mtime-picking fell into
+SCRUN sprint new >/dev/null 2>&1
+grep -q 'TODO first task.*carried: 1' "$SCFIX/sprints/$(date -u +%Y-%m)-C.md" \
+  && echo "✓ scrum: carry-forward follows closes: date — B's own carried item reaches C despite A's newer mtime" || { echo "✗ scrum: stale-mtime sprint hijacked carry-forward"; FAIL=1; }
 SCRUN standup --no-save >/dev/null 2>&1;                        t "scrum: standup works beside a fresh scaffold sprint → 0" 0 $?
 rm -rf "$SCFIX"
 : > "$SCLOG"

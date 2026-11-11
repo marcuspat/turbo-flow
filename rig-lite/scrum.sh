@@ -18,9 +18,9 @@
 # sprints/standups/). Lane data comes from the gate log
 # (${GATE_LOG:-~/.local/state/rig-lite/gate-log.jsonl}) — rows the gate itself
 # appends per verdict — plus `git worktree` facts. GATE_ROUND_CAP is the SAME
-# env the gate reads (default 3): when a lane's row count reaches the cap,
-# the standup raises the Law-11 fork (continue / park / pivot) for the human
-# instead of letting a 4th round burn.
+# env the gate reads (default 3): when a lane or PR burns the cap AND its
+# newest verdict is a RECENT REVISE (a live stuck loop, not history), the
+# standup raises the Law-11 fork (continue / park / pivot) for the human.
 #
 # Exit codes: 0 ok · 1 validation/refusal · 2 usage error.
 set -uo pipefail
@@ -228,16 +228,21 @@ next_sprint_id() { # <YYYY-MM>-<letter>, bumping; --id overrides before this run
     letters="$letters ${id##*-}"
   done
   if [[ -z "${letters// /}" ]]; then printf '%s-A\n' "$base"; return 0; fi
-  # max by (length, value): string-compare alone puts Z9 after Z10
+  # max by (length, value): string-compare alone puts Z9 after Z10. Only
+  # auto-generated letter shapes vote — a custom --id (2026-11-hotfix) must
+  # never poison the sequence.
   bumped="$(python3 - ${letters} <<'PY'
 import re, sys
-cs = [c for c in sys.argv[1:] if c]
-max_c = max(cs, key=lambda c: (len(c), c))
-if len(max_c) == 1:
-    print(chr(ord(max_c) + 1) if max_c < "Z" else "Z2")
+cs = [c for c in sys.argv[1:] if re.match(r"^([A-Z]|Z\d+)$", c)]
+if not cs:
+    print("A")
 else:
-    m = re.match(r"^Z(\d+)$", max_c)
-    print(f"Z{int(m.group(1)) + 1}" if m else max_c)
+    max_c = max(cs, key=lambda c: (len(c), c))
+    if len(max_c) == 1:
+        print(chr(ord(max_c) + 1) if max_c < "Z" else "Z2")
+    else:
+        m = re.match(r"^Z(\d+)$", max_c)
+        print(f"Z{int(m.group(1)) + 1}" if m else max_c)
 PY
 )"
   printf '%s-%s\n' "$base" "$bumped"
@@ -432,13 +437,26 @@ EOF
   # carry-forward: the latest closed sprint's Carried items travel into the
   # new sprint's backlog section — work is never silently dropped between
   # sprints, and the carried-2+ PO flag can actually trigger. "Latest" is
-  # the most recently MODIFIED closed file (close rewrites it, so mtime =
-  # close time — immune to the Z10-sorts-before-Z2 lexical trap).
+  # the file's own closes: date (id as tiebreaker) — never mtimes, which
+  # lie after a late PO edit of an older review stub and after any clone.
   local prev="" f
-  while IFS= read -r f; do
-    [[ -e "$f" ]] || continue
-    grep -qE '^Status:\s*closed\b' "$f" 2>/dev/null && { prev="$f"; break; }
-  done < <(ls -t "$dir"/*.md 2>/dev/null)
+  prev="$(python3 - "$dir" <<'PY'
+import glob, os, re, sys
+best = None
+for f in sorted(glob.glob(os.path.join(sys.argv[1], "*.md"))):
+    try:
+        txt = open(f, encoding="utf-8", errors="replace").read()
+    except OSError:
+        continue
+    m = re.search(r"(?m)^Status:\s*closed\b", txt)
+    if not m: continue
+    d = re.search(r"closes:\s*(\d{4}-\d{2}-\d{2})", txt)
+    key = (d.group(1) if d else "", len(os.path.basename(f)), os.path.basename(f))
+    if best is None or key > best[0]:
+        best = (key, f)
+print(best[1] if best else "")
+PY
+)"
   if [[ -n "$prev" ]]; then
     python3 - "$prev" "$file" <<'PY'
 import os, re, sys
