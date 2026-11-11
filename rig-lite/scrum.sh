@@ -101,25 +101,30 @@ PY
 }
 
 # ── pure: gate-log rows for one target (branch:<name> / pr#N) ───────────────
-# Rows count only when the row's repo matches the repo basename — two clones
-# of the same project on one machine share the machine-local log, and a lane
-# must never inherit another clone's rounds. Prints:
-#   <rounds>\t<last_ts>\t<last_result>
+# Rows count only when the row's repo matches one of the repo basenames the
+# gate could have logged under (gate.sh logs basename(TOP) — the main
+# checkout when gated there, the lane name when gated from a worktree). A
+# comma-list is accepted; two clones of the same project on one machine
+# share the machine-local log, and a lane must never inherit another
+# clone's rounds. Fields are always fully populated ("-" placeholders —
+# tab-splitting with IFS merges empty fields). Prints:
+#   <rounds>\t<last_ts|->\t<last_result|->
 rounds_for() {
   python3 - "$1" "$2" "$3" <<'PY'
 import json, os, sys
-log, target, repo = sys.argv[1], sys.argv[2], sys.argv[3]
-n, last_ts, last_res = 0, "", ""
+log, target, repo_arg = sys.argv[1], sys.argv[2], sys.argv[3]
+repos = [r for r in repo_arg.split(",") if r]
+n, last_ts, last_res = 0, "-", "-"
 if log and os.path.isfile(log):
     for line in open(log, encoding="utf-8", errors="replace"):
         try: r = json.loads(line)
         except Exception: continue
         if r.get("target") != target: continue
-        if repo and (r.get("repo") or "") != repo: continue
+        if repos and (r.get("repo") or "") not in repos: continue
         n += 1
         ts = r.get("ts") or ""
-        if ts >= last_ts:
-            last_ts, last_res = ts, (r.get("result") or "")
+        if ts >= (last_ts if last_ts != "-" else ""):
+            last_ts, last_res = (ts if ts else "-"), (r.get("result") or "-")
 print(f"{n}\t{last_ts}\t{last_res}")
 PY
 }
@@ -146,10 +151,10 @@ if not last_ts or a is None:
 res = "REVISE" if "REVISE" in last_res else ("APPROVED" if "APPROVED" in last_res else "other")
 if res == "REVISE" and a < fresh: print(f"gating (round {rounds}/{cap})")
 elif res == "APPROVED" and a < fresh: print("gated · PR imminent")
-elif res == "APPROVED": print("awaiting-mp")
+elif res == "APPROVED": print("awaiting-human (merge)")
 elif stall_lo <= a < stall_hi: print("stalled")
 elif a >= stall_hi: print("dropped (>=72h silent)")
-else: print("fixing (REVISE)")
+else: print("fixing (unknown result)" if res == "other" else "fixing (REVISE)")
 PY
 }
 
@@ -182,7 +187,15 @@ PY
 }
 
 # ── sprint discovery ────────────────────────────────────────────────────────
-sprints_dir() { printf '%s/sprints\n' "$(repo_root)"; }
+# Sprints anchor at the MAIN checkout: they are the PO's artifacts, one set
+# per repo — untracked files in the main checkout are invisible from inside
+# a worktree, so a worktree run must resolve the main path, not $PWD.
+sprints_dir() {
+  local root mainpath
+  root="$(repo_root)"
+  mainpath="$(git -C "$root" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -1)"
+  printf '%s/sprints\n' "${mainpath:-$root}"
+}
 
 find_open_sprint() { # prints path · exit 1 if none (or if >1 — one at a time)
   local dir f found=""
@@ -209,9 +222,13 @@ next_sprint_id() { # <YYYY-MM>-<letter>, bumping; --id overrides before this run
   done
   if [[ -z "$max" ]]; then printf '%s-A\n' "$base"; return 0; fi
   bumped="$(python3 - "$max" <<'PY'
-import sys
+import re, sys
 c = sys.argv[1]
-print(c if len(c) != 1 else (chr(ord(c) + 1) if c < "Z" else "Z2"))
+if len(c) == 1:
+    print(chr(ord(c) + 1) if c < "Z" else "Z2")
+else:
+    m = re.match(r"^Z(\d+)$", c)
+    print(f"Z{int(m.group(1)) + 1}" if m else c)
 PY
 )"
   printf '%s-%s\n' "$base" "$bumped"
@@ -221,19 +238,21 @@ PY
 # TSV per kit worktree: name<TAB>merged(0|1)<TAB>dirty(0|1)<TAB>tip_age_s|"?"
 # The MAIN worktree is `git worktree list`'s FIRST entry — not the checkout
 # we happen to stand in (wt.sh's own flow has you run ceremonies from inside
-# a worktree; standing in .worktrees/x must not hide lane x).
+# a worktree). Lanes are the entries under <main>/.worktrees/ — standing in
+# .worktrees/x must show lane x AND its siblings, so the filter anchors on
+# the main checkout, never on $PWD.
 lane_facts() {
   local root main mainpath wt br
   root="$(repo_root)"
-  mainpath="$(git -C "$root" worktree list --porcelain 2>/dev/null | awk '$1 == "worktree" { print $2; exit }')"
+  mainpath="$(git -C "$root" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -1)"
   main="$(git -C "${mainpath:-$root}" symbolic-ref --short HEAD 2>/dev/null || echo main)"
   git -C "$root" worktree list --porcelain 2>/dev/null | awk '
-    $1 == "worktree" { wt = $2 }
+    $1 == "worktree" { wt = $0; sub(/^worktree /, "", wt) }
     $1 == "branch"   { sub("refs/heads/", "", $2); print wt "\t" $2 }
   ' | while IFS="$(printf '\t')" read -r wt br; do
     [[ -z "$br" ]] && continue
     [[ "$wt" == "$mainpath" ]] && continue                                 # the main checkout is not a lane
-    case "$wt" in "$root"|"$root/.worktrees"/*) ;; *) continue ;; esac   # kit worktrees only
+    case "$wt" in "$mainpath/.worktrees"/*) ;; *) continue ;; esac   # kit worktrees only, anchored at main
     local merged=0 dirty=0 age="?" ts bt mt
     # untouched branch (tip == main tip) is NOT merged work — an ancestor
     # check alone would call every fresh wt.sh lane "done"
@@ -242,22 +261,36 @@ lane_facts() {
     if [[ -n "$bt" && -n "$mt" && "$bt" != "$mt" ]] && git -C "$root" merge-base --is-ancestor "$bt" "$mt" 2>/dev/null; then
       merged=1
     fi
-    [[ -n "$(git -C "$root" status --porcelain 2>/dev/null)" ]] && dirty=1
+    # the LANE's own tree is dirty or not — the caller's checkout says
+    # nothing about the lane (after a standup saves, $root is always dirty)
+    [[ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]] && dirty=1
     ts="$(git -C "$root" log -1 --format=%ct "$br" 2>/dev/null)"
     [[ -n "$ts" ]] && age=$(( $(date -u +%s) - ts ))
     printf '%s\t%s\t%s\t%s\n' "$br" "$merged" "$dirty" "$age"
   done
 }
 
+gate_repolist() { # basenames the gate could have logged rows under for THIS repo
+  local root mainpath mb rb
+  root="$(repo_root)"
+  mainpath="$(git -C "$root" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -1)"
+  mb="$(basename "${mainpath:-$root}")"; rb="$(basename "$root")"
+  if [[ "$mb" == "$rb" ]]; then printf '%s\n' "$rb"; else printf '%s,%s\n' "$mb" "$rb"; fi
+}
+
 # ── the board: gate-log + worktree facts per lane ───────────────────────────
-# Machine lines (consumers filter): LANE\t<br>\t<state>\t<rounds>\t<cap>\t<age> ·
+# Machine lines (consumers filter): LANE\t<br|pr#N>\t<state>\t<rounds>\t<cap>\t<age> ·
 # BLOCKER\t<msg> · ACTIVE\t<n>
+# PR-mode rows (target pr#N — sweeps, PR re-gates) render as their own lanes:
+# the round cap belongs to PR mode, so the Law-11 fork must fire there too.
+# PR rows never count into ACTIVE (a worktree lane and its PR are the same
+# work — counting both would fabricate WIP breaches).
 lanes_board() {
-  local root repobase br merged dirty age r ts res st age_s active=0
-  root="$(repo_root)"; repobase="$(basename "$root")"
+  local root repolist br merged dirty age r ts res st age_s active=0 pr_t pr_r pr_ts pr_res
+  root="$(repo_root)"; repolist="$(gate_repolist)"
   while IFS="$(printf '\t')" read -r br merged dirty age; do
     [[ -z "$br" ]] && continue
-    IFS="$(printf '\t')" read -r r ts res <<< "$(rounds_for "$GATE_LOG" "branch:$br" "$repobase")"
+    IFS="$(printf '\t')" read -r r ts res <<< "$(rounds_for "$GATE_LOG" "branch:$br" "$repolist")"
     st="$(lane_state "$ts" "$res" "$merged" "$dirty" "$age" "$r" "$GATE_ROUND_CAP")"
     if [[ "$st" == done* ]]; then
       printf 'LANE\t%s\t%s\t%s\t%s\t%s\n' "$br" "$st" "$r" "$GATE_ROUND_CAP" "—"
@@ -265,12 +298,44 @@ lanes_board() {
     fi
     active=$(( active + 1 ))
     age_s="never"
-    [[ -n "$ts" ]] && age_s="$(fmt_age "$(age_seconds_of "$ts")") ago"
+    [[ -n "$ts" && "$ts" != "-" ]] && age_s="$(fmt_age "$(age_seconds_of "$ts")") ago"
     printf 'LANE\t%s\t%s\t%s\t%s\t%s\n' "$br" "$st" "$r" "$GATE_ROUND_CAP" "$age_s"
     if [[ "${r:-0}" -ge "$GATE_ROUND_CAP" ]]; then
       printf 'BLOCKER\tFORK NEEDED (Law 11): lane %s hit %s gate rounds (cap %s) — continue / park / pivot is the PO call (GATE_FORCE=1 overrides consciously)\n' "$br" "$r" "$GATE_ROUND_CAP"
     fi
   done < <(lane_facts)
+  # PR-mode rows: no worktree facts exist for them offline — merged/dirty are
+  # unknown and deliberately not guessed
+  while IFS="$(printf '\t')" read -r pr_t pr_r pr_ts pr_res; do
+    st="$(lane_state "$pr_ts" "$pr_res" 0 0 "?" "$pr_r" "$GATE_ROUND_CAP")"
+    age_s="never"
+    [[ -n "$pr_ts" && "$pr_ts" != "-" ]] && age_s="$(fmt_age "$(age_seconds_of "$pr_ts")") ago"
+    printf 'LANE\t%s\t%s\t%s\t%s\t%s\n' "$pr_t" "$st" "$pr_r" "$GATE_ROUND_CAP" "$age_s"
+    if [[ "$pr_r" -ge "$GATE_ROUND_CAP" ]]; then
+      printf 'BLOCKER\tFORK NEEDED (Law 11): %s hit %s gate rounds (cap %s) — continue / park / pivot is the PO call (GATE_FORCE=1 overrides consciously)\n' "$pr_t" "$pr_r" "$GATE_ROUND_CAP"
+    fi
+  done < <(python3 - "$GATE_LOG" "$repolist" <<'PY'
+import json, os, sys
+log, repolist = sys.argv[1], [x for x in sys.argv[2].split(",") if x]
+rows = {}
+if log and os.path.isfile(log):
+    for line in open(log, encoding="utf-8", errors="replace"):
+        try: r = json.loads(line)
+        except Exception: continue
+        t = r.get("target") or ""
+        if not t.startswith("pr#"): continue
+        if repolist and (r.get("repo") or "") not in repolist: continue
+        n, ts, res = rows.get(t, (0, "-", "-"))
+        ts2 = r.get("ts") or ""
+        n += 1
+        if ts2 >= (ts if ts != "-" else ""):
+            ts, res = (ts2 if ts2 else "-"), (r.get("result") or "-")
+        rows[t] = (n, ts, res)
+for t in sorted(rows):
+    n, ts, res = rows[t]
+    print(f"{t}\t{n}\t{ts}\t{res}")
+PY
+)
   printf 'ACTIVE\t%s\n' "$active"
 }
 
@@ -317,11 +382,42 @@ Capacity: lanes: $lanes · rounds: $rounds
 <!-- explicit no's; anything written here is a decision, not a wish -->
 
 ## Carried
-<!-- items carried from earlier sprints; format: - task (carried: N) — 2+ auto-flags the PO -->
+<!-- carried in from earlier sprints — the PO promotes items to In scope at planning; 2+ carries auto-flags -->
 
 ## Review
 <!-- filled by sprint close: shipped vs goal, velocity block -->
 EOF
+  # carry-forward: the latest closed sprint's Carried items travel into the
+  # new sprint's backlog section — work is never silently dropped between
+  # sprints, and the carried-2+ PO flag can actually trigger
+  local prev="" f
+  while IFS= read -r f; do
+    [[ -e "$f" ]] || continue
+    grep -qE '^Status:\s*closed\b' "$f" 2>/dev/null && prev="$f"
+  done < <(ls "$dir"/*.md 2>/dev/null | sort)
+  if [[ -n "$prev" ]]; then
+    python3 - "$prev" "$file" <<'PY'
+import os, re, sys
+prev, new = sys.argv[1], sys.argv[2]
+txt = open(new, encoding="utf-8", errors="replace").read()
+items, section = [], None
+for ln in open(prev, encoding="utf-8", errors="replace").read().splitlines():
+    if ln.startswith("## "):
+        section = ln[3:].strip().lower(); continue
+    if section == "carried" and ln.startswith("- "):
+        items.append(ln.rstrip())
+if items:
+    block = "\n".join(items)
+    if re.search(r"(?m)^## Carried\b", txt):
+        txt = re.sub(r"(?m)^(## Carried\b.*)$", lambda m: m.group(1) + "\n" + block, txt, count=1)
+    else:
+        txt = txt + "\n## Carried\n" + block + "\n"
+    tmp = new + ".tmp"
+    open(tmp, "w", encoding="utf-8").write(txt + ("" if txt.endswith("\n") else "\n"))
+    os.replace(tmp, new)
+    print(f"sprint: carried {len(items)} item(s) forward from {os.path.basename(prev)}")
+PY
+  fi
   scrub < "$file" > "$file.tmp" && mv "$file.tmp" "$file"
   echo "sprint: created $file"
   echo "sprint: closes $closes · lanes $lanes · rounds $rounds · fill the goal and scope, then: tf sprint validate"
@@ -335,7 +431,11 @@ sprint_validate() {
   [[ -f "$file" ]] || { echo "scrum.sh: no such sprint file: $file" >&2; return 2; }
   out="$(parse_sprint "$file")" || return 1
   # structural parse passed; now the honesty checks a parser can make
-  if ! grep -qE '^- \[[ x]\] \S' "$file"; then echo "sprint: no in-scope items — an empty sprint is not a sprint" >&2; return 1; fi
+  # (scoped to ## In scope — a checkbox under Out of scope proves nothing;
+  # POSIX classes only — awk has no \S)
+  if ! awk '/^## /{s=tolower(substr($0,4))} s=="in scope" && /^- \[[x ]\] [^ ]/{found=1} END{exit !found}' "$file"; then
+    echo "sprint: no in-scope items — an empty sprint is not a sprint" >&2; return 1
+  fi
   if grep -qiE '^# Sprint .*TODO' "$file"; then echo "sprint: goal is still TODO" >&2; return 1; fi
   if grep -qE '^- \[ \] TODO' "$file"; then echo "sprint: placeholder scope item still present" >&2; return 1; fi
   if grep -qE '\(carried:\s*([2-9]|[0-9]{2})\)' "$file"; then
@@ -375,9 +475,10 @@ sprint_close() {
   [[ -n "$file" ]] || { file="$(find_open_sprint)" || return 1; }
   [[ -f "$file" ]] || { echo "scrum.sh: no such sprint file: $file" >&2; return 2; }
   parse_sprint "$file" >/dev/null || { echo "sprint: fix the structure before closing (tf sprint validate)" >&2; return 1; }
-  python3 - "$file" "$GATE_LOG" "$(basename "$(repo_root)")" <<'PY'
+  python3 - "$file" "$GATE_LOG" "$(gate_repolist)" <<'PY'
 import datetime, json, os, re, sys
-file, log, repo = sys.argv[1], sys.argv[2], sys.argv[3]
+file, log = sys.argv[1], sys.argv[2]
+repos = [r for r in sys.argv[3].split(",") if r]
 txt = open(file, encoding="utf-8", errors="replace").read()
 # carry: unchecked in-scope items move under ## Carried, counter increments
 carried_moved = []
@@ -417,12 +518,16 @@ if opened and os.path.isfile(log):
         except Exception: continue
         ts = (r.get("ts") or "")[:10]
         if not (opened <= ts <= (closes or "9999-99-99")): continue
-        if (r.get("repo") or "") != repo: continue
+        if repos and (r.get("repo") or "") not in repos: continue
         res = r.get("result") or ""
         if "APPROVED" in res: approved += 1
         elif "REVISE" in res: revised += 1
         gate_rounds += 1
-txt = txt.replace("Status: open", "Status: closed", 1)
+# anchored to the Status line, not any prose that might contain the phrase
+txt, n_sub = re.subn(r"(?m)^Status: open\b", "Status: closed", txt, count=1)
+if n_sub == 0:
+    print("sprint: no 'Status: open' line found — nothing to close", file=sys.stderr)
+    sys.exit(1)
 review_note = (f"Closed {datetime.date.today().isoformat()}. Offline velocity (gate log, this repo, sprint window): "
                f"{approved} APPROVED · {revised} REVISE · {gate_rounds} gate rounds total. "
                f"{len(carried_moved)} item(s) carried. Merge truth lives with gh/merge-qa — this stub is the offline tier.")
@@ -446,7 +551,7 @@ PY
 
 # ── standup ─────────────────────────────────────────────────────────────────
 standup() {
-  local save=1 file="" root out sdir sfile bl=0
+  local save=1 file="" root out out_f sdir sfile bl=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --no-save) save=0; shift ;;
@@ -455,7 +560,9 @@ standup() {
     esac
   done
   root="$(repo_root)"
-  out="$(mktemp)"
+  out="$(mktemp)"; out_f="$out.f"
+  # expand NOW and clear on exit — a mid-standup failure must not litter /tmp
+  trap "rm -f '$out' '$out_f'" EXIT
   if [[ -z "$file" ]]; then file="$(find_open_sprint 2>/dev/null || true)"; fi
   {
     echo "# Standup $(date -u +%F)"
@@ -469,9 +576,9 @@ standup() {
     fi
     echo ""
     echo "## Shipped (offline tier: APPROVED verdicts; merge truth = gh / merge-qa)"
-    python3 - "$GATE_LOG" "$(basename "$root")" "$file" <<'PY'
+    python3 - "$GATE_LOG" "$(gate_repolist)" "$file" <<'PY'
 import json, os, re, sys
-log, repo, sprint = sys.argv[1], sys.argv[2], sys.argv[3]
+log, repos, sprint = sys.argv[1], [x for x in sys.argv[2].split(",") if x], sys.argv[3]
 since = ""
 if sprint and os.path.isfile(sprint):
     t = open(sprint, encoding="utf-8", errors="replace").read()
@@ -482,7 +589,7 @@ if os.path.isfile(log):
     for line in open(log, encoding="utf-8", errors="replace"):
         try: r = json.loads(line)
         except Exception: continue
-        if (r.get("repo") or "") != repo: continue
+        if repos and (r.get("repo") or "") not in repos: continue
         if "APPROVED" not in (r.get("result") or ""): continue
         ts = r.get("ts") or ""
         if since and ts[:10] < since: continue
@@ -513,7 +620,9 @@ PY
     if [[ -n "$file" && -f "$file" ]]; then
       local lanes
       lanes="$(parse_sprint "$file" | awk -F'\t' '$1=="lanes"{print $2}')"
-      if [[ "${active:-0}" -gt "${lanes:-0}" ]]; then
+      # WIP vs capacity only when the sprint parsed a lane budget — a
+      # malformed file must not fabricate a breach for every active lane
+      if [[ -n "$lanes" && "${active:-0}" -gt "$lanes" ]]; then
         echo "  ⚠ WIP ${active} > lanes ${lanes} — scope is ahead of capacity"
         bl=$((bl + 1))
       fi
@@ -539,15 +648,16 @@ PY
       echo "  (no sprint — no budget to report)"
     fi
   } > "$out"
-  scrub < "$out" > "$out.f"
+  scrub < "$out" > "$out_f"
   if [[ $save -eq 1 ]]; then
-    sdir="$root/sprints/standups"; mkdir -p "$sdir"
+    sdir="$(sprints_dir)/standups"; mkdir -p "$sdir"
     sfile="$sdir/$(date -u +%F).md"
-    cp "$out.f" "$sfile"
+    cp "$out_f" "$sfile"
     echo "standup: saved $sfile" >&2
   fi
-  cat "$out.f"
-  rm -f "$out" "$out.f"
+  cat "$out_f"
+  rm -f "$out" "$out_f"
+  trap - EXIT
 }
 
 # ── selftest: parser fixtures, no git repo required ─────────────────────────
@@ -619,7 +729,7 @@ EOF
   t "state: merged → done" "done (merged)" "$(lane_state "$NOW" "GATE: REVISE" 1 1 100 1 3)"
   t "state: fresh revise → gating" "gating (round 2/3)" "$(lane_state "$NOW" "GATE: REVISE" 0 1 100 2 3)"
   t "state: fresh approved → gated" "gated · PR imminent" "$(lane_state "$NOW" "GATE: APPROVED" 0 0 100 1 3)"
-  t "state: old approved → awaiting-mp" "awaiting-mp" "$(lane_state "$BEFORE" "GATE: APPROVED" 0 0 3600 1 3)"
+  t "state: old approved → awaiting-human" "awaiting-human (merge)" "$(lane_state "$BEFORE" "GATE: APPROVED" 0 0 3600 1 3)"
   t "state: old revise → stalled" "stalled" "$(lane_state "$BEFORE" "GATE: REVISE" 0 0 3600 2 3)"
   t "state: no rows dirty → building" "building (pre-gate)" "$(lane_state "" "" 0 1 "?" 0 3)"
   t "state: no rows old+clean → dormant" "dormant (no gate rows)" "$(lane_state "" "" 0 0 "999999" 0 3)"
