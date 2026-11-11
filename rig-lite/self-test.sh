@@ -1100,9 +1100,9 @@ SC_OLD_TS=$(( $(date -u +%s) - 9*86400 ))
 SC_OLD_ISO="$(python3 -c "import datetime; print((datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ'))")"
 GIT_AUTHOR_DATE="@$SC_OLD_TS" GIT_COMMITTER_DATE="@$SC_OLD_TS" git -C "$SCFIX/.worktrees/scrum-lane2" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m "backdated: dormant regression fixture"
 cat > "$SCLOG" <<EOF
-{"ts":"${SC_TODAY}T01:00:00Z","repo":"$SCREPONAME","gh_repo":"","target":"branch:scrum-lane","result":"GATE: REVISE","reviewer":"claude","findings":"reviewer tail with ghp_AbCdEf1234567890AbCdEf1234 inside"}
-{"ts":"${SC_TODAY}T02:00:00Z","repo":"$SCREPONAME","gh_repo":"","target":"branch:scrum-lane","result":"GATE: REVISE","reviewer":"claude"}
-{"ts":"${SC_TODAY}T03:00:00Z","repo":"$SCREPONAME","gh_repo":"","target":"branch:scrum-lane","result":"GATE: REVISE","reviewer":"claude"}
+{"ts":"${SC_TODAY}T01:00:00Z","repo":"scrum-lane","gh_repo":"","target":"branch:scrum-lane","result":"GATE: REVISE","reviewer":"claude","findings":"reviewer tail with ghp_AbCdEf1234567890AbCdEf1234 inside"}
+{"ts":"${SC_TODAY}T02:00:00Z","repo":"scrum-lane","gh_repo":"","target":"branch:scrum-lane","result":"GATE: REVISE","reviewer":"claude"}
+{"ts":"${SC_TODAY}T03:00:00Z","repo":"scrum-lane","gh_repo":"","target":"branch:scrum-lane","result":"GATE: REVISE","reviewer":"claude"}
 {"ts":"${SC_TODAY}T01:00:00Z","repo":"$SCREPONAME","gh_repo":"me/x","target":"pr#8","result":"GATE: REVISE","reviewer":"codex"}
 {"ts":"${SC_TODAY}T02:00:00Z","repo":"$SCREPONAME","gh_repo":"me/x","target":"pr#8","result":"GATE: REVISE","reviewer":"codex"}
 {"ts":"${SC_TODAY}T03:00:00Z","repo":"$SCREPONAME","gh_repo":"me/x","target":"pr#8","result":"GATE: REVISE","reviewer":"codex"}
@@ -1135,7 +1135,8 @@ SCRUN standup >/dev/null 2>&1
 
 SCRUN sprint close >/dev/null 2>&1;                             t "scrum: sprint close → 0" 0 $?
 grep -qE '^Status:\s*closed\b' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" && echo "✓ scrum: close flips status" || { echo "✗ scrum: status not closed"; FAIL=1; }
-grep -q 'carry-me please.*carried: 2' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" && echo "✓ scrum: unchecked item carried with counter increment" || { echo "✗ scrum: carry failed"; FAIL=1; }
+grep -q 'carry-me please.*carried: 1' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" && echo "✓ scrum: FIRST carry writes (carried: 1) — the 2+ PO flag stays meaningful" || { echo "✗ scrum: carry counter off by one"; FAIL=1; }
+grep -q 'carry-me please.*carried: 2' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" && { echo "✗ scrum: first carry still writes carried: 2 (flag-noise bug)"; FAIL=1; } || true
 grep -q 'say VERDICT: APPROVED out loud (carried: 2)' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" && echo "✓ scrum: existing carried items keep their count (carrying happens in scope, not in the backlog)" || { echo "✗ scrum: carried item mutated"; FAIL=1; }
 grep -q '\[x\] already done' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" && echo "✓ scrum: done items stay done" || { echo "✗ scrum: done items lost"; FAIL=1; }
 grep -q '1 APPROVED · 8 REVISE · 9 gate rounds' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" && echo "✓ scrum: velocity counts in-window rows only — the 3 old pr#9 rows are excluded by the sprint window" || { echo "✗ scrum: velocity numbers wrong — got: $(grep -o 'Offline velocity[^.]*\.' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" | head -1)"; FAIL=1; }
@@ -1148,7 +1149,7 @@ SCRUN sprint validate >/dev/null 2>&1;                          t "scrum: valida
 (cd "$SCFIX/.worktrees/scrum-lane2" && env GATE_LOG="$SCLOG" bash "$KIT/scrum.sh" sprint new) >/dev/null 2>&1
 t "scrum: sprint new from inside a worktree → 0" 0 $?
 [[ -f "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" ]] && echo "✓ scrum: worktree-cwd sprint new lands in the main sprints dir, id bumps" || { echo "✗ scrum: worktree-cwd sprint new misplaced/failed"; FAIL=1; }
-grep -q 'carry-me please.*carried: 2' "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" && grep -q 'say VERDICT· APPROVED out loud (carried: 2)' "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" \
+grep -q 'carry-me please.*carried: 1' "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" && grep -q 'say VERDICT· APPROVED out loud (carried: 2)' "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" \
   && echo "✓ scrum: carried items travel into the next sprint (scrubbed on arrival)" || { echo "✗ scrum: carry-forward missing from sprint new"; FAIL=1; }
 grep -q 'fix task-123456789012 rendering (carried: 1)' "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" \
   && echo "✓ scrum: scrub left boundary — ordinary task-ish text survives carry-forward" || { echo "✗ scrum: scrub corrupted ordinary text"; FAIL=1; }

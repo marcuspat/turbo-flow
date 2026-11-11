@@ -106,17 +106,20 @@ PY
 
 # ── pure: gate-log rows for one target (branch:<name> / pr#N) ───────────────
 # Rows count only when the row's repo matches one of the repo basenames the
-# gate could have logged under (gate.sh logs basename(TOP) — the main
-# checkout when gated there, the lane name when gated from a worktree). A
+# gate could have logged under (gate.sh logs basename(TOP): the main
+# checkout when gated there, the lane's own name when gated from its
+# worktree — see gate_repolist, which supplies both plus every sibling). A
 # comma-list is accepted; two clones of the same project on one machine
 # share the machine-local log, and a lane must never inherit another
-# clone's rounds. Fields are always fully populated ("-" placeholders —
-# tab-splitting with IFS merges empty fields). Prints:
+# clone's rounds. Optional $4 = ISO cutoff — rows older than it don't count
+# (used for the fork decision, so a reused branch name inherits at most one
+# stale window of escalation). Fields are always fully populated ("-"
+# placeholders — tab-splitting with IFS merges empty fields). Prints:
 #   <rounds>\t<last_ts|->\t<last_result|->
 rounds_for() {
-  python3 - "$1" "$2" "$3" <<'PY'
+  python3 - "$1" "$2" "$3" "${4:-}" <<'PY'
 import json, os, sys
-log, target, repo_arg = sys.argv[1], sys.argv[2], sys.argv[3]
+log, target, repo_arg, cutoff = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 repos = [r for r in repo_arg.split(",") if r]
 n, last_ts, last_res = 0, "-", "-"
 if log and os.path.isfile(log):
@@ -125,8 +128,9 @@ if log and os.path.isfile(log):
         except Exception: continue
         if r.get("target") != target: continue
         if repos and (r.get("repo") or "") not in repos: continue
-        n += 1
         ts = r.get("ts") or ""
+        if cutoff and ts and ts < cutoff: continue
+        n += 1
         if ts >= (last_ts if last_ts != "-" else ""):
             last_ts, last_res = (ts if ts else "-"), (r.get("result") or "-")
 print(f"{n}\t{last_ts}\t{last_res}")
@@ -275,12 +279,23 @@ lane_facts() {
   done
 }
 
-gate_repolist() { # basenames the gate could have logged rows under for THIS repo
-  local root mainpath mb rb
+gate_repolist() { # basenames the gate could have logged rows under for THIS repo:
+  # the main checkout, the caller's checkout, AND every kit worktree —
+  # gate.sh logs basename(TOP), and "TOP" is whichever checkout the gate
+  # ran in. Gating from .worktrees/foo logs repo:"foo"; without the lane
+  # names in the set, a lane gated from its own worktree shows rounds 0/3
+  # forever and the Law-11 fork can never fire.
+  local root mainpath wt mb rb names=""
   root="$(repo_root)"
   mainpath="$(git -C "$root" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -1)"
   mb="$(basename "${mainpath:-$root}")"; rb="$(basename "$root")"
-  if [[ "$mb" == "$rb" ]]; then printf '%s\n' "$rb"; else printf '%s,%s\n' "$mb" "$rb"; fi
+  names="$mb"
+  [[ "$rb" != "$mb" ]] && names="$names,$rb"
+  while IFS= read -r wt; do
+    [[ -z "$wt" || "$wt" == "$mainpath" ]] && continue
+    names="$names,$(basename "$wt")"
+  done < <(git -C "$root" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
+  printf '%s\n' "$names"
 }
 
 # ── the board: gate-log + worktree facts per lane ───────────────────────────
@@ -295,8 +310,13 @@ gate_repolist() { # basenames the gate could have logged rows under for THIS rep
 # recent. A lane whose last gate said APPROVED needs a merge, not a fork —
 # and reused branch names must not inherit a dead loop's escalation.
 lanes_board() {
-  local root repolist br merged dirty age r ts res st age_s active=0 pr_t pr_r pr_ts pr_res pr_age
+  local root repolist br merged dirty age r r_win ts res st age_s active=0 pr_t pr_r pr_ts pr_res pr_age
   root="$(repo_root)"; repolist="$(gate_repolist)"
+  # the fork decision window — same cutoff the PR path filters by
+  local pr_cutoff
+  pr_cutoff="$(STALL_HI="$STALL_HI" python3 -c "
+import datetime, os
+print((datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=float(os.environ.get('STALL_HI', '259200')))).strftime('%Y-%m-%dT%H:%M:%SZ'))")"
   while IFS="$(printf '\t')" read -r br merged dirty age; do
     [[ -z "$br" ]] && continue
     IFS="$(printf '\t')" read -r r ts res <<< "$(rounds_for "$GATE_LOG" "branch:$br" "$repolist")"
@@ -309,19 +329,18 @@ lanes_board() {
     age_s="never"
     [[ -n "$ts" && "$ts" != "-" ]] && age_s="$(fmt_age "$(age_seconds_of "$ts")") ago"
     printf 'LANE\t%s\t%s\t%s\t%s\t%s\n' "$br" "$st" "$r" "$GATE_ROUND_CAP" "$age_s"
+    # fork decision counts only ROUNDS IN THE WINDOW — all-time rounds would
+    # let a reused branch name inherit a dead loop's escalation
+    r_win="$(rounds_for "$GATE_LOG" "branch:$br" "$repolist" "$pr_cutoff" | cut -f1)"
     pr_age="999999999"
     [[ -n "$ts" && "$ts" != "-" ]] && pr_age="$(age_seconds_of "$ts")"
-    if [[ "${r:-0}" -ge "$GATE_ROUND_CAP" && "$res" == *REVISE* && "$pr_age" != "?" && "$pr_age" -lt "$STALL_HI" ]]; then
-      printf 'BLOCKER\tFORK NEEDED (Law 11): lane %s hit %s gate rounds (cap %s), still REVISE — continue / park / pivot is the PO call (GATE_FORCE=1 overrides consciously)\n' "$br" "$r" "$GATE_ROUND_CAP"
+    if [[ "${r_win:-0}" -ge "$GATE_ROUND_CAP" && "$res" == *REVISE* && "$pr_age" != "?" && "$pr_age" -lt "$STALL_HI" ]]; then
+      printf 'BLOCKER\tFORK NEEDED (Law 11): lane %s hit %s gate rounds (cap %s), still REVISE — continue / park / pivot is the PO call (GATE_FORCE=1 overrides consciously)\n' "$br" "$r_win" "$GATE_ROUND_CAP"
     fi
   done < <(lane_facts)
   # PR-mode rows: no worktree facts exist for them offline — merged/dirty are
   # unknown and deliberately not guessed. Rows older than STALL_HI are
   # history and leave the board entirely.
-  local pr_cutoff
-  pr_cutoff="$(STALL_HI="$STALL_HI" python3 -c "
-import datetime, os
-print((datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=float(os.environ.get('STALL_HI', '259200')))).strftime('%Y-%m-%dT%H:%M:%SZ'))")"
   while IFS="$(printf '\t')" read -r pr_t pr_r pr_ts pr_res; do
     st="$(lane_state "$pr_ts" "$pr_res" 0 0 "?" "$pr_r" "$GATE_ROUND_CAP")"
     age_s="$(fmt_age "$(age_seconds_of "$pr_ts")") ago"
@@ -477,21 +496,23 @@ sprint_status() {
   [[ -f "$file" ]] || { echo "scrum.sh: no such sprint file: $file" >&2; return 2; }
   parse_sprint "$file" >/dev/null || return 1
   closes="$(parse_sprint "$file" | awk -F'\t' '$1=="closes"{print $2}')"
-  echo "# $(head -1 "$file" | sed 's/^# //')"
-  grep -E '^Status:' "$file"
-  echo ""
-  echo "## Sprint items"
-  grep -E '^- \[' "$file" | sed 's/^/  /'
-  echo ""
-  echo "## Lanes (gate log + worktrees, offline tier)"
-  local board
-  board="$(lanes_board)"
-  if grep -q '^LANE' <<< "$board"; then render_lanes <<< "$board"; else echo "  (no kit worktrees yet — lanes appear when tf wt <name> runs)"; fi
-  echo ""
-  left="$(days_left "$closes")"
-  if [[ "$left" == "?" ]]; then echo "closes: $closes"
-  elif [[ "$left" -lt 0 ]]; then echo "⚠ sprint OVERDUE by $(( -left ))d (closes $closes) — close or re-scope"
-  else echo "closes $closes · ${left}d left"; fi
+  {
+    echo "# $(head -1 "$file" | sed 's/^# //')"
+    grep -E '^Status:' "$file"
+    echo ""
+    echo "## Sprint items"
+    grep -E '^- \[' "$file" | sed 's/^/  /'
+    echo ""
+    echo "## Lanes (gate log + worktrees, offline tier)"
+    local board
+    board="$(lanes_board)"
+    if grep -q '^LANE' <<< "$board"; then render_lanes <<< "$board"; else echo "  (no kit worktrees yet — lanes appear when tf wt <name> runs)"; fi
+    echo ""
+    left="$(days_left "$closes")"
+    if [[ "$left" == "?" ]]; then echo "closes: $closes"
+    elif [[ "$left" -lt 0 ]]; then echo "⚠ sprint OVERDUE by $(( -left ))d (closes $closes) — close or re-scope"
+    else echo "closes $closes · ${left}d left"; fi
+  } | scrub
 }
 
 # ── sprint close ────────────────────────────────────────────────────────────
@@ -516,7 +537,9 @@ for ln in lines:
         m = re.match(r"^- \[ \] (.*)$", ln)
         if m:
             mm = re.match(r"^(.*?)(?:\s*\(carried:\s*(\d+)\))?\s*$", m.group(1))
-            n = int(mm.group(2) or "1")
+            # an IN-SCOPE item has been carried ZERO times so far — the first
+            # carry writes (carried: 1); 2+ is the PO-flag threshold
+            n = int(mm.group(2) or "0")
             carried_moved.append(f"- {mm.group(1)} (carried: {n + 1})")
             continue
         m2 = re.match(r"^- \[x\] (.*)$", ln)
