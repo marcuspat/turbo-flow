@@ -48,6 +48,8 @@ cmd_secrets(){ exec bash "$TF_SELF/secret.sh" "$@"; }
 cmd_tokens() { exec python3 "$TF_SELF/tokens.py" "$@"; }
 cmd_init()   { exec bash "$TF_SELF/init-repo.sh" "$@"; }
 cmd_protect(){ exec bash "$TF_SELF/protect.sh" "$@"; }
+cmd_sprint() { exec bash "$TF_SELF/scrum.sh" sprint "$@"; }
+cmd_standup(){ exec bash "$TF_SELF/scrum.sh" standup "$@"; }
 
 cmd_status() {
   if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -104,12 +106,12 @@ print(f'{total} {approved} {revised}')
 cmd_completion() {
   local sh="${1:-bash}"
   if [[ "$sh" == "bash" ]]; then
-    echo '_tf() { local c=${COMP_WORDS[COMP_CWORD]}; COMPREPLY=( $(compgen -W "gate wt test digest secrets tokens status init protect completion help" -- "$c") ); }; complete -F _tf tf'
+    echo '_tf() { local c=${COMP_WORDS[COMP_CWORD]}; COMPREPLY=( $(compgen -W "gate wt test digest standup sprint secrets tokens status init protect completion help" -- "$c") ); }; complete -F _tf tf'
   elif [[ "$sh" == "zsh" ]]; then
     echo '#compdef tf'
     echo '_tf() {'
     echo '  local -a commands'
-    echo "  commands=('gate:gate a PR or branch' 'wt:worktree' 'test:self-test' 'digest:fleet health' 'secrets:secrets' 'tokens:dashboard' 'status:overview' 'init:install' 'protect:branch protection' 'completion:shell completion')"
+    echo "  commands=('gate:gate a PR or branch' 'wt:worktree' 'test:self-test' 'digest:fleet health' 'standup:daily standup' 'sprint:sprint container' 'secrets:secrets' 'tokens:dashboard' 'status:overview' 'init:install' 'protect:branch protection' 'completion:shell completion')"
     echo '  _describe "command" commands'
     echo '}'
     echo 'compdef _tf tf'
@@ -125,6 +127,8 @@ cmd_help() {
   echo "  tf wt <name>                         worktree"
   echo "  tf test                              self-test"
   echo "  tf digest                            fleet health"
+  echo "  tf sprint new|validate|status|close  sprint container"
+  echo "  tf standup [--no-save]               daily standup (escalation-aware)"
   echo "  tf secrets set|get|rm|list           secrets"
   echo "  tf tokens [--watch]                  dashboard"
   echo "  tf status                            everything at a glance"
@@ -143,6 +147,8 @@ case "${1:-help}" in
   secrets)   shift; cmd_secrets "$@" ;;
   tokens)    shift; cmd_tokens "$@" ;;
   status)    shift; cmd_status "$@" ;;
+  sprint)    shift; cmd_sprint "$@" ;;
+  standup)   shift; cmd_standup "$@" ;;
   init)      shift; cmd_init "$@" ;;
   protect)   shift; cmd_protect "$@" ;;
   completion) shift; cmd_completion "$@" ;;

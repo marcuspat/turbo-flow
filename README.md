@@ -56,6 +56,8 @@ Recorded on the same Codespace: `tf help` shows every subcommand, `tf status` gi
 | [`init-repo.sh`](rig-lite/init-repo.sh) | one-command onboarding for any repo: a thin `AGENTS.md` (constitution pointer + project cheat-sheet) and the `CLAUDE.md → AGENTS.md` symlink. Never clobbers existing files. |
 | [`specs/`](rig-lite/specs/) | the spec + UAT contract templates: plan before build, verify behavior against the deployed app. |
 | [`digest.sh`](rig-lite/digest.sh) | one command, one file: repo health for your whole fleet — merge queue joined with gate verdicts, merged PRs, dirty/behind working copies, site liveness, stale codespaces, repo-hygiene gaps. |
+| [`scrum.sh`](rig-lite/scrum.sh) | scrum ceremonies for an agent fleet — the sprint container (`sprint new / validate / status / close`), the async standup (`shipped / in-flight / blockers / capacity`), and Law-11 escalation: when a lane's gate-row count reaches `GATE_ROUND_CAP`, the standup raises the continue / park / pivot fork for a human instead of letting round 4 burn. Offline tier reads the gate log + worktree facts only — no network, no daemon, no meeting. State lives in `<repo>/sprints/` (one open sprint at a time; unfinished items carry forward, never silently drop). |
+| [`sm-prompt.md`](rig-lite/sm-prompt.md) | the scrum-master agent charter: a process-only role — runs the ceremonies, surfaces blockers, never builds, never reviews, never merges, never decides the fork. Includes the anti-theater clause: if the PO ignores the standups for two sprints, the role recommends its own removal. |
 | [`automations/`](rig-lite/automations/README.md) | the background tier as a portable prompt pack: 9 scheduled tasks (morning digest, security scan, memory consolidation, weekly retro, repo-hygiene pass, site sentinel, gate canary, portability canary, nightly sweep) plus two ways to schedule them. |
 | [`secret.sh`](rig-lite/secret.sh) | encrypted-at-rest secrets, backend auto-detected (macOS Keychain → libsecret → age → loudly-warned chmod-600 plaintext). `set/get/rm/list` — listing shows names, never values; values never appear in `ps`. |
 | [`memory.md`](rig-lite/memory.md) + [`memory/`](rig-lite/memory/) | the git-versioned memory pattern: index, decisions, gotchas, project index, inbox — agents forget, git doesn't. |
@@ -134,11 +136,15 @@ Full command list: `tf help`
 ### 4. Your daily loop
 
 ```bash
+tf sprint new                # bound the work: goal, scope, capacity, deadline
 tf wt my-feature             # isolated worktree for parallel work
 # ... build in window 1, ask a DIFFERENT family (window 0 or 2) to read the diff ...
 tf gate --builder <who-wrote-it>  # gate before the PR (defaults to --base main)
 # ... push, open the PR, gate it ...
+tf standup                   # daily ceremony: shipped × in-flight × blockers × capacity
 tf digest                         # fleet health: merge queue × verdicts × site liveness
+# ... when the sprint closes ...
+tf sprint close              # carry unfinished items, write the review stub
 ```
 
 Detached and want back in? In a Codespace, every new terminal auto-attaches. Locally: run `bash workspace.sh` again.
