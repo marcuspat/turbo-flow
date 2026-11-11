@@ -33,13 +33,17 @@ SPRINT_DAYS="${SPRINT_DAYS:-7}"
 SPRINT_LANES="${SPRINT_LANES:-2}"
 SPRINT_ROUNDS="${SPRINT_ROUNDS:-12}"
 
-# every byte of generated output passes through this once: ceremony files
-# must never carry a parseable VERDICT line (verdict parseability belongs to
-# the gate alone) and must never echo a token shape from anywhere
+# generated ceremony output passes through this once: the standup render and
+# sprint scaffolds. It must never emit a parseable VERDICT line (verdict
+# parseability belongs to the gate alone) and must never echo a token shape.
+# User-authored file text is NOT rewritten in place by ceremonies — it gets
+# scrubbed when it flows through sprint new's carry-forward, which is why
+# the sk- pattern needs a left boundary: unanchored, it eats ordinary words
+# like "task-12345678" ("ta" + a fake key shape).
 scrub() {
   sed -E -e 's/VERDICT:/VERDICT·/g' \
     -e 's/(ghp|gho|ghu|ghs)_[A-Za-z0-9]{20,}/REDACTED/g' \
-    -e 's/sk-[A-Za-z0-9_-]{8,}/REDACTED/g'
+    -e 's/(^|[^A-Za-z0-9_-])sk-[A-Za-z0-9_-]{8,}/\1REDACTED/g'
 }
 
 usage() { sed -n '2,20p' "$0"; exit "${1:-0}"; }
@@ -212,23 +216,24 @@ find_open_sprint() { # prints path · exit 1 if none (or if >1 — one at a time
 }
 
 next_sprint_id() { # <YYYY-MM>-<letter>, bumping; --id overrides before this runs
-  local dir base letter max="" f id bumped
+  local dir base letters="" letter f id bumped
   dir="$(sprints_dir)"; base="$(date -u +%Y-%m)"
   for f in "$dir/$base"-*.md; do
     [[ -e "$f" ]] || continue
     id="$(basename "$f" .md)"
-    letter="${id##*-}"
-    [[ "$letter" > "$max" ]] && max="$letter"
+    letters="$letters ${id##*-}"
   done
-  if [[ -z "$max" ]]; then printf '%s-A\n' "$base"; return 0; fi
-  bumped="$(python3 - "$max" <<'PY'
+  if [[ -z "${letters// /}" ]]; then printf '%s-A\n' "$base"; return 0; fi
+  # max by (length, value): string-compare alone puts Z9 after Z10
+  bumped="$(python3 - ${letters} <<'PY'
 import re, sys
-c = sys.argv[1]
-if len(c) == 1:
-    print(chr(ord(c) + 1) if c < "Z" else "Z2")
+cs = [c for c in sys.argv[1:] if c]
+max_c = max(cs, key=lambda c: (len(c), c))
+if len(max_c) == 1:
+    print(chr(ord(max_c) + 1) if max_c < "Z" else "Z2")
 else:
-    m = re.match(r"^Z(\d+)$", c)
-    print(f"Z{int(m.group(1)) + 1}" if m else c)
+    m = re.match(r"^Z(\d+)$", max_c)
+    print(f"Z{int(m.group(1)) + 1}" if m else max_c)
 PY
 )"
   printf '%s-%s\n' "$base" "$bumped"
@@ -343,7 +348,7 @@ render_lanes() { grep '^LANE' | awk -F'\t' '{ printf "  • lane %s: %s · round
 
 # ── sprint new ──────────────────────────────────────────────────────────────
 sprint_new() {
-  local days="$SPRINT_DAYS" lanes="$SPRINT_LANES" rounds="$SPRINT_ROUNDS" id="" dir root file opens closes
+  local days="$SPRINT_DAYS" lanes="$SPRINT_LANES" rounds="$SPRINT_ROUNDS" id="" dir root file opens closes open
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --days)   [[ "${2:-}" =~ ^[0-9]+$ ]] || { echo "scrum.sh: --days needs a nonneg integer" >&2; return 2; }; days="$2"; shift 2 ;;
@@ -353,7 +358,8 @@ sprint_new() {
       *) echo "scrum.sh: unknown sprint-new flag '$1'" >&2; return 2 ;;
     esac
   done
-  root="$(repo_root)"; dir="$root/sprints"
+  root="$(repo_root)"
+  dir="$(sprints_dir)"   # anchored at the MAIN checkout — from inside a worktree, sprints/ exists only there
   mkdir -p "$dir" || return 1
   [[ -z "$id" ]] && id="$(next_sprint_id)"
   file="$dir/$id.md"

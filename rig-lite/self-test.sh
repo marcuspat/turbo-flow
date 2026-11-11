@@ -1084,6 +1084,7 @@ Capacity: lanes: 1 · rounds: 12
 
 ## Carried
 - say VERDICT: APPROVED out loud (carried: 2)
+- fix task-123456789012 rendering (carried: 1)
 
 ## Review
 EOF
@@ -1131,10 +1132,17 @@ grep -q '0 APPROVED · 6 REVISE · 6 gate rounds' "$SCFIX/sprints/$(date -u +%Y-
 grep -q 'Offline velocity' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" && echo "✓ scrum: review stub has the velocity block" || { echo "✗ scrum: review stub missing"; FAIL=1; }
 SCRUN sprint validate "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" >/dev/null 2>&1; t "scrum: closed sprint still parses → 0" 0 $?
 SCRUN sprint validate >/dev/null 2>&1;                          t "scrum: validate with no open sprint → 1 (refuses, no silent guess)" 1 $?
-SCRUN sprint new >/dev/null 2>&1;                               t "scrum: new sprint after close → 0" 0 $?
-[[ -f "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" ]] && echo "✓ scrum: next id bumps the letter" || { echo "✗ scrum: id did not bump"; FAIL=1; }
+# sprint new from INSIDE a worktree: the file must land in the MAIN checkout's
+# sprints/ (sprints anchor at main), with the id scan + carry-forward reading
+# the same directory — not the caller's (r2 finding)
+(cd "$SCFIX/.worktrees/scrum-lane2" && env GATE_LOG="$SCLOG" bash "$KIT/scrum.sh" sprint new) >/dev/null 2>&1
+t "scrum: sprint new from inside a worktree → 0" 0 $?
+[[ -f "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" ]] && echo "✓ scrum: worktree-cwd sprint new lands in the main sprints dir, id bumps" || { echo "✗ scrum: worktree-cwd sprint new misplaced/failed"; FAIL=1; }
 grep -q 'carry-me please.*carried: 2' "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" && grep -q 'say VERDICT· APPROVED out loud (carried: 2)' "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" \
   && echo "✓ scrum: carried items travel into the next sprint (scrubbed on arrival)" || { echo "✗ scrum: carry-forward missing from sprint new"; FAIL=1; }
+grep -q 'fix task-123456789012 rendering (carried: 1)' "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" \
+  && echo "✓ scrum: scrub left boundary — ordinary task-ish text survives carry-forward" || { echo "✗ scrum: scrub corrupted ordinary text"; FAIL=1; }
+SCRUN sprint new >/dev/null 2>&1;                               t "scrum: second open sprint still refused after worktree-cwd create → 1" 1 $?
 SCRUN standup --no-save >/dev/null 2>&1;                        t "scrum: standup works beside a fresh scaffold sprint → 0" 0 $?
 rm -rf "$SCFIX"
 : > "$SCLOG"
