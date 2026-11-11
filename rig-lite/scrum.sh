@@ -286,12 +286,16 @@ gate_repolist() { # basenames the gate could have logged rows under for THIS rep
 # ── the board: gate-log + worktree facts per lane ───────────────────────────
 # Machine lines (consumers filter): LANE\t<br|pr#N>\t<state>\t<rounds>\t<cap>\t<age> ·
 # BLOCKER\t<msg> · ACTIVE\t<n>
-# PR-mode rows (target pr#N — sweeps, PR re-gates) render as their own lanes:
-# the round cap belongs to PR mode, so the Law-11 fork must fire there too.
-# PR rows never count into ACTIVE (a worktree lane and its PR are the same
-# work — counting both would fabricate WIP breaches).
+# PR-mode rows (target pr#N — sweeps, PR re-gates) render as their own lanes
+# when they are RECENT (last row newer than STALL_HI); the append-only log
+# otherwise turns every merged PR into a permanent false blocker. PR rows
+# never count into ACTIVE (a worktree lane and its PR are the same work).
+# The Law-11 fork is a STUCK-loop signal, not a round counter: it fires only
+# when rounds >= cap AND the newest verdict is REVISE AND that verdict is
+# recent. A lane whose last gate said APPROVED needs a merge, not a fork —
+# and reused branch names must not inherit a dead loop's escalation.
 lanes_board() {
-  local root repolist br merged dirty age r ts res st age_s active=0 pr_t pr_r pr_ts pr_res
+  local root repolist br merged dirty age r ts res st age_s active=0 pr_t pr_r pr_ts pr_res pr_age
   root="$(repo_root)"; repolist="$(gate_repolist)"
   while IFS="$(printf '\t')" read -r br merged dirty age; do
     [[ -z "$br" ]] && continue
@@ -301,27 +305,33 @@ lanes_board() {
       printf 'LANE\t%s\t%s\t%s\t%s\t%s\n' "$br" "$st" "$r" "$GATE_ROUND_CAP" "—"
       continue
     fi
-    active=$(( active + 1 ))
+    active=$(( active + 1 ))   # dormant lanes count: unfinished work occupying a lane is WIP by definition
     age_s="never"
     [[ -n "$ts" && "$ts" != "-" ]] && age_s="$(fmt_age "$(age_seconds_of "$ts")") ago"
     printf 'LANE\t%s\t%s\t%s\t%s\t%s\n' "$br" "$st" "$r" "$GATE_ROUND_CAP" "$age_s"
-    if [[ "${r:-0}" -ge "$GATE_ROUND_CAP" ]]; then
-      printf 'BLOCKER\tFORK NEEDED (Law 11): lane %s hit %s gate rounds (cap %s) — continue / park / pivot is the PO call (GATE_FORCE=1 overrides consciously)\n' "$br" "$r" "$GATE_ROUND_CAP"
+    pr_age="999999999"
+    [[ -n "$ts" && "$ts" != "-" ]] && pr_age="$(age_seconds_of "$ts")"
+    if [[ "${r:-0}" -ge "$GATE_ROUND_CAP" && "$res" == *REVISE* && "$pr_age" != "?" && "$pr_age" -lt "$STALL_HI" ]]; then
+      printf 'BLOCKER\tFORK NEEDED (Law 11): lane %s hit %s gate rounds (cap %s), still REVISE — continue / park / pivot is the PO call (GATE_FORCE=1 overrides consciously)\n' "$br" "$r" "$GATE_ROUND_CAP"
     fi
   done < <(lane_facts)
   # PR-mode rows: no worktree facts exist for them offline — merged/dirty are
-  # unknown and deliberately not guessed
+  # unknown and deliberately not guessed. Rows older than STALL_HI are
+  # history and leave the board entirely.
+  local pr_cutoff
+  pr_cutoff="$(STALL_HI="$STALL_HI" python3 -c "
+import datetime, os
+print((datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=float(os.environ.get('STALL_HI', '259200')))).strftime('%Y-%m-%dT%H:%M:%SZ'))")"
   while IFS="$(printf '\t')" read -r pr_t pr_r pr_ts pr_res; do
     st="$(lane_state "$pr_ts" "$pr_res" 0 0 "?" "$pr_r" "$GATE_ROUND_CAP")"
-    age_s="never"
-    [[ -n "$pr_ts" && "$pr_ts" != "-" ]] && age_s="$(fmt_age "$(age_seconds_of "$pr_ts")") ago"
+    age_s="$(fmt_age "$(age_seconds_of "$pr_ts")") ago"
     printf 'LANE\t%s\t%s\t%s\t%s\t%s\n' "$pr_t" "$st" "$pr_r" "$GATE_ROUND_CAP" "$age_s"
-    if [[ "$pr_r" -ge "$GATE_ROUND_CAP" ]]; then
-      printf 'BLOCKER\tFORK NEEDED (Law 11): %s hit %s gate rounds (cap %s) — continue / park / pivot is the PO call (GATE_FORCE=1 overrides consciously)\n' "$pr_t" "$pr_r" "$GATE_ROUND_CAP"
+    if [[ "$pr_r" -ge "$GATE_ROUND_CAP" && "$pr_res" == *REVISE* ]]; then
+      printf 'BLOCKER\tFORK NEEDED (Law 11): %s hit %s gate rounds (cap %s), still REVISE — continue / park / pivot is the PO call (GATE_FORCE=1 overrides consciously)\n' "$pr_t" "$pr_r" "$GATE_ROUND_CAP"
     fi
-  done < <(python3 - "$GATE_LOG" "$repolist" <<'PY'
+  done < <(python3 - "$GATE_LOG" "$repolist" "$pr_cutoff" <<'PY'
 import json, os, sys
-log, repolist = sys.argv[1], [x for x in sys.argv[2].split(",") if x]
+log, repolist, cutoff = sys.argv[1], [x for x in sys.argv[2].split(",") if x], sys.argv[3]
 rows = {}
 if log and os.path.isfile(log):
     for line in open(log, encoding="utf-8", errors="replace"):
@@ -330,8 +340,9 @@ if log and os.path.isfile(log):
         t = r.get("target") or ""
         if not t.startswith("pr#"): continue
         if repolist and (r.get("repo") or "") not in repolist: continue
-        n, ts, res = rows.get(t, (0, "-", "-"))
         ts2 = r.get("ts") or ""
+        if ts2 < cutoff: continue   # history: a merged/closed PR must not haunt every future standup
+        n, ts, res = rows.get(t, (0, "-", "-"))
         n += 1
         if ts2 >= (ts if ts != "-" else ""):
             ts, res = (ts2 if ts2 else "-"), (r.get("result") or "-")
@@ -364,8 +375,14 @@ sprint_new() {
   [[ -z "$id" ]] && id="$(next_sprint_id)"
   file="$dir/$id.md"
   if [[ -e "$file" ]]; then echo "scrum.sh: sprint exists: $file" >&2; return 1; fi
-  if open="$(find_open_sprint 2>/dev/null)" && [[ -n "$open" ]]; then
-    echo "scrum.sh: an open sprint already exists ($open) — one open sprint at a time; close it first" >&2
+  # refuse on ONE open sprint — and on two (already-broken state must not
+  # gain a third; find_open_sprint alone can't tell "none" from "two")
+  local nopen=0
+  if ls "$dir"/*.md >/dev/null 2>&1; then
+    nopen="$(grep -lE '^Status:\s*open\b' "$dir"/*.md 2>/dev/null | wc -l | tr -d ' ')"
+  fi
+  if [[ "$nopen" -gt 0 ]]; then
+    echo "scrum.sh: $nopen open sprint(s) already exist — one open sprint at a time; close it first (see: tf sprint status)" >&2
     return 1
   fi
   opens="$(date -u +%F)"
@@ -395,12 +412,14 @@ Capacity: lanes: $lanes · rounds: $rounds
 EOF
   # carry-forward: the latest closed sprint's Carried items travel into the
   # new sprint's backlog section — work is never silently dropped between
-  # sprints, and the carried-2+ PO flag can actually trigger
+  # sprints, and the carried-2+ PO flag can actually trigger. "Latest" is
+  # the most recently MODIFIED closed file (close rewrites it, so mtime =
+  # close time — immune to the Z10-sorts-before-Z2 lexical trap).
   local prev="" f
   while IFS= read -r f; do
     [[ -e "$f" ]] || continue
-    grep -qE '^Status:\s*closed\b' "$f" 2>/dev/null && prev="$f"
-  done < <(ls "$dir"/*.md 2>/dev/null | sort)
+    grep -qE '^Status:\s*closed\b' "$f" 2>/dev/null && { prev="$f"; break; }
+  done < <(ls -t "$dir"/*.md 2>/dev/null)
   if [[ -n "$prev" ]]; then
     python3 - "$prev" "$file" <<'PY'
 import os, re, sys
@@ -569,13 +588,20 @@ standup() {
   out="$(mktemp)"; out_f="$out.f"
   # expand NOW and clear on exit — a mid-standup failure must not litter /tmp
   trap "rm -f '$out' '$out_f'" EXIT
-  if [[ -z "$file" ]]; then file="$(find_open_sprint 2>/dev/null || true)"; fi
+  local filemsg=""
+  if [[ -z "$file" ]]; then
+    filemsg="$(find_open_sprint 2>&1)" || true   # a path means found; otherwise it's the honest error
+    [[ "$filemsg" == */* && -f "$filemsg" ]] && file="$filemsg"
+  fi
   {
     echo "# Standup $(date -u +%F)"
     echo ""
     if [[ -n "$file" && -f "$file" ]]; then
       head -1 "$file" | sed 's/^# /## sprint: /'
       grep -E '^Status:' "$file" | sed 's/^/  /'
+    elif [[ "$filemsg" == *"two open sprints"* || "$filemsg" == *"open sprint(s)"* ]]; then
+      echo "## sprint state broken"
+      echo "  $filemsg"
     else
       echo "## no open sprint"
       echo "  ceremony discipline: the fleet is working without a goal on the wall — run: tf sprint new"
