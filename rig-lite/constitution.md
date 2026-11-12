@@ -47,7 +47,8 @@ wrong, it gets corrected with a commit, not a hope.
 
 - Specs: [`specs/`] *(pre-merge plans, numbered)*
 - Memory: [`memory/`] *(durable facts + index)*
-- Runbooks: [`runbooks/`] *(how operations are actually done)*
+
+*(Runbooks — how operations are actually done — live in the full rig, not in this kit.)*
 
 ## When in doubt
 
