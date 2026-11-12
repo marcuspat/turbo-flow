@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # workspace.sh — the 5-window tmux rig: boot, and tmux fires with the rig live.
 #
-#   1  claude      the Anthropic reviewer (plain claude)
-#   2  builder     claude-glm when the GLM path was chosen (the zai family — a real
-#                  cross-family pair with window 1); otherwise plain claude with the
-#                  ruflo plugins loaded, labeled honestly (same family as w1)
-#   3  codex       the OpenAI lane (ruflo reachable via its MCP wiring)
-#   4  tokens      rig-lite/tokens.py --watch — live burn across the harnesses
-#   5  shell       a free pane
+#   0  claude      the Anthropic reviewer (plain claude)
+#   1  builder     claude-glm when the GLM path was chosen (the zai family — a real
+#                  cross-family pair with window 0); otherwise plain claude with the
+#                  ruflo plugins loaded, labeled honestly (same family as w0)
+#   2  codex       the OpenAI lane (ruflo reachable via its MCP wiring)
+#   3  tokens      rig-lite/tokens.py --watch — live burn across the harnesses
+#   4  shell       a free pane
+#
+#   (tmux's default base-index is 0; this script does not renumber it — the
+#    README's five-minute guide documents the same 0–4 layout.)
 #
 # Usage:
 #   workspace.sh            build the session if absent, then attach (interactive)

@@ -49,7 +49,7 @@ Recorded on the same Codespace: `tf help` shows every subcommand, `tf status` gi
 
 | file | what it gives you |
 |---|---|
-| [`tf`](rig-lite/tf) | **one command for everything** — `tf gate`, `tf test`, `tf status`, `tf wt`, `tf secrets`, `tf tokens`, `tf digest`, `tf init`, `tf protect`. Installed by `init-repo.sh` and by the Codespace boot. |
+| [`tf`](rig-lite/tf) | **one command for everything** — `tf gate`, `tf test`, `tf status`, `tf wt`, `tf secrets`, `tf tokens`, `tf digest`, `tf init`, `tf protect`, `tf completion`. Installed by `init-repo.sh` and by the Codespace boot. |
 | [`gate.sh`](rig-lite/gate.sh) | a cross-model review gate — deterministic checks first (they're free), then a reviewer from a **different model family** must return a parseable `APPROVED` / `REVISE`. Fail-closed; never merges. `--pr <n>` gates a GitHub PR and posts the verdict as a comment; `--sweep` gates every open PR that has no verdict yet; `-C <repo>` gates another checkout. Every verdict lands in a local JSONL log the digest joins (comment fetch needs gh ≥ 2.48 for `--slurp`; older gh sweeps WARN and re-gate — the safe direction). Verdicts are **pinned to the head they gated** (`gated-head:` in the comment, commit status on that exact SHA) — new commits make the PR ungated again and `--sweep` re-gates it instead of trusting a stale approval. The reviewer may only block for defects **this diff introduces** (the PRE-EXISTING rule — identical-in-base defects are non-blocking notes). Rounds are **capped** (`GATE_ROUND_CAP`, default 3): past the cap the gate exits `4` and the continue / park / restructure fork goes to a human, not to another auto-round (`GATE_FORCE=1` overrides consciously). And on round 2+ the reviewer receives the prior round's findings as scrubbed DATA — addressed items stop coming back. |
 | [`protect.sh`](rig-lite/protect.sh) | makes the gate a GitHub rule, not a promise: one command turns on branch protection with the gate's verdict as a **required status check** (`gate-verdict`, set by `gate.sh` on the exact SHA it reviewed), so `main` can't take an un-gated PR even by accident. It does **not** make merging human-only: `--require-review` demands an approving *review* (an account permission, not proof of who typed it), and any account with merge rights can still merge an approved PR — keeping merges human-only is an access-control decision (whose accounts hold merge rights) that protection can't make for you. `--dry-run` / `--status` to look before touching. Its companion workflow [`gate-check.yml`](.github/workflows/gate-check.yml) re-checks on every push and, once the gate posts APPROVED, flips the PR's own check green by itself — fork PRs get the exact one-click re-run instead, because GitHub won't link their runs to the PR. |
 | [`wt.sh`](rig-lite/wt.sh) | an isolated worktree per parallel writer: `wt <name>` creates `.worktrees/<name>` + branch, `--clean` tidies up after merge. |
@@ -77,7 +77,7 @@ npm i -g turbo-flow@5.4.0                        # installs `turbo-flow` — sam
 # from any repo you want to govern:
 bash /path/to/turbo-flow/rig-lite/init-repo.sh   # writes AGENTS.md + installs tf, never clobbers
 export PATH="$HOME/.local/bin:$PATH"              # tf lives here (init warns if not on PATH)
-tf test                                            # prove the kit (400+ checks)
+tf test                                            # prove the kit (410 checks)
 tf gate --builder <your-cli>                       # gate your first change
 tf status                                          # everything at a glance
 ```
@@ -163,7 +163,7 @@ Turbo Flow v4 packaged and wired a Claude Code + Ruflo environment. Ruflo grew i
 
 The kit is the portable extract of **Turbo Rig** — gate + constitution + memory + automations running as one integrated system, on your machine, across your repos.
 
-- **Apply / product page** → [turbo-rig.vercel.app](https://turbo-rig.vercel.app) (EN/ES)
+- **Apply / product page** → [turbo-rig.com](https://www.turbo-rig.com) (EN/ES)
 - **Deep dive** → [turbo-rig-deep-dive.vercel.app](https://turbo-rig-deep-dive.vercel.app) · **3D scene** → [turbo-rig-deep-dive-3d.vercel.app](https://turbo-rig-deep-dive-3d.vercel.app)
 
 **Beta feedback:** open an issue or start a discussion here — this repo is the beta's public tracker.
@@ -178,7 +178,7 @@ The builder is never its own reviewer — a design choice, not something the aud
 
 <div align="center">
 
-**Turbo Flow v5.2 — the rules layer. One kit, any harness, humans merge.**
+**Turbo Flow v5.4 — the rules layer. One kit, any harness, humans merge.**
 
 </div>
 

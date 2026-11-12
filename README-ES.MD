@@ -5,7 +5,7 @@
 > **⚡ TURBO FLOW — LA CAPA DE REGLAS PARA CÓDIGO ESCRITO POR IA.**
 > Un solo producto vive aquí: [`rig-lite/`](rig-lite/) — un kit de gobernanza portátil. No empaqueta ningún harness, no instala nada, solo depende de bash. Suéltalo en cualquier repo y tus agentes obtienen leyes con dientes.
 
-![v5](https://img.shields.io/badge/versión-5.2.0-blue?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![semana](https://img.shields.io/badge/semana_auditada-868_veredictos_%C2%B7_79%25_REVISE-c25550?style=flat-square)
+![v5](https://img.shields.io/badge/versión-5.4.0-blue?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![semana](https://img.shields.io/badge/semana_auditada-868_veredictos_%C2%B7_79%25_REVISE-c25550?style=flat-square)
 
 ## Trae tu propio harness
 
@@ -19,11 +19,11 @@ Turbo Flow no empaqueta ningún agente ni orquestador. Nombra los harnesses por 
 
 **ZCode construye · Claude Code revisa (con el mod de Ruflo instalado cuando quieres orquestación) · Codex respalda la revisión.** Ese ciclo corre en producción en este repo hoy: cada PR desde que llegó rig-lite (v5.0) fue construido por una familia, revisado por otra y fusionado por un humano.
 
-## 🎬 El demo — grabado en un Codespace limpio, nada preinstalado
+## 🎬 El driver diario — `tf` (un comando para todo)
 
-![demo rig-lite](demo/rig-lite-demo.gif)
+![demo tf](demo/tf-demo.gif)
 
-Un Codespace limpio arranca el devcontainer de este repo y el kit se prueba a sí mismo: suite de auto-tests fail-closed y una corrida del gate en vivo (CLI del revisor stubbeado; sin API keys en la máquina de grabación). La grabación es anterior al lean pivot (muestra el contenedor previo del repo); el contenedor actual corre el self-test directamente en su `postCreate`, y el grabador ahora recorre ese flujo. Reproducible con [`demo/record-rig-lite-demo.sh`](demo/record-rig-lite-demo.sh).
+Grabado en el mismo Codespace: `tf help` muestra cada subcomando, `tf status` da la vista de un vistazo (repo, conteos de veredictos del gate, salud del árbol), `tf gate` falla cerrado sin `--builder`, `tf tokens` muestra el dashboard en vivo, y `tf test` corre la suite completa. El comando `tf` se instala automáticamente en Codespaces y mediante `init-repo.sh` en cualquier otro lugar.
 
 ## 🎬 El demo de arranque — sin menú, directo al rig
 
@@ -39,6 +39,7 @@ Un Codespace limpio desde `main` (sin autenticar): el primer shell dispara el ar
 
 | archivo | qué te da |
 |---|---|
+| [`tf`](rig-lite/tf) | **un comando para todo** — `tf gate`, `tf test`, `tf status`, `tf wt`, `tf secrets`, `tf tokens`, `tf digest`, `tf init`, `tf protect`, `tf completion`. Lo instala `init-repo.sh` y el arranque de Codespace. |
 | [`gate.sh`](rig-lite/gate.sh) | gate de revisión entre modelos — checks deterministas primero (son gratis), luego un revisor de **otra familia** debe devolver `APPROVED` / `REVISE` parseable. Fail-closed; nunca fusiona. `--pr <n>` gatea un PR de GitHub y publica el veredicto como comentario. El fetch de comentarios necesita gh ≥ 2.48 (`--slurp`; con gh viejo el sweep avisa WARN y re-gatea — la dirección segura). Cada veredicto queda **clavado al head que gateó** (`gated-head:` en el comentario + commit status en ese SHA exacto) — commits nuevos dejan el PR sin gatear otra vez y `--sweep` lo re-gatea en vez de confiar en una aprobación vencida. El revisor solo puede bloquear por defectos que **este diff introduce** (regla PRE-EXISTING — lo idéntico-en-la-base es nota no-bloqueante). Las rondas tienen **tope** (`GATE_ROUND_CAP`, default 3): pasado el tope el gate sale con `4` y el fork continuar / estacionar / reestructurar es del humano, no de otra auto-ronda (`GATE_FORCE=1` lo sobreescribe a conciencia). Y desde la ronda 2 el revisor recibe los hallazgos de la ronda anterior como DATA depurada — lo ya atendido deja de volver. |
 | [`protect.sh`](rig-lite/protect.sh) | convierte el gate en una regla de GitHub, no una promesa: un comando activa la protección de rama con el veredicto del gate como **chequeo requerido** (`gate-verdict`, fijado por `gate.sh` sobre el SHA exacto que revisó), así `main` no puede recibir un PR sin gatear ni por accidente. **No** hace que solo humanos fusionen: `--require-review` exige una *revisión* aprobatoria (un permiso de cuenta, no prueba de quién lo tecleó), y cualquier cuenta con permiso de merge puede fusionar un PR aprobado — que el merge quede solo en humanos es una decisión de control de acceso (qué cuentas tienen permiso de merge) que la protección no puede tomar por ti. `--dry-run` / `--status` para ver antes de tocar. Su workflow compañero [`gate-check.yml`](.github/workflows/gate-check.yml) re-verifica en cada push y, cuando el gate publica APPROVED, pone verde el chequeo del PR por sí solo — los PRs de fork reciben el re-run de un clic, porque GitHub no vincula sus runs al PR. |
 | [`wt.sh`](rig-lite/wt.sh) | un worktree aislado por escritor en paralelo. |
@@ -58,15 +59,19 @@ Cuando la instalación termina, aterrizas **dentro de un rig tmux de 5 ventanas*
 ## Instalación en diez minutos
 
 ```bash
+# una línea (descarga ./rig-lite desde un release anclado y verificado por checksum):
+curl -fsSL https://raw.githubusercontent.com/marcuspat/turbo-flow/main/rig-lite/install.sh | bash
+
 # o desde npm — el mismo kit, sin clonar (fija la versión; misma postura que el tarball con sha anclado):
 npx turbo-flow@5.4.0 help
 npm i -g turbo-flow@5.4.0                         # instala `turbo-flow` — los mismos subcomandos que tf
 
 # desde cualquier repo que quieras gobernar:
-bash /ruta/a/turbo-flow/rig-lite/init-repo.sh
-export PATH="$HOME/.local/bin:$PATH"              # tf vive aquí   # escribe AGENTS.md + instala tf, nunca pisa
-tf test                                            # demuestra el kit (400+ checks)
+bash /ruta/a/turbo-flow/rig-lite/init-repo.sh    # escribe AGENTS.md + instala tf, nunca pisa
+export PATH="$HOME/.local/bin:$PATH"              # tf vive aquí (init avisa si no está en PATH)
+tf test                                            # demuestra el kit (410 checks)
 tf gate --builder <tu-cli>                       # gatea tu primer cambio
+tf status                                          # todo de un vistazo
 ```
 
 Sin Codespace no pasa nada — es bash. ¿Quieres el tour de 30 segundos en contenedor? Abre este repo en un Codespace; el `postCreate` corre el self-test e instala `tf`.
@@ -110,8 +115,11 @@ tf gate --builder glm       # si claude-glm lo escribió → claude revisa (entr
 # gatea un PR de GitHub (el veredicto se publica como comentario en el PR):
 tf gate --pr 7 --builder codex           # codex lo escribió → claude revisa
 
-# gatea todos los PRs abiertos sin veredicto:
-# (sweep runs per-PR with its own builder: rig-lite/gate.sh --sweep)
+# gatea todos los PRs abiertos sin veredicto (cada PR con su propio builder):
+# rig-lite/gate.sh --sweep
+
+# todo de un vistazo:
+tf status
 ```
 
 El gate sale `0` (aprobado) o `1` (revise — corrige y vuelve a correr). **Nunca fusiona; eso lo haces tú.**
@@ -136,7 +144,7 @@ Turbo Flow v4 empaquetaba y cableaba un entorno Claude Code + Ruflo. Ruflo creci
 
 El kit es el extracto portable de **Turbo Rig** — gate + constitución + memoria + automatizaciones corriendo como un sistema integrado, en tu máquina, a través de tus repos.
 
-- **Aplicar / página del producto** → [turbo-rig.vercel.app](https://turbo-rig.vercel.app) (EN/ES)
+- **Aplicar / página del producto** → [turbo-rig.com](https://www.turbo-rig.com) (EN/ES)
 - **Deep dive** → [turbo-rig-deep-dive.vercel.app](https://turbo-rig-deep-dive.vercel.app) · **Escena 3D** → [turbo-rig-deep-dive-3d.vercel.app](https://turbo-rig-deep-dive-3d.vercel.app)
 
 **Feedback de la beta:** abre un issue o una discusión aquí — este repo es el tracker público de la beta.
@@ -151,7 +159,7 @@ El constructor nunca es su propio revisor — una decisión de diseño, no algo 
 
 <div align="center">
 
-**Turbo Flow v5.2 — la capa de reglas. Un kit, cualquier harness, los humanos fusionan.**
+**Turbo Flow v5.4 — la capa de reglas. Un kit, cualquier harness, los humanos fusionan.**
 
 </div>
 
