@@ -19,17 +19,17 @@ Turbo Flow no empaqueta ningún agente ni orquestador. Nombra los harnesses por 
 
 **ZCode construye · Claude Code revisa (con el mod de Ruflo instalado cuando quieres orquestación) · Codex respalda la revisión.** Ese ciclo corre en producción en este repo hoy: cada PR desde que llegó rig-lite (v5.0) fue construido por una familia, revisado por otra y fusionado por un humano.
 
-## 🎬 El driver diario — `tf` (un comando para todo)
-
-![demo tf](demo/tf-demo.gif)
-
-Grabado en el mismo Codespace: `tf help` muestra cada subcomando, `tf status` da la vista de un vistazo (repo, conteos de veredictos del gate, salud del árbol), `tf gate` falla cerrado sin `--builder`, `tf tokens` muestra el dashboard en vivo, y `tf test` corre la suite completa. El comando `tf` se instala automáticamente en Codespaces y mediante `init-repo.sh` en cualquier otro lugar.
-
 ## 🎬 El demo de arranque — sin menú, directo al rig
 
 ![demo de arranque](demo/harness-boot-demo.gif)
 
 Un Codespace limpio desde `main` (sin autenticar): el primer shell dispara el arranque (sin menú — ese es el punto), **Claude Code + Codex + Ruflo se instalan de forma visible**, luego tmux arranca con las 5 ventanas — cada una aterrizando **dentro** de su harness. El GIF recorre todas las ventanas: claude (bienvenida de primer uso), claude+ruflo (con los plugins cargados), codex (pantalla de inicio de sesión en esta máquina nueva), el dashboard de tokens en vivo, y un shell libre con la ayuda del gate. El revisor es la ventana con una **familia de modelo diferente** al constructor — la revisión entre familias es la ley del kit.
+
+## 🎬 El driver diario — `tf` (un comando para todo)
+
+![demo tf](demo/tf-demo.gif)
+
+Grabado en el mismo Codespace: `tf help` muestra cada subcomando, `tf status` da la vista de un vistazo (repo, conteos de veredictos del gate, salud del árbol), `tf gate` falla cerrado sin `--builder`, `tf tokens` muestra el dashboard en vivo, y `tf test` corre la suite completa. El comando `tf` se instala automáticamente en Codespaces y mediante `init-repo.sh` en cualquier otro lugar.
 
 ## El gate sobrevivió 17 rondas de revisión
 

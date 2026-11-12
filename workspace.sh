@@ -9,8 +9,8 @@
 #   3  tokens      rig-lite/tokens.py --watch — live burn across the harnesses
 #   4  shell       a free pane
 #
-#   (tmux's default base-index is 0; this script does not renumber it — the
-#    README's five-minute guide documents the same 0–4 layout.)
+#   (0–4 under tmux defaults — base-index 0; this script does not renumber it.
+#    If your ~/.tmux.conf sets base-index 1, your numbering shifts by one.)
 #
 # Usage:
 #   workspace.sh            build the session if absent, then attach (interactive)
