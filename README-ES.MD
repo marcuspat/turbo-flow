@@ -46,6 +46,8 @@ Grabado en el mismo Codespace: `tf help` muestra cada subcomando, `tf status` da
 | [`init-repo.sh`](rig-lite/init-repo.sh) | onboarding de un comando para cualquier repo: un `AGENTS.md` delgado + el symlink `CLAUDE.md → AGENTS.md`. Nunca pisa archivos existentes. |
 | [`specs/`](rig-lite/specs/) | plantillas de spec + contrato UAT: plan antes de construir, verificar contra la app desplegada. |
 | [`digest.sh`](rig-lite/digest.sh) | salud de tu flota de repos en un comando: cola de merges unida a veredictos del gate, working copies sucios, liveness de sitios, codespaces viejos. |
+| [`scrum.sh`](rig-lite/scrum.sh) | ceremonias scrum para una flota de agentes — el contenedor de sprint (`sprint new / validate / status / close`), el standup asíncrono (`shipped / in-flight / blockers / capacity`) y la escalada Law-11: cuando las filas del log de un lane — o de un PR — llegan a `GATE_ROUND_CAP` y su último veredicto es un **REVISE reciente** (un buque atascado vivo, no historia), el standup plantea el fork continuar / estacionar / pivotar a un humano. El tier offline lee solo el log del gate + facts de worktrees — sin red, sin daemon, sin reuniones. El estado vive en `<repo>/sprints/` (un sprint abierto a la vez; `sprint new` importa lo arrastrado del último sprint cerrado por su fecha `closes:` — el trabajo nunca se suelta en silencio y el flag de doble-carry al PO puede dispararse de verdad). |
+| [`sm-prompt.md`](rig-lite/sm-prompt.md) | la carta del agente scrum master: un rol solo-de-proceso — corre las ceremonias, surfaces los bloqueos, nunca construye, nunca revisa, nunca fusiona, nunca decide el fork. Incluye la cláusula anti-teatro: si el PO ignora los standups dos sprints, el rol recomienda su propia eliminación. |
 | [`automations/`](rig-lite/automations/README.md) | el tier de fondo como pack portable de prompts: 9 tareas programadas + dos formas de agendarlas. |
 | [`secret.sh`](rig-lite/secret.sh) | secretos cifrados en reposo, backend autodetectado (Keychain → libsecret → age → texto plano con advertencia). `list` muestra nombres, nunca valores. |
 | [`memory.md`](rig-lite/memory.md) + [`memory/`](rig-lite/memory/) | el patrón de memoria versionado en git: índice, decisiones, gotchas, inbox. |
@@ -127,11 +129,15 @@ El gate sale `0` (aprobado) o `1` (revise — corrige y vuelve a correr). **Nunc
 ### 4. Tu ciclo diario
 
 ```bash
+tf sprint new            # acota el trabajo: goal, scope, capacidad, fecha
 tf wt mi-feature         # worktree aislado para trabajo paralelo
 # ... construye en ventana 1, pide a una familia DIFERENTE (ventana 0 o 2) leer el diff ...
 tf gate --builder <quien-lo-escribio>  # gatea antes del PR
 # ... push, abre el PR, gatealo ...
+tf standup               # ceremonia diaria: shipped × in-flight × bloqueos × capacidad
 tf digest                # salud de la flota: cola de merges × veredictos × liveness
+# ... al cerrar el sprint ...
+tf sprint close          # arrastra lo no terminado, escribe el stub de review
 ```
 
 ¿Desconectado y quieres volver? En un Codespace, cada terminal nuevo se auto-conecta. En local: `bash workspace.sh` de nuevo.

@@ -22,7 +22,7 @@ The full law set lives in [`rig-lite/constitution.md`](rig-lite/constitution.md)
 
 | Path | What it is |
 |---|---|
-| `rig-lite/` | the kit: gate, worktrees, secrets, digest, token dashboard, memory pattern, spec templates, automation prompts, self-test |
+| `rig-lite/` | the kit: gate, worktrees, secrets, digest, sprint container + standup (`scrum.sh`), scrum-master charter (`sm-prompt.md`), token dashboard, memory pattern, spec templates, automation prompts, self-test |
 | `demo/` | the recorded demo + its recorder + auth-guard (refuses to record logged-in sessions) |
 | `.devcontainer/` | kit container: postCreate runs the self-test, installs tmux, wires the boot hook |
 | `workspace.sh` | the 5-window tmux rig: claude · claude+ruflo · codex · tokens dashboard · shell |
@@ -36,6 +36,8 @@ Use `tf` (one command for everything — installed by init-repo.sh to ~/.local/b
 - `tf secrets set/get/rm/list` — encrypted secrets (names only when listing)
 - `tf wt <name>` — isolated worktree per parallel writer
 - `tf digest` — fleet health report
+- `tf sprint new/validate/status/close` — the sprint container (`<repo>/sprints/`, one open sprint at a time)
+- `tf standup` — the daily ceremony: shipped × in-flight × blockers (Law-11 escalation at the gate round cap) × capacity
 - `tf tokens --watch` — live token dashboard
 - `tf status` — everything at a glance (repo, gate stats, session, tree)
 - `tf init` — install the kit into any repo
