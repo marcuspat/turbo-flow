@@ -1,0 +1,41 @@
+name: CI
+
+# Runs rig-lite/self-test.sh under the off-runner conditions that broke it
+# historically: a bare container (no GitHub-runner image defaults) with
+# umask 0002 and GNU stat. The 2026-11-16 release-validation sweep found the
+# self-test's permission assertions passed on runners but failed in a clean
+# Linux container (umask 002, plus BSD-vs-GNU stat output in the probes —
+# the parsing half is fixed by PR #105). This leg keeps those conditions in
+# CI so an env-fragile regression cannot ship silently.
+#
+# Complements gate-verdict (.github/workflows/gate-check.yml): that workflow
+# verifies the review gate's verdict and deliberately executes no repo code
+# on PR events; this one runs the self-test itself.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  bare-env:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+    steps:
+      # bare ubuntu:24.04 ships no git and no ca-certificates (checkout needs
+      # both); bash is present but listed to keep the setup self-documenting.
+      - name: Install git for checkout
+        run: apt-get update && apt-get install -y --no-install-recommends git bash ca-certificates
+
+      - uses: actions/checkout@v4
+
+      # One step, the whole check, under the off-runner condition: umask 0002
+      # (group/other-writable — the container-default condition the sweep
+      # flagged). The self-test's only hard deps are git + bash + coreutils;
+      # optional tools (node, shellcheck) degrade to honest skips.
+      - name: Self-test under umask 0002
+        run: bash -c 'umask 0002; bash rig-lite/self-test.sh'
