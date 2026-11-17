@@ -1,0 +1,72 @@
+name: CI
+
+# Runs rig-lite/self-test.sh under the off-runner conditions that broke it
+# historically: a bare container (no GitHub-runner image defaults) with
+# umask 0002 and GNU stat. The 2026-11-16 release-validation sweep found the
+# self-test's permission assertions passed on runners but failed in a clean
+# Linux container (umask 002, plus BSD-vs-GNU stat output in the probes —
+# the parsing half is fixed by PR #105). This leg keeps those conditions in
+# CI so an env-fragile regression cannot ship silently.
+#
+# Complements gate-verdict (.github/workflows/gate-check.yml): that workflow
+# verifies the review gate's verdict and deliberately executes no repo code
+# on PR events; this one runs the self-test itself.
+#
+# The container installs the self-test's actual baseline — the toolset any
+# healthy host it is expected to pass on carries: git + bash + coreutils,
+# python3 (gate.sh round accounting, digest.sh, the fake keychain in the
+# self-test), node + npm (the deterministic stage's npm branch), and CA
+# trust for the checkout fetch. Optional tools stay absent on purpose, in
+# parity with the reference 419/419 run: no shellcheck, no gh, no tmux (the
+# self-test degrades those to honest skips).
+#
+# node+npm come from actions/setup-node (toolcache), NOT apt: apt puts them
+# in /usr/bin, and two self-test simulations ("npm absent" PATH excludes
+# /usr/bin; the .profile-fallback test asserts node is NOT on /usr/bin:/bin)
+# only behave on hosts where node lives outside the system dirs — like the
+# macOS reference environment this leg mirrors.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  bare-env:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+    steps:
+      # bare ubuntu:24.04 ships none of these usable for checkout/testing
+      # (no git, no CA trust, no python3; bash is present but listed to keep
+      # the setup self-documenting). node+npm deliberately NOT from apt —
+      # see the file header.
+      - name: Install git, python3, CA trust; create unprivileged user
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends git bash ca-certificates python3
+          useradd -m runner
+
+      - uses: actions/checkout@v4
+
+      # Toolcache node+npm: on PATH for the job, but outside /usr/bin:/bin,
+      # preserving the self-test's macOS-style PATH assumptions.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # One step, the whole check, under the off-runner conditions:
+      # - umask 0002 (group/other-writable — the container-default condition
+      #   the sweep flagged);
+      # - GNU stat (the probe parsing PR #105 fixed);
+      # - an unprivileged user, because containers run as root and root
+      #   ignores write-permission bits — the self-test's chmod-denial
+      #   assertions (unwritable store/index) would pass vacuously;
+      # - a git identity, since the hook fixtures commit without per-repo
+      #   config and a bare container has no global one.
+      # The self-test itself only writes under mktemp(1) fixtures in /tmp,
+      # so the root-owned checkout can stay read-only for this user.
+      - name: Self-test under umask 0002
+        run: runuser -u runner -- bash -c 'cd "$GITHUB_WORKSPACE" && git config --global user.email "ci@turbo-flow.invalid" && git config --global user.name "turbo-flow CI" && umask 0002 && bash rig-lite/self-test.sh'
