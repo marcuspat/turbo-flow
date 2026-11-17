@@ -11,6 +11,14 @@ name: CI
 # Complements gate-verdict (.github/workflows/gate-check.yml): that workflow
 # verifies the review gate's verdict and deliberately executes no repo code
 # on PR events; this one runs the self-test itself.
+#
+# The container installs the self-test's actual baseline — the toolset any
+# healthy host it is expected to pass on carries: git + bash + coreutils,
+# python3 (gate.sh round accounting, digest.sh, the fake keychain in the
+# self-test), node + npm (the deterministic stage's npm branch), and CA
+# trust for the checkout fetch. Optional tools stay absent on purpose, in
+# parity with the reference 419/419 run: no shellcheck, no gh, no tmux (the
+# self-test degrades those to honest skips).
 
 on:
   pull_request:
@@ -26,16 +34,26 @@ jobs:
     container:
       image: ubuntu:24.04
     steps:
-      # bare ubuntu:24.04 ships no git and no ca-certificates (checkout needs
-      # both); bash is present but listed to keep the setup self-documenting.
-      - name: Install git for checkout
-        run: apt-get update && apt-get install -y --no-install-recommends git bash ca-certificates
+      # bare ubuntu:24.04 ships none of these usable for checkout/testing
+      # (no git, no CA trust, no python3, no node; bash is present but listed
+      # to keep the setup self-documenting).
+      - name: Install git, python3, node, npm, CA trust; create unprivileged user
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends git bash ca-certificates python3 nodejs npm
+          useradd -m runner
 
       - uses: actions/checkout@v4
 
-      # One step, the whole check, under the off-runner condition: umask 0002
-      # (group/other-writable — the container-default condition the sweep
-      # flagged). The self-test's only hard deps are git + bash + coreutils;
-      # optional tools (node, shellcheck) degrade to honest skips.
+      # One step, the whole check, under the off-runner conditions:
+      # - umask 0002 (group/other-writable — the container-default condition
+      #   the sweep flagged);
+      # - GNU stat (the probe parsing PR #105 fixed);
+      # - an unprivileged user, because containers run as root and root
+      #   ignores write-permission bits — the self-test's chmod-denial
+      #   assertions (unwritable store/index) would pass vacuously;
+      # - a git identity, since the hook fixtures commit without per-repo
+      #   config and a bare container has no global one.
+      # The self-test itself only writes under mktemp(1) fixtures in /tmp,
+      # so the root-owned checkout can stay read-only for this user.
       - name: Self-test under umask 0002
-        run: bash -c 'umask 0002; bash rig-lite/self-test.sh'
+        run: runuser -u runner -- bash -c 'cd "$GITHUB_WORKSPACE" && git config --global user.email "ci@turbo-flow.invalid" && git config --global user.name "turbo-flow CI" && umask 0002 && bash rig-lite/self-test.sh'
