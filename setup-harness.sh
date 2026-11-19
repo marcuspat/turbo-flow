@@ -244,6 +244,9 @@ glm_write_env() { # glm_write_env <key> <dir> — 0600-from-birth, charset-gated
   ( umask 077
     printf 'ANTHROPIC_AUTH_TOKEN=%s\nANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic\n' "$key" \
       > "$dir/glm.env" ) || die "writing glm.env failed"
+  # umask alone is not a guarantee: on ACL-default parents (some containers,
+  # macOS /tmp setups) the kernel ignores umask at creation. chmod explicitly.
+  chmod 600 "$dir/glm.env" 2>/dev/null || die "could not chmod glm.env to 0600"
   [[ -f "$dir/glm.env" ]] || die "glm.env did not land"
 }
 

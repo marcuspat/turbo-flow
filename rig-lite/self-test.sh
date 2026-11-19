@@ -9,6 +9,13 @@ GATE="$KIT/gate.sh"
 WT="$KIT/wt.sh"
 INIT="$KIT/init-repo.sh"
 FAIL=0
+
+# portable file-mode probe: GNU stat first (Linux), BSD stat fallback (macOS).
+# The inverse order silently breaks on Linux: GNU `stat -f %Lp FILE` does not
+# error — it prints filesystem status, so a `|| stat -c` fallback never fires.
+stat_perms() {
+  stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null
+}
 t() { # name expected actual
   if [[ "$2" == "$3" ]]; then echo "✓ $1"; else echo "✗ $1 — expected exit $2, got $3"; FAIL=1; fi
 }
@@ -1095,7 +1102,7 @@ OUT="$(run_secret get rotate.key)"
 [[ "$OUT" == "v2" ]] && echo "✓ secret: re-set rotates, not duplicates" || { echo "✗ secret: rotation got '$OUT'"; FAIL=1; }
 run_secret list | grep -c '^rotate.key$' | grep -q '^1$' && echo "✓ secret: single index row after rotation" || { echo "✗ secret: duplicate index rows"; FAIL=1; }
 STORE="$SEC_HOME/.config/rig-lite/secrets.env"
-PERM="$(stat -f %Lp "$STORE" 2>/dev/null || stat -c %a "$STORE" 2>/dev/null)"
+PERM="$(stat_perms "$STORE")"
 [[ "$PERM" == "600" ]] && echo "✓ secret: file store is chmod 600" || { echo "✗ secret: store perms are $PERM"; FAIL=1; }
 [[ "$(run_secret backend)" == "file" ]] && echo "✓ secret: backend override honored" || { echo "✗ secret: override ignored"; FAIL=1; }
 env RIG_LITE_SECRET_BACKEND=bogus RIG_LITE_SECRET_HOME="$SEC_HOME" bash "$KIT/secret.sh" backend >/dev/null 2>&1; t "secret: unknown backend override → nonzero" 2 $?
@@ -1142,7 +1149,7 @@ t "secret/age: get → 0" 0 $RC
 [[ "$OUT" == "age-secret-value" ]] && echo "✓ secret/age: round-trip exact" || { echo "✗ secret/age: got '$OUT'"; FAIL=1; }
 [[ -f "$SEC_HOME/.config/rig-lite/secrets.d/dep.token.age" ]] && echo "✓ secret/age: stored under secrets.d" || { echo "✗ secret/age: store file missing"; FAIL=1; }
 grep -q '^ENC:' "$SEC_HOME/.config/rig-lite/secrets.d/dep.token.age" && echo "✓ secret/age: value encrypted at rest (fake marker)" || { echo "✗ secret/age: plaintext at rest"; FAIL=1; }
-PERM="$(stat -f %Lp "$SEC_HOME/.config/rig-lite/secret.key" 2>/dev/null || stat -c %a "$SEC_HOME/.config/rig-lite/secret.key" 2>/dev/null)"
+PERM="$(stat_perms "$SEC_HOME/.config/rig-lite/secret.key")"
 [[ "$PERM" == "600" ]] && echo "✓ secret/age: key file is chmod 600" || { echo "✗ secret/age: key perms $PERM"; FAIL=1; }
 run_secret_age list | grep -q '^dep.token$' && echo "✓ secret/age: list from the native store" || { echo "✗ secret/age: list wrong"; FAIL=1; }
 # pub regeneration: intact key + deleted pub must recover, not truncate
@@ -1803,7 +1810,7 @@ echo real-user-node" ]; then
      && [ -f "$RGH/.config/turbo-flow/glm.env" ] \
      && grep -q '^ANTHROPIC_AUTH_TOKEN=testkey123.0-X$' "$RGH/.config/turbo-flow/glm.env" \
      && grep -q '^ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic$' "$RGH/.config/turbo-flow/glm.env"; then
-    PERM="$(stat -f '%Lp' "$RGH/.config/turbo-flow/glm.env" 2>/dev/null || stat -c '%a' "$RGH/.config/turbo-flow/glm.env")"
+    PERM="$(stat_perms "$RGH/.config/turbo-flow/glm.env")"
     [ "$PERM" = "600" ] && echo "✓ setup-harness: glm.env written 0600 with both vars" || { echo "✗ glm.env perms: $PERM"; FAIL=1; }
   else
     echo "✗ setup-harness: glm.env contract broken"; FAIL=1
