@@ -539,7 +539,7 @@ sprint_close() {
   [[ -n "$file" ]] || { file="$(find_open_sprint)" || return 1; }
   [[ -f "$file" ]] || { echo "scrum.sh: no such sprint file: $file" >&2; return 2; }
   parse_sprint "$file" >/dev/null || { echo "sprint: fix the structure before closing (tf sprint validate)" >&2; return 1; }
-  python3 - "$file" "$GATE_LOG" "$(gate_repolist)" <<'PY'
+  python3 - "$file" "$GATE_LOG" "$(gate_repolist)" <<'PY' || return 1
 import datetime, json, os, re, sys
 file, log = sys.argv[1], sys.argv[2]
 repos = [r for r in sys.argv[3].split(",") if r]

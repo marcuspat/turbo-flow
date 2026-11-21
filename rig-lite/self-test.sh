@@ -1149,6 +1149,7 @@ grep -q '\[x\] already done' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" && echo "�
 grep -q '1 APPROVED · 8 REVISE · 9 gate rounds' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" && echo "✓ scrum: velocity counts in-window rows only — the 3 old pr#9 rows are excluded by the sprint window" || { echo "✗ scrum: velocity numbers wrong — got: $(grep -o 'Offline velocity[^.]*\.' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" | head -1)"; FAIL=1; }
 grep -q 'Offline velocity' "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" && echo "✓ scrum: review stub has the velocity block" || { echo "✗ scrum: review stub missing"; FAIL=1; }
 SCRUN sprint validate "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" >/dev/null 2>&1; t "scrum: closed sprint still parses → 0" 0 $?
+SCRUN sprint close "$SCFIX/sprints/$(date -u +%Y-%m)-A.md" >/dev/null 2>&1; t "scrum: closing an already-closed sprint refuses → 1" 1 $?
 SCRUN sprint validate >/dev/null 2>&1;                          t "scrum: validate with no open sprint → 1 (refuses, no silent guess)" 1 $?
 # sprint new from INSIDE a worktree: the file must land in the MAIN checkout's
 # sprints/ (sprints anchor at main), with the id scan + carry-forward reading
