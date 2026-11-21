@@ -590,7 +590,7 @@ if opened and os.path.isfile(log):
         elif "REVISE" in res: revised += 1
         gate_rounds += 1
 # anchored to the Status line, not any prose that might contain the phrase
-txt, n_sub = re.subn(r"(?m)^Status: open\b", "Status: closed", txt, count=1)
+txt, n_sub = re.subn(r"(?m)^Status:\s*open\b", "Status: closed", txt, count=1)
 if n_sub == 0:
     print("sprint: no 'Status: open' line found — nothing to close", file=sys.stderr)
     sys.exit(1)
@@ -622,9 +622,14 @@ standup() {
     case "$1" in
       --no-save) save=0; shift ;;
       -h|--help) usage 0 ;;
+      -*) echo "scrum.sh: unknown standup option '$1'" >&2; return 2 ;;
       *) if [[ -z "$file" ]]; then file="$1"; shift; else echo "scrum.sh: unexpected standup arg '$1'" >&2; return 2; fi ;;
     esac
   done
+  if [[ -n "$file" && ! -f "$file" ]]; then
+    echo "scrum.sh: no such sprint file: $file" >&2
+    return 2
+  fi
   root="$(repo_root)"
   out="$(mktemp)"; out_f="$out.f"
   # expand NOW and clear on exit — a mid-standup failure must not litter /tmp

@@ -1122,6 +1122,8 @@ cat > "$SCLOG" <<EOF
 EOF
 SCOUT="$(SCRUN standup --no-save 2>/dev/null)";                 RC=$?
 t "scrum: standup renders → 0" 0 $RC
+SCRUN standup --no-sav >/dev/null 2>&1;                         t "scrum: unknown standup flag → 2" 2 $?
+SCRUN standup "$SCFIX/sprints/nope.md" --no-save >/dev/null 2>&1; t "scrum: missing explicit sprint → 2" 2 $?
 printf '%s' "$SCOUT" | grep -q 'FORK NEEDED (Law 11): lane scrum-lane' && echo "✓ scrum: Law-11 fork fires at the round cap (3 branch rows, still REVISE)" || { echo "✗ scrum: branch escalation missing"; FAIL=1; }
 printf '%s' "$SCOUT" | grep -q 'FORK NEEDED (Law 11): pr#8' && echo "✓ scrum: fork also fires on recent PR-mode rows past the cap" || { echo "✗ scrum: PR escalation missing"; FAIL=1; }
 printf '%s' "$SCOUT" | grep -q 'FORK NEEDED (Law 11): lane scrum-lane3' && { echo "✗ scrum: fork fired on a lane whose newest verdict is APPROVED"; FAIL=1; } || echo "✓ scrum: no fork when the loop already ended in APPROVED (it needs a merge, not a fork)"
@@ -1164,8 +1166,10 @@ grep -q 'fix task-123456789012 rendering (carried: 1)' "$SCFIX/sprints/$(date -u
 SCRUN sprint new >/dev/null 2>&1;                               t "scrum: second open sprint still refused after worktree-cwd create → 1" 1 $?
 # r5 regression: carry-forward picks by closes: DATE, not mtime — a PO editing
 # an OLD closed sprint's review stub late must not hijack the next import
+sed -i.bak 's/^Status: open/Status:  open/' "$SCFIX/sprints/$(date -u +%Y-%m)-B.md"
+rm -f "$SCFIX/sprints/$(date -u +%Y-%m)-B.md.bak"
 SCRUN sprint close "$SCFIX/sprints/$(date -u +%Y-%m)-B.md" >/dev/null 2>&1
-t "scrum: close B (with its scaffold carry) → 0" 0 $?
+t "scrum: close B with parser-accepted status spacing → 0" 0 $?
 touch "$SCFIX/sprints/$(date -u +%Y-%m)-A.md"   # A's mtime now newer than B's — the trap that mtime-picking fell into
 SCRUN sprint new >/dev/null 2>&1
 grep -q 'TODO first task.*carried: 1' "$SCFIX/sprints/$(date -u +%Y-%m)-C.md" \
