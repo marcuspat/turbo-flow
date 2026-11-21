@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # rig-lite installer — stages the Turbo Flow rules-kit into the current repo.
 #
-# The curl one-liner is added to the README "Ten-minute install" section once
-# the v5.3.0 pin lands; the default version below is always the newest PINNED
-# release (a version without a sha in sha_for() is refused).
+# The curl one-liner lives in the README "Ten-minute install" section; the
+# default version below is always the newest PINNED release (a version
+# without a sha in sha_for() is refused).
 #
 # Fetches a tagged Turbo Flow release tarball, verifies it against a pinned
 # sha256, and copies rig-lite/ into the current directory. Installs nothing
@@ -16,6 +16,7 @@ set -euo pipefail
 
 sha_for() {
   case "$1" in
+    v5.4.0) echo "170701f43a6d2ab5b9dfe2e4963ba8e0f988a8b29b7b96ae92649d06caafedd6" ;;
     v5.3.0) echo "6255b6d30648140f2d5a6fb94ad1f03f67b8cfad5f30ea31fb57c95d9f328dd0" ;;
     v5.2.0) echo "4d3d22c8477ef519259d3f298ffd26e3fbac6714cee14af5c3385bdf518b28ae" ;;
     *) return 1 ;;
@@ -23,7 +24,7 @@ sha_for() {
 }
 
 main() {
-  version="${TURBO_FLOW_VERSION:-v5.3.0}"
+  version="${TURBO_FLOW_VERSION:-v5.4.0}"
   # TURBO_FLOW_SHA256: explicit pin override (used by the kit's self-test with
   # a stubbed curl; anyone who can set env vars already controls this shell).
   expected="${TURBO_FLOW_SHA256:-$(sha_for "$version")}" || {

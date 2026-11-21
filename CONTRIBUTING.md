@@ -42,7 +42,7 @@ bash rig-lite/gate.sh --base main --builder <cli>   # branch mode: deterministic
 - Keep PRs focused — one feature or fix per PR
 - Update `README.md` if your change affects the interface or command set
 - Reference related issues in the PR description (`Closes #123`)
-- Add a changelog entry if it's user-facing
+- Call out user-facing changes in the PR description (release notes are compiled into the [GitHub Releases](https://github.com/marcuspat/turbo-flow/releases) page — this repo carries no separate CHANGELOG file)
 
 ## Reporting Issues
 
