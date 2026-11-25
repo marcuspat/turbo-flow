@@ -1,6 +1,6 @@
 {
   "name": "turbo-flow",
-  "version": "5.4.0",
+  "version": "5.4.1",
   "description": "Fail-closed cross-model review gate for AI-written code, plus git-versioned agent memory — pure bash, one command.",
   "keywords": [
     "cli",
