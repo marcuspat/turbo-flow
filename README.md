@@ -15,6 +15,8 @@
 
 ![category](https://img.shields.io/badge/category-developer%20tool-blue?style=flat-square) ![v5](https://img.shields.io/badge/version-5.4.0-blue?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![week](https://img.shields.io/badge/audited_week-868_verdicts_%C2%B7_79%25_REVISE-c25550?style=flat-square)
 
+[See the release PR rig-lite blocked](https://www.turboflow.online/rig-lite/#blocked-pr) for the first review verdict, the version-check fix, and the approval on the revised commit.
+
 ## Bring your own harness
 
 Turbo Flow bundles no agent and no orchestrator. It names harnesses by **role**, and works with any tool that reads `AGENTS.md` and can run bash:
