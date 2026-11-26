@@ -7,6 +7,8 @@
 
 ![v5](https://img.shields.io/badge/versión-5.4.0-blue?style=flat-square) ![gate](https://img.shields.io/badge/gate-fail--closed-4a9d63?style=flat-square) ![tests](https://img.shields.io/badge/self--tests-ALL__PASS-e0a63c?style=flat-square) ![semana](https://img.shields.io/badge/semana_auditada-868_veredictos_%C2%B7_79%25_REVISE-c25550?style=flat-square)
 
+[Configura la compuerta de revisión entre modelos de código abierto](https://www.turboflow.online/es/rig-lite/) para agentes de IA o consulta la [configuración para Claude Code](https://www.turboflow.online/es/rig-lite/#claude-code).
+
 ## Trae tu propio harness
 
 Turbo Flow no empaqueta ningún agente ni orquestador. Nombra los harnesses por **rol** y funciona con cualquier herramienta que lea `AGENTS.md` y pueda ejecutar bash:
