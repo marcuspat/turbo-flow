@@ -17,6 +17,8 @@
 
 [See the release PR rig-lite blocked](https://www.turboflow.online/rig-lite/#blocked-pr) for the first review verdict, the version-check fix, and the approval on the revised commit.
 
+[Set up the open-source cross-model review gate](https://www.turboflow.online/rig-lite/) for AI coding agents, or jump to the [Claude Code setup](https://www.turboflow.online/rig-lite/#claude-code).
+
 ## Bring your own harness
 
 Turbo Flow bundles no agent and no orchestrator. It names harnesses by **role**, and works with any tool that reads `AGENTS.md` and can run bash:
